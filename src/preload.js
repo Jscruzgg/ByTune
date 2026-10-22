@@ -49,6 +49,19 @@ function arrangeBar(bar) {
   }
 }
 
+// Textos que manda main.js (IPC 'strings'); el preload en sandbox no puede cargar src/lib/i18n.js.
+let strings = {};
+function labelBack(btn) {
+  const text = strings['nav.back'];
+  if (!text) return;
+  if (btn.title !== text) btn.title = text;
+  if (btn.getAttribute('aria-label') !== text) btn.setAttribute('aria-label', text);
+}
+ipcRenderer.on('strings', (_e, msg) => {
+  strings = (msg && msg.strings) || {};
+  const btn = document.querySelector('ytmusic-nav-bar > .md-back');
+  if (btn) labelBack(btn);
+});
 // Botón "atrás" en la barra superior (YT Music no trae uno). YT navega con el historial del
 // navegador, así que basta con history.back(); se desactiva cuando no hay a dónde volver.
 function updateBack(btn) {
@@ -63,12 +76,11 @@ function ensureBackButton() {
     btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'md-back';
-    btn.title = 'Atrás';
-    btn.setAttribute('aria-label', 'Atrás');
     btn.addEventListener('click', () => history.back());
     nav.appendChild(btn);
     if (window.navigation) window.navigation.addEventListener('currententrychange', () => updateBack(btn));
   }
+  labelBack(btn);
   updateBack(btn);
 }
 
@@ -104,7 +116,18 @@ function markLongTitle() {
   if (long !== t.hasAttribute('data-md-long')) t.toggleAttribute('data-md-long', long);
 }
 
+// Idioma de la página: se avisa a main.js solo cuando cambia (y no está vacío).
+let lastLang = '';
+function reportLang() {
+  const code = document.documentElement.lang;
+  if (code && code !== lastLang) {
+    lastLang = code;
+    ipcRenderer.send('lang', code);
+  }
+}
+
 function read() {
+  reportLang();
   ensureBackButton();
   markLongTitle();
   applyCovers();
