@@ -214,9 +214,12 @@ ytmusic-player-page ytmusic-av-toggle .av-toggle .song-button { --md-av-icon: va
 ytmusic-player-page ytmusic-av-toggle .av-toggle .video-button { --md-av-icon: var(--m3-video); }
 
 /* ---------- Tarjetas (Spotify hover + carátulas Apple) ---------- */
+/* El relleno es solo para el fondo al pasar el ratón: los márgenes negativos lo compensan, así
+   las carátulas quedan a 24 px entre sí (el espacio propio de YT) y la primera alineada con el
+   título de la sección. */
 ytmusic-two-row-item-renderer {
-  padding: 10px !important;
-  margin-right: 6px !important;
+  padding: 8px !important;
+  margin: 0 -8px !important;
   border-radius: var(--md-radius) !important;
   transition: background-color .15s linear !important;
 }
