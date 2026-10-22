@@ -8,7 +8,8 @@
 //   play(videoId)             -> { ok: true }              como pulsar la canción en la búsqueda de YT
 //   queue(videoId, 'end'|'next') -> { ok: true }          "Añadir a la cola" / "Reproducir a continuación"
 //   open(browseId)            -> { ok: true }              abre el álbum o la playlist sin recargar
-// LibraryItem: { id: browseId ('VL…' playlist, 'MPRE…' álbum), type: 'playlist'|'album', title, artist?, cover }
+// LibraryItem: { id: browseId ('VL…' playlist, 'MPRE…' álbum), type: 'playlist'|'album', title, artist?, cover,
+//   playlistId? (solo álbumes: el 'OLAK5uy_…' de su página /playlist?list=…) }
 // Song: { videoId, title, artist, duration, cover }
 (() => {
   // Filtro "Canciones" de la búsqueda: el valor `params` que envía el chip "Canciones" de la propia
@@ -107,6 +108,12 @@
       const segs = segments(item.subtitle);
       const artist = artistOf(segs, segs.length >= 2 ? segs[1].text : '');
       if (artist) out.artist = artist;
+      // Al abrirlo, YT pasa a /playlist?list=OLAK5uy_…: se guarda ese id para reconocerlo en Recientes.
+      // Sale del botón de reproducir de la portada; si no está, del menú de la tarjeta.
+      const play = ((((item.thumbnailOverlay || {}).musicItemThumbnailOverlayRenderer || {}).content || {}).musicPlayButtonRenderer || {}).playNavigationEndpoint || {};
+      let playlistId = (play.watchEndpoint || play.watchPlaylistEndpoint || {}).playlistId;
+      if (!playlistId) walk(item.menu, (o) => { if (!playlistId && o.watchPlaylistEndpoint && /^OLAK/.test(o.watchPlaylistEndpoint.playlistId || '')) playlistId = o.watchPlaylistEndpoint.playlistId; });
+      if (typeof playlistId === 'string' && /^[\w-]+$/.test(playlistId)) out.playlistId = playlistId;
     }
     return title ? out : null;
   };
