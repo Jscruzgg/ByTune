@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src https:">
+  <title>Music Desktop</title>
+  <link rel="stylesheet" href="quickmenu.css">
+</head>
+<body>
+  <div class="qm" id="qm">
+    <div class="qm-input">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="text" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="true" aria-controls="list">
+    </div>
+    <div class="qm-div"></div>
+    <div class="qm-list" id="list" role="listbox"></div>
+    <div class="qm-foot" id="foot"></div>
+  </div>
+  <script src="quickmenu.js"></script>
+</body>
+</html>

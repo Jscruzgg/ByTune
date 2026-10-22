@@ -1,6 +1,9 @@
-const { app, BrowserWindow, Tray, Menu, Notification, globalShortcut, ipcMain, nativeImage, nativeTheme, shell } = require('electron');
+const { app, BrowserWindow, Tray, Menu, Notification, globalShortcut, ipcMain, nativeImage, nativeTheme, screen, shell } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
+const { pickLang, t, STRINGS } = require('./lib/i18n');
+const { filterLibrary, pushRecent, recentItems, idFromUrl } = require('./lib/library');
+const { matches, fromKeyEvent, validateAccelerator, displayAccelerator } = require('./lib/shortcut');
 
 const HOME = 'https://music.youtube.com/';
 // Dominios que se abren dentro de la app (YouTube Music y el inicio de sesión de Google).
@@ -28,9 +31,17 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
-const defaults = { bounds: { width: 1280, height: 820 }, maximized: false, notifications: true, closeToTray: true, theme: true, covers: {} };
+const defaults = {
+  bounds: { width: 1280, height: 820 }, maximized: false, notifications: true, closeToTray: true, theme: true, covers: {},
+  lang: null, library: [], recent: [],
+  quickMenu: { accelerator: 'CommandOrControl+Shift+Space', reach: 'focused', fromOtherApps: 'float', shiftEnter: 'queue' },
+};
 let settings = { ...defaults };
 try { settings = { ...defaults, ...JSON.parse(fs.readFileSync(settingsFile(), 'utf8')) }; } catch {}
+// quickMenu va anidado: las claves que falten en el archivo se completan con las de defaults.
+settings.quickMenu = { ...defaults.quickMenu, ...settings.quickMenu };
+if (!Array.isArray(settings.library)) settings.library = [];
+if (!Array.isArray(settings.recent)) settings.recent = [];
 function saveSettings() {
   try { fs.writeFileSync(settingsFile(), JSON.stringify(settings, null, 2)); } catch {}
 }
@@ -43,9 +54,16 @@ const iconPath = iconCandidates
 const icon = iconPath ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty();
 
 let win = null;
+let qmWin = null; // menú rápido (src/quickmenu), se crea la primera vez que se abre
 let tray = null;
 let quitting = false;
 let track = { title: '', artist: '', playing: false };
+
+// Idioma de la interfaz: el último detectado (settings.lang) o, la primera vez, el del sistema.
+// Cuando la página informa del suyo (IPC 'lang') ese manda y se guarda.
+let lang = pickLang(settings.lang || app.getLocale());
+const stringsFor = (code) => STRINGS[code];
+const sendStrings = (wc) => { if (wc && !wc.isDestroyed()) wc.send('strings', { lang, strings: stringsFor(lang) }); };
 
 // Tema propio (src/theme.css), inyectado como hoja de estilos de usuario: sin JS en la página.
 // chrome.css (barra superior arrastrable) va siempre, con o sin tema.
@@ -100,11 +118,15 @@ function createWindow() {
   });
   // Cada documento nuevo (cargas y recargas) recibe el tema; la navegación interna de YT Music no recarga.
   win.webContents.on('dom-ready', () => {
+    pageApiReady = null; // documento nuevo: page-api.js se vuelve a ejecutar en la próxima llamada
+    setRecording(false); // una recarga a mitad de grabación no deja los atajos globales apagados
     applyChrome();
     applyTheme();
+    sendStrings(win.webContents);
     // Portadas de la barra lateral: primero las guardadas (al instante) y luego las frescas.
     if (Object.keys(settings.covers).length) win.webContents.send('covers', settings.covers);
     setTimeout(refreshCovers, 4000);
+    setTimeout(refreshLibrary, 4000);
   });
   win.setMenuBarVisibility(false);
   // Anclar a la barra de tareas: Windows ancla el programa que abrió la ventana. En la copia de
@@ -132,11 +154,14 @@ function createWindow() {
     if (!isInternal(url)) { e.preventDefault(); shell.openExternal(url); }
   });
 
-  // Atajos dentro de la ventana: F5 recargar, Alt+←/→ historial, Ctrl +/-/0 zoom.
+  // Atajos dentro de la ventana: el del menú rápido (modo "con la app enfocada"; en modo global
+  // lo recibe globalShortcut), F5 recargar, Alt+←/→ historial, Ctrl +/-/0 zoom.
+  // Mientras los ajustes graban un atajo, todas las teclas van a la página sin tocar.
   win.webContents.on('before-input-event', (e, input) => {
-    if (input.type !== 'keyDown') return;
+    if (input.type !== 'keyDown' || recording) return;
     const wc = win.webContents;
-    if (input.key === 'F5') { wc.reload(); e.preventDefault(); }
+    if (matches(input, settings.quickMenu.accelerator)) { e.preventDefault(); if (!input.isAutoRepeat && !qmShortcutIsGlobal()) toggleQuickMenu(false); }
+    else if (input.key === 'F5') { wc.reload(); e.preventDefault(); }
     else if (input.alt && input.key === 'ArrowLeft' && wc.navigationHistory.canGoBack()) { wc.navigationHistory.goBack(); e.preventDefault(); }
     else if (input.alt && input.key === 'ArrowRight' && wc.navigationHistory.canGoForward()) { wc.navigationHistory.goForward(); e.preventDefault(); }
     else if (input.control && (input.key === '=' || input.key === '+')) { wc.setZoomLevel(wc.getZoomLevel() + 0.5); e.preventDefault(); }
@@ -150,12 +175,15 @@ function createWindow() {
   };
   win.on('resize', rememberBounds);
   win.on('move', rememberBounds);
+  // Si la ventana pierde el foco a mitad de grabación, los atajos globales vuelven al momento.
+  win.on('blur', () => setRecording(false));
 
   win.on('close', (e) => {
     saveSettings();
     if (!quitting && settings.closeToTray) { e.preventDefault(); win.hide(); }
   });
-  win.on('closed', () => { win = null; });
+  // El menú rápido oculto también cuenta como ventana: sin cerrarlo, la app no saldría al cerrar esta.
+  win.on('closed', () => { win = null; if (qmWin) qmWin.destroy(); });
 }
 
 function showWindow() {
@@ -181,33 +209,48 @@ function trackLabel() {
   return track.title ? `${track.title}${track.artist ? ' — ' + track.artist : ''}` : 'YouTube Music';
 }
 
+// Interruptores de los ajustes: los comparten la bandeja y el menú del engranaje.
+const SWITCHES = {
+  theme: { get: () => settings.theme, set: (v) => { settings.theme = v; saveSettings(); applyTheme(); } },
+  notifications: { get: () => settings.notifications, set: (v) => { settings.notifications = v; saveSettings(); } },
+  closeToTray: { get: () => settings.closeToTray, set: (v) => { settings.closeToTray = v; saveSettings(); } },
+  startWithWindows: {
+    get: () => app.getLoginItemSettings().openAtLogin,
+    set: (v) => app.setLoginItemSettings({ openAtLogin: v, args: ['--hidden'] }),
+  },
+};
+const SWITCH_LABELS = [['theme', 'set.theme'], ['notifications', 'set.notify'], ['closeToTray', 'set.closeToTray'], ['startWithWindows', 'set.startWithWindows']];
+// Cambia un interruptor y rehace la bandeja para que sus casillas muestren lo mismo.
+function changeSwitch(key, value) {
+  if (SWITCHES[key].get() !== value) SWITCHES[key].set(value);
+  refreshUi();
+}
+
+// Lo que ve el menú del engranaje (IPC 'settings:get' / 'settings:set' / 'settings:changed').
+function settingsView() {
+  const view = Object.fromEntries(Object.entries(SWITCHES).map(([k, s]) => [k, s.get()]));
+  return { ...view, quickMenu: { ...settings.quickMenu }, display: { shortcut: displayAccelerator(settings.quickMenu.accelerator) } };
+}
+// Avisa a la página de un cambio hecho desde la bandeja (si el menú está abierto, se redibuja).
+function notifySettings() {
+  if (win && !win.isDestroyed()) win.webContents.send('settings:changed', settingsView());
+}
+
 function buildTrayMenu() {
   return Menu.buildFromTemplate([
     { label: trackLabel(), enabled: false },
     { type: 'separator' },
-    { label: track.playing ? 'Pausar' : 'Reproducir', click: () => player('playPause') },
-    { label: 'Siguiente', click: () => player('next') },
-    { label: 'Anterior', click: () => player('previous') },
+    { label: t(lang, track.playing ? 'tray.pause' : 'tray.play'), click: () => player('playPause') },
+    { label: t(lang, 'tray.next'), click: () => player('next') },
+    { label: t(lang, 'tray.previous'), click: () => player('previous') },
     { type: 'separator' },
-    { label: 'Mostrar ventana', click: showWindow },
-    {
-      label: 'Tema Music Desktop', type: 'checkbox', checked: settings.theme,
-      click: (item) => { settings.theme = item.checked; saveSettings(); applyTheme(); },
-    },
-    {
-      label: 'Notificar cambio de canción', type: 'checkbox', checked: settings.notifications,
-      click: (item) => { settings.notifications = item.checked; saveSettings(); },
-    },
-    {
-      label: 'Cerrar a la bandeja', type: 'checkbox', checked: settings.closeToTray,
-      click: (item) => { settings.closeToTray = item.checked; saveSettings(); },
-    },
-    {
-      label: 'Iniciar con Windows', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin,
-      click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked, args: ['--hidden'] }),
-    },
+    { label: t(lang, 'tray.show'), click: showWindow },
+    ...SWITCH_LABELS.map(([key, label]) => ({
+      label: t(lang, label), type: 'checkbox', checked: SWITCHES[key].get(),
+      click: (item) => { changeSwitch(key, item.checked); notifySettings(); },
+    })),
     { type: 'separator' },
-    { label: 'Salir', click: () => { quitting = true; app.quit(); } },
+    { label: t(lang, 'tray.quit'), click: () => { quitting = true; app.quit(); } },
   ]);
 }
 
@@ -228,12 +271,244 @@ function createTray() {
   refreshUi();
 }
 
+// API dentro de la página (src/page-api.js): instala window.__md, con la sesión de YT Music.
+// Se ejecuta una vez por documento (dom-ready pone pageApiReady a null). pageApi(call, ...args)
+// llama a window.__md[call] y nunca rechaza: ante cualquier fallo resuelve { error }.
+const pageApiJs = fs.readFileSync(path.join(__dirname, 'page-api.js'), 'utf8');
+const PAGE_API_CALLS = new Set(['library', 'searchSongs', 'play', 'queue', 'open']);
+const PAGE_API_TIMEOUT = 20000;
+let pageApiReady = null;
+function onYouTubeMusic() {
+  try { return new URL(win.webContents.getURL()).hostname === 'music.youtube.com'; } catch { return false; }
+}
+function ensurePageApi() {
+  if (!pageApiReady) {
+    const ready = win.webContents.executeJavaScript(pageApiJs, true);
+    pageApiReady = ready;
+    ready.catch(() => { if (pageApiReady === ready) pageApiReady = null; });
+  }
+  return pageApiReady;
+}
+async function pageApi(call, ...args) {
+  let timer;
+  try {
+    if (!win || win.isDestroyed()) return { error: 'sin ventana' };
+    if (!PAGE_API_CALLS.has(call)) return { error: 'llamada desconocida: ' + call };
+    // En la página de inicio de sesión de Google (u otra) no hay nada que llamar.
+    if (!onYouTubeMusic()) return { error: 'fuera de YouTube Music' };
+    const timeout = new Promise((resolve) => { timer = setTimeout(() => resolve({ error: 'tiempo agotado' }), PAGE_API_TIMEOUT); });
+    const run = async () => {
+      await ensurePageApi();
+      // Si el documento cambió entre medias y __md no está, se reinstala y se reintenta una vez.
+      const expr = `window.__md ? window.__md.${call}(...${JSON.stringify(args)}) : { mdMissing: true }`;
+      let res = await win.webContents.executeJavaScript(expr, true);
+      if (res && res.mdMissing) {
+        pageApiReady = null;
+        await ensurePageApi();
+        res = await win.webContents.executeJavaScript(expr, true);
+      }
+      return res && typeof res === 'object' && !res.mdMissing ? res : { error: 'sin respuesta' };
+    };
+    return await Promise.race([run(), timeout]);
+  } catch (e) {
+    return { error: String((e && e.message) || e) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Biblioteca (playlists y álbumes) para el menú rápido; se guarda para tenerla sin conexión.
+async function refreshLibrary() {
+  const res = await pageApi('library');
+  if (!res || !Array.isArray(res.items) || !res.items.length) return;
+  settings.library = res.items;
+  saveSettings();
+}
+setInterval(refreshLibrary, 15 * 60 * 1000);
+
+// Recientes: ids de la biblioteca abiertos hace poco (desde el menú o navegando por la página).
+// Solo se guarda si cambia algo.
+function recordRecent(id) {
+  const next = pushRecent(settings.recent, id, new Set(settings.library.map((i) => i.id)));
+  if (next.length === settings.recent.length && next.every((r, i) => r === settings.recent[i])) return;
+  settings.recent = next;
+  saveSettings();
+}
+
+// preload.js avisa cada vez que cambia la URL de la página. Los álbumes se abren como
+// /playlist?list=OLAK5uy_… ('VLOLAK…'): se traducen a su id de la biblioteca ('MPREb_…').
+ipcMain.on('opened', (e, url) => {
+  if (!win || e.sender !== win.webContents) return;
+  const id = idFromUrl(url);
+  if (!id) return;
+  const album = settings.library.find((i) => i.type === 'album' && i.playlistId && 'VL' + i.playlistId === id);
+  recordRecent(album ? album.id : id);
+});
+
+// --- Menú rápido (src/quickmenu) ---
+// Ventana sin marco y transparente: el panel (540 px) dibuja su propia sombra en el margen
+// (quickmenu.css: body con padding 16 arriba, 24 a los lados). Se crea una vez y se reutiliza.
+const QM_SIZE = { width: 588, height: 600 };
+const QM_PAD_TOP = 16;
+let qmLoaded = null;
+function createQuickMenu() {
+  qmWin = new BrowserWindow({
+    ...QM_SIZE,
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    hasShadow: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    show: false,
+    title: 'Music Desktop',
+    icon,
+    webPreferences: {
+      preload: path.join(__dirname, 'quickmenu', 'preload.js'),
+      contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false,
+      spellcheck: false,
+    },
+  });
+  qmWin.setMenuBarVisibility(false);
+  qmLoaded = new Promise((resolve) => qmWin.webContents.once('did-finish-load', resolve));
+  qmWin.loadFile(path.join(__dirname, 'quickmenu', 'quickmenu.html'));
+  qmWin.on('blur', hideQuickMenu);
+  // Con el menú abierto el foco está aquí: el mismo atajo lo cierra.
+  qmWin.webContents.on('before-input-event', (e, input) => {
+    if (input.type === 'keyDown' && matches(input, settings.quickMenu.accelerator)) {
+      e.preventDefault();
+      if (!input.isAutoRepeat && !qmShortcutIsGlobal()) hideQuickMenu();
+    }
+  });
+  // Nada de navegar ni abrir ventanas desde el menú.
+  qmWin.webContents.on('will-navigate', (e) => e.preventDefault());
+  qmWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  qmWin.on('closed', () => { qmWin = null; qmLoaded = null; });
+}
+
+// Encima de la app (centrado, 80 px bajo su borde superior) o, si no, centrado en la pantalla
+// donde está el ratón, al 20 % de su alto.
+function placeQuickMenu(overWin) {
+  const { width, height } = QM_SIZE;
+  let x;
+  let y;
+  if (overWin) {
+    const b = win.getBounds();
+    x = b.x + Math.round((b.width - width) / 2);
+    y = b.y + 80 - QM_PAD_TOP;
+  } else {
+    const a = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
+    x = a.x + Math.round((a.width - width) / 2);
+    y = a.y + Math.round(a.height * 0.2) - QM_PAD_TOP;
+  }
+  qmWin.setBounds({ x, y, width, height });
+}
+
+let qmOpening = false;
+async function showQuickMenu(fromOutside) {
+  if (qmOpening) return;
+  qmOpening = true;
+  try {
+    let overWin = !!(win && win.isVisible() && win.isFocused());
+    if (fromOutside && settings.quickMenu.fromOtherApps === 'front') {
+      showWindow();
+      overWin = true;
+    }
+    if (!qmWin) createQuickMenu();
+    await qmLoaded;
+    if (!qmWin) return;
+    // Primero el contenido (el menú se reinicia con cada qm:show) y luego se muestra.
+    qmWin.webContents.send('qm:show', {
+      strings: stringsFor(lang),
+      recent: recentItems(settings.recent, settings.library),
+      shiftEnter: settings.quickMenu.shiftEnter,
+    });
+    placeQuickMenu(overWin && !!win);
+    qmWin.show();
+    qmWin.focus();
+  } finally {
+    qmOpening = false;
+  }
+}
+
+function hideQuickMenu() {
+  clearTimeout(songsTimer);
+  if (qmWin && qmWin.isVisible()) qmWin.hide();
+}
+
+function toggleQuickMenu(fromOutside) {
+  if (qmWin && qmWin.isVisible()) hideQuickMenu();
+  else showQuickMenu(fromOutside);
+}
+
+const fromQuickMenu = (e) => !!qmWin && e.sender === qmWin.webContents;
+
+// Búsqueda: la biblioteca responde al momento; las canciones, 200 ms después de la última
+// tecla, por 'qm:songs'. Las respuestas llevan el seq de su consulta (el menú descarta las viejas).
+let songsTimer = null;
+let songsSeq = 0;
+ipcMain.handle('qm:query', (e, msg) => {
+  if (!fromQuickMenu(e)) return null;
+  const seq = msg && msg.seq;
+  const text = msg && typeof msg.text === 'string' ? msg.text.slice(0, 200) : '';
+  songsSeq = seq;
+  clearTimeout(songsTimer);
+  if (text.trim()) {
+    const sender = e.sender;
+    songsTimer = setTimeout(async () => {
+      const res = await pageApi('searchSongs', text);
+      if (seq !== songsSeq || sender.isDestroyed()) return; // ya hay una consulta más nueva
+      sender.send('qm:songs', { seq, songs: Array.isArray(res.songs) ? res.songs : [] });
+    }, 200);
+  }
+  return { seq, library: filterLibrary(settings.library, text), songs: null };
+});
+
+// Intro: canción → suena (sustituye la cola, como en la búsqueda de YT); playlist o álbum → se abre
+// su página sin tocar la reproducción. Mayús + Intro en una canción: a la cola o a continuación,
+// y el menú sigue abierto con un aviso. El menú no se cierra solo: lo cierra main.
+ipcMain.handle('qm:activate', async (e, msg) => {
+  if (!fromQuickMenu(e)) return { keepOpen: true };
+  const item = (msg && msg.item) || {};
+  const shift = !!(msg && msg.shift);
+  if (typeof item.id !== 'string' || !item.id) return { keepOpen: true };
+  if (item.kind === 'song') {
+    if (shift) {
+      const next = settings.quickMenu.shiftEnter === 'next';
+      const res = await pageApi('queue', item.id, next ? 'next' : 'end');
+      return res && res.ok ? { keepOpen: true, note: next ? 'playingNext' : 'added' } : { keepOpen: true };
+    }
+    pageApi('play', item.id);
+    hideQuickMenu();
+    return { keepOpen: false };
+  }
+  if (item.kind === 'playlist' || item.kind === 'album') {
+    if (shift) return { keepOpen: true }; // Mayús + Intro solo vale para canciones
+    const id = item.id;
+    hideQuickMenu();
+    showWindow(); // oculta, minimizada o detrás de otra ventana: la página abierta tiene que verse
+    pageApi('open', id).then((res) => { if (res && res.ok) recordRecent(id); });
+    return { keepOpen: false };
+  }
+  return { keepOpen: true };
+});
+
+ipcMain.on('qm:close', (e) => { if (fromQuickMenu(e)) hideQuickMenu(); });
+
 // Portadas de las playlists de la barra lateral (como Spotify). covers.js corre dentro de la
 // página, con su sesión, y devuelve { browseId: url }; se guarda y se pasa a preload.js.
+// Usa window.__md.browse, así que antes se asegura page-api.js.
 const coversJs = fs.readFileSync(path.join(__dirname, 'covers.js'), 'utf8');
 async function refreshCovers() {
-  if (!win) return;
+  if (!win || !onYouTubeMusic()) return;
   try {
+    await ensurePageApi();
     const res = await win.webContents.executeJavaScript(coversJs, true);
     if (!res || !res.covers || !Object.keys(res.covers).length) return;
     settings.covers = res.covers;
@@ -252,6 +527,116 @@ ipcMain.on('track', (_e, info) => {
   }
 });
 
+// La página (preload.js) informa de su idioma; si cambia, se guarda y se rehace la bandeja.
+// Siempre se responde con los textos, también al arrancar, para que el botón "atrás" los tenga.
+ipcMain.on('lang', (e, code) => {
+  if (code) {
+    const next = pickLang(code);
+    const changed = next !== lang;
+    lang = next;
+    if (settings.lang !== lang) { settings.lang = lang; saveSettings(); }
+    if (changed) refreshUi();
+  }
+  sendStrings(e.sender);
+});
+
+// --- Atajos globales ---
+// Los cuatro del reproductor, y el del menú rápido solo en modo "en cualquier lugar".
+// Nunca se usa unregisterAll: cada atajo se quita por su nombre.
+const PLAYER_SHORTCUTS = {
+  'CommandOrControl+Alt+Space': () => player('playPause'),
+  'CommandOrControl+Alt+Right': () => player('next'),
+  'CommandOrControl+Alt+Left': () => player('previous'),
+  'CommandOrControl+Alt+M': () => (win && win.isVisible() ? win.hide() : showWindow()),
+};
+function registerPlayerShortcuts() {
+  for (const [acc, fn] of Object.entries(PLAYER_SHORTCUTS)) {
+    if (!globalShortcut.isRegistered(acc)) globalShortcut.register(acc, fn);
+  }
+}
+function unregisterPlayerShortcuts() {
+  for (const acc of Object.keys(PLAYER_SHORTCUTS)) globalShortcut.unregister(acc);
+}
+
+let qmGlobalAcc = null; // acelerador global registrado ahora para el menú rápido (o null)
+const qmShortcutIsGlobal = () => qmGlobalAcc !== null && qmGlobalAcc === settings.quickMenu.accelerator;
+const onQuickMenuShortcut = () => toggleQuickMenu(!win || !win.isFocused());
+function registerQuickMenuGlobal(acc) {
+  try { return globalShortcut.register(acc, onQuickMenuShortcut); } catch { return false; }
+}
+
+// Aplica (y solo si todo va bien, guarda) los ajustes del menú rápido. Quita siempre el atajo
+// global anterior; en modo 'global' registra el nuevo y, si otro programa ya lo tiene, vuelve a
+// registrar el anterior y responde 'taken'. En modo 'focused' lo atiende before-input-event.
+function applyQuickMenuShortcut(next) {
+  const check = validateAccelerator(next.accelerator);
+  if (!check.ok) return check.reason;
+  const prev = qmGlobalAcc;
+  if (prev) globalShortcut.unregister(prev);
+  qmGlobalAcc = null;
+  if (next.reach === 'global') {
+    if (!registerQuickMenuGlobal(next.accelerator)) {
+      if (prev && registerQuickMenuGlobal(prev)) qmGlobalAcc = prev;
+      return 'taken';
+    }
+    qmGlobalAcc = next.accelerator;
+  }
+  settings.quickMenu = { ...next };
+  saveSettings();
+  return 'ok';
+}
+
+// Grabación de un atajo en los ajustes: mientras dura, ningún atajo propio (globales ni de la
+// ventana) se come las teclas, para que la página reciba la combinación tal cual. Al terminar
+// (o si la ventana pierde el foco o se recarga) vuelven todos.
+let recording = false;
+function setRecording(on) {
+  if (on === recording) return;
+  recording = on;
+  if (on) {
+    unregisterPlayerShortcuts();
+    if (qmGlobalAcc) globalShortcut.unregister(qmGlobalAcc);
+  } else {
+    registerPlayerShortcuts();
+    if (qmGlobalAcc && !registerQuickMenuGlobal(qmGlobalAcc)) qmGlobalAcc = null;
+  }
+}
+
+const fromMainPage = (e) => !!win && e.sender === win.webContents;
+ipcMain.on('settings:recording', (e, on) => { if (fromMainPage(e)) setRecording(!!on); });
+ipcMain.handle('settings:get', (e) => (fromMainPage(e) ? settingsView() : null));
+// Pulsación grabada → acelerador ('CommandOrControl+Shift+K'), o null si solo hay modificadores.
+// La conversión vive en src/lib/shortcut.js, que el preload (sandbox) no puede cargar.
+ipcMain.handle('settings:key', (e, ev) => {
+  if (!fromMainPage(e) || !ev || typeof ev !== 'object') return null;
+  return fromKeyEvent({
+    key: String(ev.key ?? ''), code: String(ev.code ?? ''),
+    ctrlKey: !!ev.ctrlKey, altKey: !!ev.altKey, shiftKey: !!ev.shiftKey, metaKey: !!ev.metaKey,
+  });
+});
+// patch: { theme?, notifications?, closeToTray?, startWithWindows?, quickMenu?: { accelerator?,
+// reach?, fromOtherApps?, shiftEnter? } }. Responde settingsView() o { error } si el atajo no vale.
+const QM_CHOICES = { reach: ['focused', 'global'], fromOtherApps: ['float', 'front'], shiftEnter: ['queue', 'next'] };
+ipcMain.handle('settings:set', (e, patch) => {
+  if (!fromMainPage(e) || !patch || typeof patch !== 'object') return null;
+  const q = patch.quickMenu;
+  if (q && typeof q === 'object') {
+    const next = { ...settings.quickMenu };
+    if (typeof q.accelerator === 'string') next.accelerator = q.accelerator;
+    for (const [k, allowed] of Object.entries(QM_CHOICES)) if (allowed.includes(q[k])) next[k] = q[k];
+    if (next.accelerator !== settings.quickMenu.accelerator || next.reach !== settings.quickMenu.reach) {
+      const res = applyQuickMenuShortcut(next);
+      if (res !== 'ok') return { error: res };
+    } else {
+      settings.quickMenu = next;
+      saveSettings();
+    }
+  }
+  for (const key of Object.keys(SWITCHES)) if (typeof patch[key] === 'boolean') changeSwitch(key, patch[key]);
+  refreshUi();
+  return settingsView();
+});
+
 app.on('second-instance', showWindow);
 app.on('before-quit', () => { quitting = true; saveSettings(); });
 app.on('will-quit', () => globalShortcut.unregisterAll());
@@ -266,10 +651,8 @@ app.whenReady().then(() => {
   createTray();
 
   // Atajos globales (las teclas multimedia del teclado ya funcionan solas vía Windows).
-  globalShortcut.register('CommandOrControl+Alt+Space', () => player('playPause'));
-  globalShortcut.register('CommandOrControl+Alt+Right', () => player('next'));
-  globalShortcut.register('CommandOrControl+Alt+Left', () => player('previous'));
-  globalShortcut.register('CommandOrControl+Alt+M', () => (win && win.isVisible() ? win.hide() : showWindow()));
+  registerPlayerShortcuts();
+  applyQuickMenuShortcut(settings.quickMenu);
 });
 
 app.on('window-all-closed', () => {

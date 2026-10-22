@@ -5,11 +5,18 @@
 //   node scripts/cdp.mjs css src/theme.css   reinyecta el tema sin reiniciar
 //   node scripts/cdp.mjs metrics             métricas de rendimiento + FPS de scroll
 //   node scripts/cdp.mjs go <url>            navega
+//   node scripts/cdp.mjs apicheck            comprueba src/page-api.js (biblioteca y búsqueda)
+//   node scripts/cdp.mjs key Ctrl+Shift+Space  pulsación real de tecla (con modificadores)
+//   node scripts/cdp.mjs type "texto"        escribe texto en el campo con el foco
+// YTM_TARGET=quickmenu dirige el comando a la ventana del menú rápido (cualquier trozo de su URL).
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const PORT = process.env.YTM_DEBUG_PORT || 9222;
 const targets = await (await fetch(`http://127.0.0.1:${PORT}/json`)).json();
-const page = targets.find((t) => t.type === 'page' && t.url.includes('music.youtube.com')) || targets.find((t) => t.type === 'page');
+const page = process.env.YTM_TARGET
+  ? targets.find((t) => t.type === 'page' && t.url.includes(process.env.YTM_TARGET))
+  : targets.find((t) => t.type === 'page' && t.url.includes('music.youtube.com')) || targets.find((t) => t.type === 'page');
+if (!page) { console.log('No hay ninguna página' + (process.env.YTM_TARGET ? ' con ' + process.env.YTM_TARGET : '')); process.exit(1); }
 const ws = new WebSocket(page.webSocketDebuggerUrl);
 await new Promise((r) => ws.addEventListener('open', r, { once: true }));
 
@@ -201,9 +208,47 @@ if (cmd === 'eval') {
     console.log('Clic en', Math.round(p.x), Math.round(p.y));
   }
 } else if (cmd === 'key') {
-  // Pulsación real de tecla: node scripts/cdp.mjs key Escape
-  for (const type of ['keyDown', 'keyUp']) await send('Input.dispatchKeyEvent', { type, key: args[0], code: args[0], windowsVirtualKeyCode: args[0] === 'Escape' ? 27 : 0 });
+  // Pulsación real de tecla: node scripts/cdp.mjs key Escape | Shift+Enter | Ctrl+Shift+Space [repeat]
+  // Con "repeat" se envía además una pulsación repetida (tecla mantenida) antes de soltarla.
+  const parts = args[0].split('+');
+  const name = parts.pop();
+  const MOD = { Alt: 1, Ctrl: 2, Meta: 4, Shift: 8 };
+  const modifiers = parts.reduce((m, p) => m | (MOD[p] || 0), 0);
+  const KEYS = { Enter: ['Enter', 13], Escape: ['Escape', 27], Space: [' ', 32, 'Space'], ArrowUp: ['ArrowUp', 38], ArrowDown: ['ArrowDown', 40], ArrowLeft: ['ArrowLeft', 37], ArrowRight: ['ArrowRight', 39], Backspace: ['Backspace', 8], Tab: ['Tab', 9] };
+  const [key, vk, code] = KEYS[name] || [name.length === 1 ? name.toLowerCase() : name, name.length === 1 ? name.toUpperCase().charCodeAt(0) : 0, name.length === 1 ? 'Key' + name.toUpperCase() : name];
+  const ev = { key, code: code || key, windowsVirtualKeyCode: vk, nativeVirtualKeyCode: vk, modifiers };
+  await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', ...ev });
+  if (args[1] === 'repeat') for (let i = 0; i < 3; i++) await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', ...ev, autoRepeat: true });
+  await send('Input.dispatchKeyEvent', { type: 'keyUp', ...ev });
   console.log('Tecla', args[0]);
+} else if (cmd === 'type') {
+  // Escribe texto en el elemento con el foco (dispara 'input' como al teclear).
+  await send('Input.insertText', { text: args.join(' ') });
+  console.log('Escrito', JSON.stringify(args.join(' ')));
+} else if (cmd === 'apicheck') {
+  // API de la página (src/page-api.js): la carga y comprueba biblioteca y búsqueda de canciones
+  // contra la sesión real. Sale con código 1 y el motivo si algo no cuadra.
+  const fail = (msg) => { console.log('apicheck FALLA:', msg); ws.close(); process.exit(1); };
+  let src;
+  try { src = readFileSync(new URL('../src/page-api.js', import.meta.url), 'utf8'); } catch { fail('no existe src/page-api.js'); }
+  await evaluate(src);
+  const lib = await evaluate('window.__md.library()');
+  if (!lib || !Array.isArray(lib.items)) fail('library() sin items: ' + JSON.stringify(lib));
+  const full = lib.items.filter((i) => i.id && i.type && i.title && i.cover);
+  if (!full.length) fail('library(): ningún elemento con id, type, title y cover');
+  const noArtist = lib.items.filter((i) => i.type === 'album' && !i.artist);
+  if (noArtist.length) fail('álbumes sin artista: ' + noArtist.map((i) => i.title).join(', '));
+  const albums = lib.items.filter((i) => i.type === 'album').length;
+  console.log(`library(): ${lib.items.length} elementos (${lib.items.length - albums} playlists, ${albums} álbumes)`);
+  const res = await evaluate("window.__md.searchSongs('daft punk')");
+  if (!res || !Array.isArray(res.songs)) fail('searchSongs() sin songs: ' + JSON.stringify(res));
+  if (res.songs.length < 1 || res.songs.length > 5) fail(`searchSongs(): ${res.songs.length} canciones (se esperaban 1 a 5)`);
+  for (const s of res.songs) {
+    if (!s.videoId) fail('canción sin videoId: ' + JSON.stringify(s));
+    if (!/^\d+:\d\d/.test(s.duration || '')) fail('duración inválida: ' + JSON.stringify(s));
+  }
+  for (const s of res.songs) console.log(`  ${s.videoId} · ${s.title} · ${s.artist} · ${s.duration}`);
+  console.log('apicheck OK');
 } else if (cmd === 'go') {
   await send('Page.navigate', { url: args[0] });
   await new Promise((r) => setTimeout(r, 4000));
