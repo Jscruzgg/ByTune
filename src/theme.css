@@ -119,7 +119,7 @@ ytmusic-search-box .search-box {
     left: 50vw !important;
     right: auto !important;
     translate: -50% -50% !important;
-    width: clamp(200px, calc(100vw - 620px), 560px) !important;
+    width: clamp(200px, calc(100vw - 620px), 480px) !important; /* máx. 480 px, como Spotify */
     max-width: none !important;
     margin: 0 !important;
   }
@@ -139,15 +139,19 @@ ytmusic-search-box[opened] .search-container {
   background: transparent !important;
   box-shadow: none !important;
 }
-ytmusic-search-box[opened] .search-box {
+/* Como Spotify: la barra sigue siendo una píldora y los resultados van en una tarjeta aparte,
+   con todas las esquinas redondeadas y 8 px de separación. */
+ytmusic-search-box[opened] .search-box,
+ytmusic-search-box[opened] #input-box {
   border: none !important;
-  border-radius: 24px 24px 0 0 !important;
+  border-radius: 999px !important;
   background: #2b2b2b !important; /* surface-container-high */
 }
 ytmusic-search-box[opened] #suggestion-list {
   border: none !important;
-  border-top: 1px solid rgba(255,255,255,.08) !important;
-  border-radius: 0 0 24px 24px !important;
+  margin-top: 8px !important;
+  padding-top: 8px !important;
+  border-radius: 16px !important;
   background: #2b2b2b !important;
   box-shadow: 0 12px 24px rgba(0,0,0,.5) !important;
   overflow: hidden !important;
