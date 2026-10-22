@@ -126,8 +126,17 @@ function reportLang() {
   }
 }
 
+// Página abierta (para los Recientes del menú rápido): se avisa a main.js cuando cambia la URL.
+let lastHref = '';
+function reportOpened() {
+  if (location.href === lastHref) return;
+  lastHref = location.href;
+  ipcRenderer.send('opened', location.href);
+}
+
 function read() {
   reportLang();
+  reportOpened();
   ensureBackButton();
   markLongTitle();
   applyCovers();

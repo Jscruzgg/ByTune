@@ -41,6 +41,7 @@ if (typeof document !== 'undefined') {
   let selIndex = 0;
   let selKey = null;
   let rows = new Map(); // filas ya creadas (por clave) para no recrear el DOM ni las portadas al teclear
+  let activando = false; // hay una activación en curso: no se lanza otra hasta que responda
 
   const t = (key) => strings[key] || '';
   const joinar = (...partes) => partes.filter(Boolean).join(' · ');
@@ -185,12 +186,15 @@ if (typeof document !== 'undefined') {
     if (!actual) return;
     const { kind, id } = actual.item;
     if (shift && kind !== 'song') return; // Mayús + Intro solo vale para canciones
+    if (activando) return;
+    activando = true;
     Promise.resolve(window.qm.activate({ kind, id }, shift))
       .then((res) => {
         const key = res && res.keepOpen && NOTE_KEY[res.note];
         if (key && t(key)) mostrarNota(actual.row, t(key));
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => { activando = false; });
   }
 
   function pintarPie() {
@@ -201,11 +205,12 @@ if (typeof document !== 'undefined') {
       s.append(k, ' ' + texto);
       return s;
     };
-    // qm.queueHint llega como "Mayús + Intro: a la cola": la tecla va en kbd y el resto como texto.
-    const [tecla, ...resto] = t('qm.queueHint').split(':');
+    // qm.queueHint / qm.nextHint llegan como "Mayús + Intro: a la cola": la tecla va en kbd y el resto como texto.
+    const shiftHint = t(shiftEnter === 'next' ? 'qm.nextHint' : 'qm.queueHint');
+    const [tecla, ...resto] = shiftHint.split(':');
     const partido = Boolean(tecla) && resto.length > 0;
     const shiftTecla = partido ? tecla.trim() : 'Shift + Enter';
-    const shiftTexto = shiftEnter === 'next' ? t('qm.playingNext') : (partido ? resto.join(':').trim() : t('qm.queueHint'));
+    const shiftTexto = partido ? resto.join(':').trim() : shiftHint;
     foot.replaceChildren(
       hint('↑↓', t('qm.move')),
       hint('Enter', t('qm.playOpen')),
@@ -256,6 +261,7 @@ if (typeof document !== 'undefined') {
     library = [];
     songs = [];
     songsText = '';
+    activando = false;
     latestSeq++; // descarta respuestas pendientes de la vez anterior
     for (const row of rows.values()) clearTimeout(row._timer);
     rows = new Map();
@@ -272,12 +278,17 @@ if (typeof document !== 'undefined') {
     switch (e.key) {
       case 'ArrowDown': e.preventDefault(); mover(1); break;
       case 'ArrowUp': e.preventDefault(); mover(-1); break;
-      case 'Enter': e.preventDefault(); activar(e.shiftKey); break;
+      // Con la tecla mantenida no se repite (si no, Mayús + Intro encolaría la canción muchas veces).
+      case 'Enter': e.preventDefault(); if (!e.repeat) activar(e.shiftKey); break;
       case 'Escape': e.preventDefault(); window.qm.close(); break;
     }
   });
 
   input.addEventListener('input', alEscribir);
+
+  // La ventana es más grande que el panel (margen transparente para la sombra): un clic fuera del
+  // panel cuenta como clic fuera del menú.
+  document.addEventListener('mousedown', (e) => { if (!panel.contains(e.target)) window.qm.close(); });
 
   // El ratón sigue la misma selección que el teclado; mousedown no le quita el foco al campo.
   list.addEventListener('mousedown', (e) => e.preventDefault());

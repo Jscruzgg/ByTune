@@ -47,6 +47,7 @@ const STRINGS = {
     'qm.move': 'mover',
     'qm.playOpen': 'reproducir / abrir',
     'qm.queueHint': 'Mayús + Intro: a la cola',
+    'qm.nextHint': 'Mayús + Intro: a continuación',
     'qm.close': 'cerrar',
   },
   en: {
@@ -94,6 +95,7 @@ const STRINGS = {
     'qm.move': 'move',
     'qm.playOpen': 'play / open',
     'qm.queueHint': 'Shift + Enter: add to queue',
+    'qm.nextHint': 'Shift + Enter: play next',
     'qm.close': 'close',
   },
 };

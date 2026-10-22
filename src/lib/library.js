@@ -1,5 +1,5 @@
 // Utilidades de la biblioteca del menú rápido (playlists y álbumes). Sin dependencias.
-// LibraryItem: { id: browseId ('VL…' playlist, 'MPRE…' álbum), type: 'playlist'|'album', title, artist?, cover }
+// LibraryItem: { id: browseId ('VL…' playlist, 'MPRE…' álbum), type: 'playlist'|'album', title, artist?, cover, playlistId? }
 
 // Minúsculas y sin acentos: "Más" -> "mas".
 function normalize(s) {
