@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { pickLang, t, STRINGS } = require('./lib/i18n');
 const { filterLibrary, pushRecent, recentItems, idFromUrl } = require('./lib/library');
-const { matches } = require('./lib/shortcut');
+const { matches, fromKeyEvent, validateAccelerator, displayAccelerator } = require('./lib/shortcut');
 
 const HOME = 'https://music.youtube.com/';
 // Dominios que se abren dentro de la app (YouTube Music y el inicio de sesión de Google).
@@ -119,6 +119,7 @@ function createWindow() {
   // Cada documento nuevo (cargas y recargas) recibe el tema; la navegación interna de YT Music no recarga.
   win.webContents.on('dom-ready', () => {
     pageApiReady = null; // documento nuevo: page-api.js se vuelve a ejecutar en la próxima llamada
+    setRecording(false); // una recarga a mitad de grabación no deja los atajos globales apagados
     applyChrome();
     applyTheme();
     sendStrings(win.webContents);
@@ -153,12 +154,13 @@ function createWindow() {
     if (!isInternal(url)) { e.preventDefault(); shell.openExternal(url); }
   });
 
-  // Atajos dentro de la ventana: F5 recargar, Alt+←/→ historial, Ctrl +/-/0 zoom.
-  // Provisional: el atajo del menú rápido con la ventana enfocada (lo sustituye el de los ajustes).
+  // Atajos dentro de la ventana: el del menú rápido (modo "con la app enfocada"; en modo global
+  // lo recibe globalShortcut), F5 recargar, Alt+←/→ historial, Ctrl +/-/0 zoom.
+  // Mientras los ajustes graban un atajo, todas las teclas van a la página sin tocar.
   win.webContents.on('before-input-event', (e, input) => {
-    if (input.type !== 'keyDown') return;
+    if (input.type !== 'keyDown' || recording) return;
     const wc = win.webContents;
-    if (matches(input, settings.quickMenu.accelerator)) { e.preventDefault(); if (!input.isAutoRepeat) toggleQuickMenu(false); }
+    if (matches(input, settings.quickMenu.accelerator)) { e.preventDefault(); if (!input.isAutoRepeat && !qmShortcutIsGlobal()) toggleQuickMenu(false); }
     else if (input.key === 'F5') { wc.reload(); e.preventDefault(); }
     else if (input.alt && input.key === 'ArrowLeft' && wc.navigationHistory.canGoBack()) { wc.navigationHistory.goBack(); e.preventDefault(); }
     else if (input.alt && input.key === 'ArrowRight' && wc.navigationHistory.canGoForward()) { wc.navigationHistory.goForward(); e.preventDefault(); }
@@ -173,6 +175,8 @@ function createWindow() {
   };
   win.on('resize', rememberBounds);
   win.on('move', rememberBounds);
+  // Si la ventana pierde el foco a mitad de grabación, los atajos globales vuelven al momento.
+  win.on('blur', () => setRecording(false));
 
   win.on('close', (e) => {
     saveSettings();
@@ -205,6 +209,33 @@ function trackLabel() {
   return track.title ? `${track.title}${track.artist ? ' — ' + track.artist : ''}` : 'YouTube Music';
 }
 
+// Interruptores de los ajustes: los comparten la bandeja y el menú del engranaje.
+const SWITCHES = {
+  theme: { get: () => settings.theme, set: (v) => { settings.theme = v; saveSettings(); applyTheme(); } },
+  notifications: { get: () => settings.notifications, set: (v) => { settings.notifications = v; saveSettings(); } },
+  closeToTray: { get: () => settings.closeToTray, set: (v) => { settings.closeToTray = v; saveSettings(); } },
+  startWithWindows: {
+    get: () => app.getLoginItemSettings().openAtLogin,
+    set: (v) => app.setLoginItemSettings({ openAtLogin: v, args: ['--hidden'] }),
+  },
+};
+const SWITCH_LABELS = [['theme', 'set.theme'], ['notifications', 'set.notify'], ['closeToTray', 'set.closeToTray'], ['startWithWindows', 'set.startWithWindows']];
+// Cambia un interruptor y rehace la bandeja para que sus casillas muestren lo mismo.
+function changeSwitch(key, value) {
+  if (SWITCHES[key].get() !== value) SWITCHES[key].set(value);
+  refreshUi();
+}
+
+// Lo que ve el menú del engranaje (IPC 'settings:get' / 'settings:set' / 'settings:changed').
+function settingsView() {
+  const view = Object.fromEntries(Object.entries(SWITCHES).map(([k, s]) => [k, s.get()]));
+  return { ...view, quickMenu: { ...settings.quickMenu }, display: { shortcut: displayAccelerator(settings.quickMenu.accelerator) } };
+}
+// Avisa a la página de un cambio hecho desde la bandeja (si el menú está abierto, se redibuja).
+function notifySettings() {
+  if (win && !win.isDestroyed()) win.webContents.send('settings:changed', settingsView());
+}
+
 function buildTrayMenu() {
   return Menu.buildFromTemplate([
     { label: trackLabel(), enabled: false },
@@ -214,22 +245,10 @@ function buildTrayMenu() {
     { label: t(lang, 'tray.previous'), click: () => player('previous') },
     { type: 'separator' },
     { label: t(lang, 'tray.show'), click: showWindow },
-    {
-      label: t(lang, 'set.theme'), type: 'checkbox', checked: settings.theme,
-      click: (item) => { settings.theme = item.checked; saveSettings(); applyTheme(); },
-    },
-    {
-      label: t(lang, 'set.notify'), type: 'checkbox', checked: settings.notifications,
-      click: (item) => { settings.notifications = item.checked; saveSettings(); },
-    },
-    {
-      label: t(lang, 'set.closeToTray'), type: 'checkbox', checked: settings.closeToTray,
-      click: (item) => { settings.closeToTray = item.checked; saveSettings(); },
-    },
-    {
-      label: t(lang, 'set.startWithWindows'), type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin,
-      click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked, args: ['--hidden'] }),
-    },
+    ...SWITCH_LABELS.map(([key, label]) => ({
+      label: t(lang, label), type: 'checkbox', checked: SWITCHES[key].get(),
+      click: (item) => { changeSwitch(key, item.checked); notifySettings(); },
+    })),
     { type: 'separator' },
     { label: t(lang, 'tray.quit'), click: () => { quitting = true; app.quit(); } },
   ]);
@@ -364,7 +383,7 @@ function createQuickMenu() {
   qmWin.webContents.on('before-input-event', (e, input) => {
     if (input.type === 'keyDown' && matches(input, settings.quickMenu.accelerator)) {
       e.preventDefault();
-      if (!input.isAutoRepeat) hideQuickMenu();
+      if (!input.isAutoRepeat && !qmShortcutIsGlobal()) hideQuickMenu();
     }
   });
   // Nada de navegar ni abrir ventanas desde el menú.
@@ -473,7 +492,7 @@ ipcMain.handle('qm:activate', async (e, msg) => {
     if (shift) return { keepOpen: true }; // Mayús + Intro solo vale para canciones
     const id = item.id;
     hideQuickMenu();
-    if (!win || !win.isVisible()) showWindow();
+    showWindow(); // oculta, minimizada o detrás de otra ventana: la página abierta tiene que verse
     pageApi('open', id).then((res) => { if (res && res.ok) recordRecent(id); });
     return { keepOpen: false };
   }
@@ -521,6 +540,103 @@ ipcMain.on('lang', (e, code) => {
   sendStrings(e.sender);
 });
 
+// --- Atajos globales ---
+// Los cuatro del reproductor, y el del menú rápido solo en modo "en cualquier lugar".
+// Nunca se usa unregisterAll: cada atajo se quita por su nombre.
+const PLAYER_SHORTCUTS = {
+  'CommandOrControl+Alt+Space': () => player('playPause'),
+  'CommandOrControl+Alt+Right': () => player('next'),
+  'CommandOrControl+Alt+Left': () => player('previous'),
+  'CommandOrControl+Alt+M': () => (win && win.isVisible() ? win.hide() : showWindow()),
+};
+function registerPlayerShortcuts() {
+  for (const [acc, fn] of Object.entries(PLAYER_SHORTCUTS)) {
+    if (!globalShortcut.isRegistered(acc)) globalShortcut.register(acc, fn);
+  }
+}
+function unregisterPlayerShortcuts() {
+  for (const acc of Object.keys(PLAYER_SHORTCUTS)) globalShortcut.unregister(acc);
+}
+
+let qmGlobalAcc = null; // acelerador global registrado ahora para el menú rápido (o null)
+const qmShortcutIsGlobal = () => qmGlobalAcc !== null && qmGlobalAcc === settings.quickMenu.accelerator;
+const onQuickMenuShortcut = () => toggleQuickMenu(!win || !win.isFocused());
+function registerQuickMenuGlobal(acc) {
+  try { return globalShortcut.register(acc, onQuickMenuShortcut); } catch { return false; }
+}
+
+// Aplica (y solo si todo va bien, guarda) los ajustes del menú rápido. Quita siempre el atajo
+// global anterior; en modo 'global' registra el nuevo y, si otro programa ya lo tiene, vuelve a
+// registrar el anterior y responde 'taken'. En modo 'focused' lo atiende before-input-event.
+function applyQuickMenuShortcut(next) {
+  const check = validateAccelerator(next.accelerator);
+  if (!check.ok) return check.reason;
+  const prev = qmGlobalAcc;
+  if (prev) globalShortcut.unregister(prev);
+  qmGlobalAcc = null;
+  if (next.reach === 'global') {
+    if (!registerQuickMenuGlobal(next.accelerator)) {
+      if (prev && registerQuickMenuGlobal(prev)) qmGlobalAcc = prev;
+      return 'taken';
+    }
+    qmGlobalAcc = next.accelerator;
+  }
+  settings.quickMenu = { ...next };
+  saveSettings();
+  return 'ok';
+}
+
+// Grabación de un atajo en los ajustes: mientras dura, ningún atajo propio (globales ni de la
+// ventana) se come las teclas, para que la página reciba la combinación tal cual. Al terminar
+// (o si la ventana pierde el foco o se recarga) vuelven todos.
+let recording = false;
+function setRecording(on) {
+  if (on === recording) return;
+  recording = on;
+  if (on) {
+    unregisterPlayerShortcuts();
+    if (qmGlobalAcc) globalShortcut.unregister(qmGlobalAcc);
+  } else {
+    registerPlayerShortcuts();
+    if (qmGlobalAcc && !registerQuickMenuGlobal(qmGlobalAcc)) qmGlobalAcc = null;
+  }
+}
+
+const fromMainPage = (e) => !!win && e.sender === win.webContents;
+ipcMain.on('settings:recording', (e, on) => { if (fromMainPage(e)) setRecording(!!on); });
+ipcMain.handle('settings:get', (e) => (fromMainPage(e) ? settingsView() : null));
+// Pulsación grabada → acelerador ('CommandOrControl+Shift+K'), o null si solo hay modificadores.
+// La conversión vive en src/lib/shortcut.js, que el preload (sandbox) no puede cargar.
+ipcMain.handle('settings:key', (e, ev) => {
+  if (!fromMainPage(e) || !ev || typeof ev !== 'object') return null;
+  return fromKeyEvent({
+    key: String(ev.key ?? ''), code: String(ev.code ?? ''),
+    ctrlKey: !!ev.ctrlKey, altKey: !!ev.altKey, shiftKey: !!ev.shiftKey, metaKey: !!ev.metaKey,
+  });
+});
+// patch: { theme?, notifications?, closeToTray?, startWithWindows?, quickMenu?: { accelerator?,
+// reach?, fromOtherApps?, shiftEnter? } }. Responde settingsView() o { error } si el atajo no vale.
+const QM_CHOICES = { reach: ['focused', 'global'], fromOtherApps: ['float', 'front'], shiftEnter: ['queue', 'next'] };
+ipcMain.handle('settings:set', (e, patch) => {
+  if (!fromMainPage(e) || !patch || typeof patch !== 'object') return null;
+  const q = patch.quickMenu;
+  if (q && typeof q === 'object') {
+    const next = { ...settings.quickMenu };
+    if (typeof q.accelerator === 'string') next.accelerator = q.accelerator;
+    for (const [k, allowed] of Object.entries(QM_CHOICES)) if (allowed.includes(q[k])) next[k] = q[k];
+    if (next.accelerator !== settings.quickMenu.accelerator || next.reach !== settings.quickMenu.reach) {
+      const res = applyQuickMenuShortcut(next);
+      if (res !== 'ok') return { error: res };
+    } else {
+      settings.quickMenu = next;
+      saveSettings();
+    }
+  }
+  for (const key of Object.keys(SWITCHES)) if (typeof patch[key] === 'boolean') changeSwitch(key, patch[key]);
+  refreshUi();
+  return settingsView();
+});
+
 app.on('second-instance', showWindow);
 app.on('before-quit', () => { quitting = true; saveSettings(); });
 app.on('will-quit', () => globalShortcut.unregisterAll());
@@ -535,10 +651,8 @@ app.whenReady().then(() => {
   createTray();
 
   // Atajos globales (las teclas multimedia del teclado ya funcionan solas vía Windows).
-  globalShortcut.register('CommandOrControl+Alt+Space', () => player('playPause'));
-  globalShortcut.register('CommandOrControl+Alt+Right', () => player('next'));
-  globalShortcut.register('CommandOrControl+Alt+Left', () => player('previous'));
-  globalShortcut.register('CommandOrControl+Alt+M', () => (win && win.isVisible() ? win.hide() : showWindow()));
+  registerPlayerShortcuts();
+  applyQuickMenuShortcut(settings.quickMenu);
 });
 
 app.on('window-all-closed', () => {

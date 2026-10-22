@@ -66,3 +66,107 @@ ytmusic-popup-container,
 tp-yt-paper-dialog {
   -webkit-app-region: no-drag;
 }
+
+/* Engranaje de ajustes (lo crea preload.js): entre "enviar a dispositivo" y el avatar. */
+ytmusic-nav-bar .md-gear {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  margin: 0 6px 0 2px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-app-region: no-drag;
+  transition: background-color .15s linear;
+}
+ytmusic-nav-bar .md-gear::before {
+  content: "";
+  width: 24px;
+  height: 24px;
+  background: currentColor;
+  /* settings de Material Symbols */
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'%3E%3Cpath d='m370-80-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-103 78q1 7 1 13.5v27q0 6.5-2 13.5l103 78-110 190-118-50q-11 8-23 15t-24 12L590-80H370Zm70-80h79l14-106q31-8 57.5-23.5T639-327l99 41 39-68-86-65q5-14 7-29.5t2-31.5q0-16-2-31.5t-7-29.5l86-65-39-68-99 42q-22-23-48.5-38.5T533-694l-13-106h-79l-14 106q-31 8-57.5 23.5T321-633l-99-41-39 68 86 64q-5 15-7 30t-2 32q0 16 2 31t7 30l-86 65 39 68 99-42q22 23 48.5 38.5T427-266l13 106Zm42-180q58 0 99-41t41-99q0-58-41-99t-99-41q-59 0-99.5 41T342-480q0 58 40.5 99t99.5 41Zm-2-140Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'%3E%3Cpath d='m370-80-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-103 78q1 7 1 13.5v27q0 6.5-2 13.5l103 78-110 190-118-50q-11 8-23 15t-24 12L590-80H370Zm70-80h79l14-106q31-8 57.5-23.5T639-327l99 41 39-68-86-65q5-14 7-29.5t2-31.5q0-16-2-31.5t-7-29.5l86-65-39-68-99 42q-22-23-48.5-38.5T533-694l-13-106h-79l-14 106q-31 8-57.5 23.5T321-633l-99-41-39 68 86 64q-5 15-7 30t-2 32q0 16 2 31t7 30l-86 65 39 68 99-42q22 23 48.5 38.5T427-266l13 106Zm42-180q58 0 99-41t41-99q0-58-41-99t-99-41q-59 0-99.5 41T342-480q0 58 40.5 99t99.5 41Zm-2-140Z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+ytmusic-nav-bar .md-gear:hover,
+ytmusic-nav-bar .md-gear[aria-expanded="true"] { background: rgba(255,255,255,.14); }
+ytmusic-nav-bar .md-gear:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+/* Panel de ajustes bajo el engranaje: mismo estilo que el menú rápido. Sin backdrop-filter;
+   al abrir solo se animan opacity y transform. */
+.md-settings {
+  position: fixed !important;
+  z-index: 3000 !important;
+  width: 320px !important;
+  box-sizing: border-box !important;
+  padding: 6px !important;
+  background: #1c1c1c !important;
+  border: 1px solid #2e2e2e !important;
+  border-radius: 14px !important;
+  box-shadow: 0 24px 64px rgba(0,0,0,.55) !important;
+  color: #f1f1f1 !important;
+  font: 14px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif !important;
+  -webkit-app-region: no-drag !important;
+  user-select: none !important;
+  animation: md-settings-in .12s ease-out !important;
+}
+@keyframes md-settings-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.md-settings .md-set-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  width: 100% !important;
+  min-height: 36px !important;
+  padding: 8px 10px !important;
+  box-sizing: border-box !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: inherit !important;
+  font: inherit !important;
+  text-align: left !important;
+  cursor: pointer !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+.md-settings .md-set-row:hover:not(:disabled) { background: #2c2c2c !important; }
+.md-settings .md-set-row:focus-visible { outline: 2px solid #fff !important; outline-offset: -2px !important; }
+.md-settings .md-set-row:disabled { cursor: default !important; }
+.md-settings .md-set-label { min-width: 0 !important; }
+.md-settings .md-set-r { margin-left: auto !important; display: flex !important; align-items: center !important; gap: 6px !important; color: #8a8a8a !important; font-size: 13px !important; }
+.md-settings .md-kbd {
+  background: #2a2a2a !important; border: 1px solid #353535 !important; border-radius: 4px !important;
+  padding: 2px 7px !important; color: #ddd !important; font: 12px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif !important; white-space: nowrap !important;
+}
+.md-settings .md-chev {
+  width: 16px !important; height: 16px !important; background: #8a8a8a !important; transition: transform .15s ease-out !important;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'%3E%3Cpath d='M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z'/%3E%3C/svg%3E") center / contain no-repeat !important;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'%3E%3Cpath d='M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z'/%3E%3C/svg%3E") center / contain no-repeat !important;
+}
+.md-settings .md-chev.open { transform: rotate(90deg) !important; }
+.md-settings .md-set-sep { height: 1px !important; background: #2e2e2e !important; margin: 6px -6px !important; }
+
+/* Sub-bloque del menú rápido: sangrado y con una línea a la izquierda. */
+.md-settings .md-set-sub { margin: 2px 0 4px 10px !important; padding-left: 10px !important; border-left: 1px solid #333 !important; }
+.md-settings .md-set-sub .md-set-row { min-height: 30px !important; padding: 6px 10px !important; font-size: 13px !important; }
+.md-settings .md-set-row.recording { background: #2c2c2c !important; }
+.md-settings .md-set-hint { margin-left: auto !important; color: #c8c8c8 !important; font-size: 12px !important; text-align: right !important; }
+.md-settings .md-set-err { margin: 0 10px 4px !important; color: #ff8a8a !important; font-size: 12px !important; }
+.md-settings .md-set-cap { margin: 8px 10px 2px !important; color: #8a8a8a !important; font-size: 12px !important; font-weight: 500 !important; }
+.md-settings .md-dim { opacity: .4 !important; }
+
+/* Radios y interruptores (30×18, blanco cuando está encendido). */
+.md-settings .md-rad { width: 14px !important; height: 14px !important; flex: none !important; box-sizing: border-box !important; border: 2px solid #666 !important; border-radius: 50% !important; }
+.md-settings .md-rad.on { border-color: #fff !important; background: radial-gradient(#fff 0 3px, transparent 4px) !important; }
+.md-settings .md-sw { position: relative !important; flex: none !important; width: 30px !important; height: 18px !important; margin-left: auto !important; border-radius: 9px !important; background: #3a3a3a !important; }
+.md-settings .md-sw::after { content: "" !important; position: absolute !important; top: 2px !important; left: 2px !important; width: 14px !important; height: 14px !important; border-radius: 50% !important; background: #bbb !important; transition: transform .15s ease-out !important; }
+.md-settings .md-sw.on { background: #f1f1f1 !important; }
+.md-settings .md-sw.on::after { background: #111 !important; transform: translateX(12px) !important; }
