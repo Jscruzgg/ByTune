@@ -72,8 +72,18 @@ function ensureBackButton() {
   updateBack(btn);
 }
 
+// Títulos largos de álbum/playlist: se marcan para que theme.css los muestre más pequeños
+// (como Spotify), en vez de dos líneas gigantes. Solo escribe si cambia.
+function markLongTitle() {
+  const t = document.querySelector('ytmusic-responsive-header-renderer > h1 .title');
+  if (!t) return;
+  const long = t.textContent.trim().length > 24;
+  if (long !== t.hasAttribute('data-md-long')) t.toggleAttribute('data-md-long', long);
+}
+
 function read() {
   ensureBackButton();
+  markLongTitle();
   const bar = document.querySelector(MAIN_BAR);
   if (!bar) return;
   arrangeBar(bar);

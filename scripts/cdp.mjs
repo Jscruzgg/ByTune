@@ -111,6 +111,59 @@ if (cmd === 'eval') {
   }
   await send('Emulation.clearDeviceMetricsOverride');
   console.log(failures ? `${failures} problemas` : 'Sin solapes en ningún ancho');
+} else if (cmd === 'clipcheck') {
+  // Texto con letras cortadas: compara la caja de cada línea de texto (Range) con el contenedor
+  // más cercano que recorta (overflow ≠ visible). Ignora los recortes intencionados (líneas
+  // ocultas por line-clamp y "…" horizontal) y los contenedores con scroll.
+  const res = await evaluate(`(() => {
+    const out = [];
+    const clipOf = (el) => {
+      for (let e = el, i = 0; e && i < 4; e = e.parentElement, i++) {
+        const s = getComputedStyle(e);
+        if (s.overflowY !== 'visible' || s.overflowX !== 'visible') {
+          if ((s.overflowY === 'auto' || s.overflowY === 'scroll') && e.scrollHeight > e.clientHeight + 2) return null;
+          return { e, s };
+        }
+      }
+      return null;
+    };
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    const seen = new Set();
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const text = n.textContent.trim();
+      if (!text || !n.parentElement) continue;
+      const parent = n.parentElement;
+      const pr = parent.getBoundingClientRect();
+      if (pr.width < 2 || pr.height < 2 || pr.bottom < 0 || pr.top > innerHeight || pr.right < 0 || pr.left > innerWidth) continue;
+      const ps = getComputedStyle(parent);
+      if (ps.visibility === 'hidden' || +ps.opacity === 0) continue;
+      const c = clipOf(parent);
+      if (!c || seen.has(c.e)) continue;
+      const range = document.createRange();
+      range.selectNodeContents(n);
+      const lines = [...range.getClientRects()].filter((r) => r.width > 0);
+      if (!lines.length) continue;
+      const box = c.e.getBoundingClientRect();
+      const clampN = parseInt(c.s.webkitLineClamp) || 0;
+      // Solo las líneas que empiezan dentro del contenedor: las que quedan enteras por debajo
+      // las oculta a propósito un line-clamp o un alto máximo.
+      const visibleLines = lines.filter((r) => r.top < box.bottom - 1 && r.bottom > box.top + 1);
+      void clampN;
+      // Recorte horizontal solo si no hay "…" (text-overflow: ellipsis es un recorte buscado)
+      const ellipsis = c.s.textOverflow === 'ellipsis' || ps.textOverflow === 'ellipsis';
+      const bad = visibleLines.find((r) => r.bottom > box.bottom + 1.5 || r.top < box.top - 1.5
+        || (!ellipsis && (r.right > box.right + 1.5 || r.left < box.left - 1.5)));
+      if (bad) {
+        seen.add(c.e);
+        const over = Math.round(Math.max(bad.bottom - box.bottom, box.top - bad.top, ellipsis ? 0 : bad.right - box.right, ellipsis ? 0 : box.left - bad.left));
+        const tag = c.e.tagName.toLowerCase() + (c.e.id ? '#' + c.e.id : '') + '.' + (c.e.getAttribute('class') || '').split(' ').filter((x) => x && x !== 'style-scope').slice(0, 2).join('.');
+        out.push({ text: text.slice(0, 40), over, tag, lh: ps.lineHeight, fs: ps.fontSize, font: ps.fontFamily.split(',')[0] });
+      }
+    }
+    return out;
+  })()`);
+  for (const r of res) console.log(`  ${r.over}px cortado · "${r.text}" · ${r.tag} · ${r.fs}/${r.lh} ${r.font}`);
+  console.log(res.length ? `${res.length} textos cortados en ${await evaluate('location.pathname')}` : `Sin texto cortado en ${await evaluate('location.pathname')}`);
 } else if (cmd === 'navcheck') {
   // Barra superior en varios anchos: buscador centrado y sin pisar logo ni avatar.
   const widths = (args[0] || '1920,1600,1440,1280,1100,1000,940,900,860,800,760,700,640').split(',').map(Number);
