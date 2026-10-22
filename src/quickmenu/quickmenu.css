@@ -1,0 +1,63 @@
+/* Menú rápido: panel oscuro y minimalista (ver quick-menu-v3). Sin backdrop-filter; solo se anima transform/opacity. */
+html, body { margin: 0; background: transparent; overflow: hidden; }
+body {
+  /* Margen para que quepa la sombra del panel, que la dibuja él mismo */
+  padding: 16px 24px 48px;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #f1f1f1;
+  user-select: none;
+}
+
+.qm {
+  width: 540px;
+  background: #1c1c1c;
+  border: 1px solid #2e2e2e;
+  border-radius: 16px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .5);
+  padding: 8px;
+  box-sizing: border-box;
+  animation: qm-in .12s ease-out;
+}
+@keyframes qm-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+.qm-input {
+  display: flex; align-items: center; gap: 10px;
+  background: #262626; border: 1px solid #303030; border-radius: 10px;
+  padding: 11px 14px; font-size: 16px;
+}
+.qm-input svg { flex: none; opacity: .55; }
+.qm-input input {
+  flex: 1; min-width: 0; background: none; border: 0; outline: 0; padding: 0;
+  color: #fff; caret-color: #fff; font: inherit; user-select: text;
+}
+.qm-input input::placeholder { color: #7a7a7a; }
+
+.qm-div { height: 1px; background: #2e2e2e; margin: 8px -8px; }
+.qm-list { max-height: 440px; overflow-y: auto; }
+.qm-list::-webkit-scrollbar { width: 0; }
+
+.qm-label { margin: 10px 10px 6px; font-size: 13px; color: #8a8a8a; font-weight: 500; }
+.qm-list .qm-div { margin: 8px -8px; }
+
+.qm-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 6px 10px; border-radius: 8px; font-size: 15px; cursor: default;
+}
+.qm-row.sel { background: #2c2c2c; }
+.qm-art { width: 32px; height: 32px; border-radius: 4px; flex: none; background: #3a3a3a; object-fit: cover; }
+.qm-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qm-meta { margin-left: auto; padding-left: 12px; font-size: 13px; color: #7f7f7f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; max-width: 55%; }
+.qm-meta.note { color: #a8a8a8; }
+
+.qm-foot {
+  display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 8px -8px -8px; padding: 9px 18px;
+  border-top: 1px solid #2e2e2e; font-size: 12px; color: #7f7f7f;
+}
+.qm-foot span { white-space: nowrap; }
+.qm-foot kbd {
+  background: #2a2a2a; border: 1px solid #353535; border-radius: 4px;
+  padding: 1px 6px; color: #c8c8c8; font-family: inherit; font-size: 11px;
+}
+
+/* Sin resultados: solo el campo y el pie */
+.qm.empty > .qm-div { display: none; }
