@@ -72,6 +72,29 @@ function ensureBackButton() {
   updateBack(btn);
 }
 
+// Portadas de las playlists de la barra lateral (como Spotify). main.js manda el mapa
+// { browseId: url }; covers.js marca cada entrada con data-md-id. Solo se toca el DOM si falta
+// la miniatura o cambió su portada.
+let covers = {};
+ipcRenderer.on('covers', (_e, map) => { covers = map || {}; applyCovers(); });
+function applyCovers() {
+  for (const entry of document.querySelectorAll('ytmusic-guide-entry-renderer[data-md-id]')) {
+    const url = covers[entry.dataset.mdId];
+    const item = entry.querySelector('tp-yt-paper-item');
+    if (!url || !item) continue;
+    let img = item.querySelector(':scope > img.md-cover');
+    if (!img) {
+      img = document.createElement('img');
+      img.className = 'md-cover';
+      img.alt = '';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      item.prepend(img);
+    }
+    if (img.getAttribute('src') !== url) img.src = url;
+  }
+}
+
 // Títulos largos de álbum/playlist: se marcan para que theme.css los muestre más pequeños
 // (como Spotify), en vez de dos líneas gigantes. Solo escribe si cambia.
 function markLongTitle() {
@@ -84,6 +107,7 @@ function markLongTitle() {
 function read() {
   ensureBackButton();
   markLongTitle();
+  applyCovers();
   const bar = document.querySelector(MAIN_BAR);
   if (!bar) return;
   arrangeBar(bar);

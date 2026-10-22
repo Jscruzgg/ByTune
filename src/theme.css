@@ -72,6 +72,27 @@ ytmusic-guide-entry-renderer[active] .guide-icon { color: var(--md-text) !import
 ytmusic-guide-entry-renderer:not([active]) .guide-icon,
 ytmusic-guide-entry-renderer:not([active]) .title { color: var(--md-text-2) !important; }
 
+/* Portadas de las playlists en la barra lateral (como Spotify). Las añade preload.js. */
+ytmusic-guide-entry-renderer[data-md-id] tp-yt-paper-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+ytmusic-guide-entry-renderer[data-md-id] img.md-cover {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  object-fit: cover;
+  background: var(--md-surface-3);
+}
+ytmusic-guide-entry-renderer[data-md-id] .title-column {
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+}
+/* Barra lateral plegada (72 px): sin sitio para portadas */
+ytmusic-app[guide-collapsed] ytmusic-guide-entry-renderer img.md-cover { display: none; }
+
 /* Botón "Nueva lista" */
 ytmusic-guide-section-renderer yt-button-renderer button,
 ytmusic-guide-renderer #buttons button {

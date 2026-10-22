@@ -28,7 +28,7 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
-const defaults = { bounds: { width: 1280, height: 820 }, maximized: false, notifications: true, closeToTray: true, theme: true };
+const defaults = { bounds: { width: 1280, height: 820 }, maximized: false, notifications: true, closeToTray: true, theme: true, covers: {} };
 let settings = { ...defaults };
 try { settings = { ...defaults, ...JSON.parse(fs.readFileSync(settingsFile(), 'utf8')) }; } catch {}
 function saveSettings() {
@@ -102,6 +102,9 @@ function createWindow() {
   win.webContents.on('dom-ready', () => {
     applyChrome();
     applyTheme();
+    // Portadas de la barra lateral: primero las guardadas (al instante) y luego las frescas.
+    if (Object.keys(settings.covers).length) win.webContents.send('covers', settings.covers);
+    setTimeout(refreshCovers, 4000);
   });
   win.setMenuBarVisibility(false);
   // Anclar a la barra de tareas: Windows ancla el programa que abrió la ventana. En la copia de
@@ -224,6 +227,21 @@ function createTray() {
   tray.on('double-click', showWindow);
   refreshUi();
 }
+
+// Portadas de las playlists de la barra lateral (como Spotify). covers.js corre dentro de la
+// página, con su sesión, y devuelve { browseId: url }; se guarda y se pasa a preload.js.
+const coversJs = fs.readFileSync(path.join(__dirname, 'covers.js'), 'utf8');
+async function refreshCovers() {
+  if (!win) return;
+  try {
+    const res = await win.webContents.executeJavaScript(coversJs, true);
+    if (!res || !res.covers || !Object.keys(res.covers).length) return;
+    settings.covers = res.covers;
+    saveSettings();
+    win.webContents.send('covers', res.covers);
+  } catch {}
+}
+setInterval(refreshCovers, 15 * 60 * 1000);
 
 ipcMain.on('track', (_e, info) => {
   const changed = info.title && (info.title !== track.title || info.artist !== track.artist);
