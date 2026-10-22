@@ -1,0 +1,40 @@
+{
+  "name": "youtube-music-client",
+  "productName": "Music Desktop",
+  "version": "1.0.0",
+  "description": "Cliente de escritorio para YouTube Music",
+  "main": "src/main.js",
+  "private": true,
+  "scripts": {
+    "icon": "node scripts/make-icon.mjs",
+    "start": "electron .",
+    "dist": "node scripts/make-icon.mjs && electron-builder --win"
+  },
+  "build": {
+    "appId": "local.youtube-music-client",
+    "productName": "Music Desktop",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "build/icon.png",
+      "build/icon.ico"
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "devDependencies": {
+    "electron": "^44.9.2",
+    "electron-builder": "^26.15.3"
+  }
+}

@@ -1,0 +1,31 @@
+/* Marco de la ventana: sin barra de título de Windows. La barra superior de YT Music hace de
+   barra de título (se arrastra) y deja sitio a los botones minimizar/maximizar/cerrar.
+   Se inyecta siempre, con o sin el tema. */
+ytmusic-nav-bar {
+  -webkit-app-region: drag;
+  --md-wco-space: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 8px);
+  /* Ventana estrecha: YT coloca el avatar en el flujo normal y el padding lo aparta. */
+  padding-right: var(--md-wco-space) !important;
+  box-sizing: border-box !important;
+}
+/* Ventana ancha: el avatar va en posición absoluta (el padding no le afecta) y se aparta con
+   right. En el flujo normal right no hace nada, así que cada regla actúa en su caso. */
+ytmusic-nav-bar #right-content {
+  left: auto !important;
+  right: var(--md-wco-space) !important;
+}
+ytmusic-nav-bar a,
+ytmusic-nav-bar button,
+ytmusic-nav-bar input,
+ytmusic-nav-bar yt-icon-button,
+ytmusic-nav-bar tp-yt-paper-icon-button,
+ytmusic-nav-bar ytmusic-search-box,
+ytmusic-nav-bar ytmusic-logo,
+ytmusic-nav-bar ytmusic-cast-button,
+ytmusic-nav-bar ytmusic-settings-button,
+ytmusic-nav-bar #right-content > *,
+tp-yt-iron-dropdown,
+ytmusic-popup-container,
+tp-yt-paper-dialog {
+  -webkit-app-region: no-drag;
+}
