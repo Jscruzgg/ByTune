@@ -1,6 +1,7 @@
 const { app, BrowserWindow, Tray, Menu, Notification, globalShortcut, ipcMain, nativeImage, nativeTheme, shell } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
+const { pickLang, t, STRINGS } = require('./lib/i18n');
 
 const HOME = 'https://music.youtube.com/';
 // Dominios que se abren dentro de la app (YouTube Music y el inicio de sesión de Google).
@@ -28,7 +29,7 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
-const defaults = { bounds: { width: 1280, height: 820 }, maximized: false, notifications: true, closeToTray: true, theme: true, covers: {} };
+const defaults = { bounds: { width: 1280, height: 820 }, maximized: false, notifications: true, closeToTray: true, theme: true, covers: {}, lang: null };
 let settings = { ...defaults };
 try { settings = { ...defaults, ...JSON.parse(fs.readFileSync(settingsFile(), 'utf8')) }; } catch {}
 function saveSettings() {
@@ -46,6 +47,12 @@ let win = null;
 let tray = null;
 let quitting = false;
 let track = { title: '', artist: '', playing: false };
+
+// Idioma de la interfaz: el último detectado (settings.lang) o, la primera vez, el del sistema.
+// Cuando la página informa del suyo (IPC 'lang') ese manda y se guarda.
+let lang = pickLang(settings.lang || app.getLocale());
+const stringsFor = (code) => STRINGS[code];
+const sendStrings = (wc) => { if (wc && !wc.isDestroyed()) wc.send('strings', { lang, strings: stringsFor(lang) }); };
 
 // Tema propio (src/theme.css), inyectado como hoja de estilos de usuario: sin JS en la página.
 // chrome.css (barra superior arrastrable) va siempre, con o sin tema.
@@ -102,6 +109,7 @@ function createWindow() {
   win.webContents.on('dom-ready', () => {
     applyChrome();
     applyTheme();
+    sendStrings(win.webContents);
     // Portadas de la barra lateral: primero las guardadas (al instante) y luego las frescas.
     if (Object.keys(settings.covers).length) win.webContents.send('covers', settings.covers);
     setTimeout(refreshCovers, 4000);
@@ -185,29 +193,29 @@ function buildTrayMenu() {
   return Menu.buildFromTemplate([
     { label: trackLabel(), enabled: false },
     { type: 'separator' },
-    { label: track.playing ? 'Pausar' : 'Reproducir', click: () => player('playPause') },
-    { label: 'Siguiente', click: () => player('next') },
-    { label: 'Anterior', click: () => player('previous') },
+    { label: t(lang, track.playing ? 'tray.pause' : 'tray.play'), click: () => player('playPause') },
+    { label: t(lang, 'tray.next'), click: () => player('next') },
+    { label: t(lang, 'tray.previous'), click: () => player('previous') },
     { type: 'separator' },
-    { label: 'Mostrar ventana', click: showWindow },
+    { label: t(lang, 'tray.show'), click: showWindow },
     {
-      label: 'Tema Music Desktop', type: 'checkbox', checked: settings.theme,
+      label: t(lang, 'set.theme'), type: 'checkbox', checked: settings.theme,
       click: (item) => { settings.theme = item.checked; saveSettings(); applyTheme(); },
     },
     {
-      label: 'Notificar cambio de canción', type: 'checkbox', checked: settings.notifications,
+      label: t(lang, 'set.notify'), type: 'checkbox', checked: settings.notifications,
       click: (item) => { settings.notifications = item.checked; saveSettings(); },
     },
     {
-      label: 'Cerrar a la bandeja', type: 'checkbox', checked: settings.closeToTray,
+      label: t(lang, 'set.closeToTray'), type: 'checkbox', checked: settings.closeToTray,
       click: (item) => { settings.closeToTray = item.checked; saveSettings(); },
     },
     {
-      label: 'Iniciar con Windows', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin,
+      label: t(lang, 'set.startWithWindows'), type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin,
       click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked, args: ['--hidden'] }),
     },
     { type: 'separator' },
-    { label: 'Salir', click: () => { quitting = true; app.quit(); } },
+    { label: t(lang, 'tray.quit'), click: () => { quitting = true; app.quit(); } },
   ]);
 }
 
@@ -250,6 +258,19 @@ ipcMain.on('track', (_e, info) => {
   if (changed && info.playing && settings.notifications && Notification.isSupported() && !(win && win.isFocused())) {
     new Notification({ title: track.title, body: track.artist, icon, silent: true }).show();
   }
+});
+
+// La página (preload.js) informa de su idioma; si cambia, se guarda y se rehace la bandeja.
+// Siempre se responde con los textos, también al arrancar, para que el botón "atrás" los tenga.
+ipcMain.on('lang', (e, code) => {
+  if (code) {
+    const next = pickLang(code);
+    const changed = next !== lang;
+    lang = next;
+    if (settings.lang !== lang) { settings.lang = lang; saveSettings(); }
+    if (changed) refreshUi();
+  }
+  sendStrings(e.sender);
 });
 
 app.on('second-instance', showWindow);
