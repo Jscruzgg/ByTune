@@ -61,7 +61,10 @@ ipcRenderer.on('strings', (_e, msg) => {
   strings = (msg && msg.strings) || {};
   const btn = document.querySelector('ytmusic-nav-bar > .md-back');
   if (btn) labelBack(btn);
+  if (gear) labelGear();
+  if (panel) renderSettings();
 });
+const txt = (key) => strings[key] || key;
 // Botón "atrás" en la barra superior (YT Music no trae uno). YT navega con el historial del
 // navegador, así que basta con history.back(); se desactiva cuando no hay a dónde volver.
 function updateBack(btn) {
@@ -83,6 +86,218 @@ function ensureBackButton() {
   labelBack(btn);
   updateBack(btn);
 }
+
+// --- Engranaje y menú de ajustes ---
+// Botón entre "enviar a dispositivo" y el avatar; abre un panel bajo él con los ajustes de la
+// bandeja y los del menú rápido (plegados en su fila). Los valores viven en main.js
+// ('settings:get' / 'settings:set'); si cambian desde la bandeja llega 'settings:changed'.
+// Cerrado no cuesta nada: los oyentes de clic fuera y de tamaño solo existen con el panel abierto.
+let gear = null;
+let panel = null; // div.md-settings mientras está abierto
+let state = null; // lo último que respondió main
+let expanded = false; // sub-bloque del menú rápido desplegado
+let recordingKey = false; // grabando un atajo nuevo
+let shortcutError = ''; // 'taken' | 'invalid' | 'reserved' del último intento
+const SHORTCUT_ERRORS = { taken: 'set.shortcutTaken', invalid: 'set.shortcutInvalid', reserved: 'set.shortcutReserved' };
+
+function labelGear() {
+  const text = txt('set.title');
+  if (gear.title !== text) gear.title = text;
+  if (gear.getAttribute('aria-label') !== text) gear.setAttribute('aria-label', text);
+}
+function ensureGear() {
+  const right = document.querySelector('ytmusic-nav-bar #right-content');
+  if (!right) return;
+  if (!gear) {
+    gear = document.createElement('button');
+    gear.type = 'button';
+    gear.className = 'md-gear';
+    gear.setAttribute('aria-haspopup', 'true');
+    gear.setAttribute('aria-expanded', 'false');
+    gear.addEventListener('click', () => (panel ? closeSettings() : openSettings()));
+  }
+  // Justo antes del avatar; sin sesión iniciada no hay avatar y va al final.
+  const avatar = right.querySelector(':scope > ytmusic-settings-button');
+  if (avatar ? gear.nextElementSibling !== avatar : gear.parentElement !== right) right.insertBefore(gear, avatar);
+  labelGear();
+}
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+// Fila pulsable: etiqueta a la izquierda y, opcionalmente, algo a la derecha.
+function row(key, label, onClick, extra) {
+  const b = el('button', 'md-set-row');
+  b.type = 'button';
+  b.dataset.key = key;
+  b.append(el('span', 'md-set-label', label));
+  if (extra) b.append(extra);
+  b.addEventListener('click', onClick);
+  return b;
+}
+function radio(key, label, on, disabled, onClick) {
+  const b = row(key, label, onClick);
+  b.classList.add('md-set-radio');
+  b.setAttribute('role', 'radio');
+  b.setAttribute('aria-checked', String(on));
+  b.prepend(el('span', 'md-rad' + (on ? ' on' : '')));
+  b.disabled = disabled;
+  return b;
+}
+function group(label, dim, ...rows) {
+  const g = el('div', 'md-set-group' + (dim ? ' md-dim' : ''));
+  g.setAttribute('role', 'radiogroup');
+  g.setAttribute('aria-label', label);
+  g.append(el('div', 'md-set-cap', label), ...rows);
+  return g;
+}
+
+function renderSettings() {
+  if (!panel || !state) return;
+  // Se redibuja entero (son una docena de nodos); el foco vuelve a la misma fila.
+  const focused = panel.contains(document.activeElement) ? document.activeElement.dataset.key : null;
+  const qm = state.quickMenu;
+  const kbd = (text) => el('kbd', 'md-kbd', text);
+  const right = el('span', 'md-set-r');
+  if (!expanded) right.append(kbd(state.display.shortcut));
+  right.append(el('span', 'md-chev' + (expanded ? ' open' : '')));
+  const head = row('qm', txt('set.quickMenu'), () => { expanded = !expanded; stopRecording(); shortcutError = ''; renderSettings(); }, right);
+  head.setAttribute('aria-expanded', String(expanded));
+  const nodes = [head];
+  if (expanded) {
+    const sub = el('div', 'md-set-sub');
+    const value = recordingKey ? el('span', 'md-set-hint', txt('set.shortcutHint')) : el('span', 'md-set-r');
+    if (!recordingKey) value.append(kbd(state.display.shortcut));
+    const shortcut = row('shortcut', txt('set.shortcut'), () => { if (recordingKey) stopRecording(); else startRecording(); renderSettings(); }, value);
+    shortcut.classList.toggle('recording', recordingKey);
+    sub.append(shortcut);
+    if (shortcutError) {
+      const err = el('div', 'md-set-err', txt(SHORTCUT_ERRORS[shortcutError] || 'set.shortcutInvalid'));
+      err.setAttribute('role', 'alert');
+      sub.append(err);
+    }
+    const setQm = (patch) => () => changeSettings({ quickMenu: patch });
+    const global = qm.reach === 'global';
+    sub.append(
+      group(txt('set.works'), false,
+        radio('reach-focused', txt('set.focused'), !global, false, setQm({ reach: 'focused' })),
+        radio('reach-global', txt('set.anywhere'), global, false, setQm({ reach: 'global' }))),
+      group(txt('set.fromOtherApps'), !global,
+        radio('from-float', txt('set.float'), qm.fromOtherApps === 'float', !global, setQm({ fromOtherApps: 'float' })),
+        radio('from-front', txt('set.front'), qm.fromOtherApps === 'front', !global, setQm({ fromOtherApps: 'front' }))),
+      group(txt('set.shiftEnter'), false,
+        radio('shift-queue', txt('set.queue'), qm.shiftEnter === 'queue', false, setQm({ shiftEnter: 'queue' })),
+        radio('shift-next', txt('set.next'), qm.shiftEnter === 'next', false, setQm({ shiftEnter: 'next' }))),
+    );
+    nodes.push(sub);
+  }
+  nodes.push(el('div', 'md-set-sep'));
+  for (const [key, label] of [['theme', 'set.theme'], ['notifications', 'set.notify'], ['closeToTray', 'set.closeToTray'], ['startWithWindows', 'set.startWithWindows']]) {
+    const sw = row(key, txt(label), () => changeSettings({ [key]: !state[key] }), el('span', 'md-sw' + (state[key] ? ' on' : '')));
+    sw.setAttribute('role', 'switch');
+    sw.setAttribute('aria-checked', String(!!state[key]));
+    nodes.push(sw);
+  }
+  panel.replaceChildren(...nodes);
+  panel.setAttribute('aria-label', txt('set.title'));
+  if (focused) panel.querySelector(`[data-key="${focused}"]`)?.focus();
+}
+
+function changeSettings(patch) {
+  return ipcRenderer.invoke('settings:set', patch).then((res) => {
+    if (res && res.error) shortcutError = res.error;
+    else if (res) { state = res; shortcutError = ''; }
+    renderSettings();
+  }).catch(() => {});
+}
+
+function startRecording() {
+  recordingKey = true;
+  shortcutError = '';
+  ipcRenderer.send('settings:recording', true); // main deja de atender sus atajos mientras tanto
+}
+function stopRecording() {
+  if (!recordingKey) return;
+  recordingKey = false;
+  ipcRenderer.send('settings:recording', false);
+}
+
+// Coloca el panel bajo el engranaje, alineado por la derecha y sin salirse de la ventana.
+function placeSettings() {
+  const r = gear.getBoundingClientRect();
+  const width = 320;
+  panel.style.top = `${Math.round(r.bottom + 8)}px`;
+  panel.style.left = `${Math.round(Math.max(8, Math.min(r.right - width, innerWidth - width - 8)))}px`;
+}
+
+function onOutside(e) {
+  const path = e.composedPath();
+  if (!path.includes(panel) && !path.includes(gear)) closeSettings();
+}
+
+async function openSettings() {
+  if (panel) return;
+  const res = await ipcRenderer.invoke('settings:get').catch(() => null);
+  if (!res || panel || !gear || !gear.isConnected) return;
+  state = res;
+  expanded = false;
+  shortcutError = '';
+  panel = el('div', 'md-settings');
+  panel.setAttribute('role', 'dialog');
+  renderSettings();
+  document.body.append(panel);
+  placeSettings();
+  gear.setAttribute('aria-expanded', 'true');
+  document.addEventListener('pointerdown', onOutside, true);
+  window.addEventListener('resize', closeSettings);
+  window.addEventListener('blur', closeSettings);
+}
+function closeSettings() {
+  if (!panel) return;
+  stopRecording();
+  document.removeEventListener('pointerdown', onOutside, true);
+  window.removeEventListener('resize', closeSettings);
+  window.removeEventListener('blur', closeSettings);
+  panel.remove();
+  panel = null;
+  if (gear) gear.setAttribute('aria-expanded', 'false');
+}
+
+ipcRenderer.on('settings:changed', (_e, next) => {
+  if (!next) return;
+  state = next;
+  if (panel) renderSettings();
+});
+
+// Teclado con el panel abierto. Se registra ya (antes que los scripts de YT) y en captura sobre
+// window, así va primero: grabando, ninguna tecla llega a YouTube; si no, Esc cierra el panel.
+window.addEventListener('keydown', (e) => {
+  if (!panel) return;
+  if (recordingKey) {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    // Esc a secas cancela; con modificadores (Ctrl+Mayús+Esc…) se graba como cualquier otra.
+    if (e.key === 'Escape' && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) { stopRecording(); renderSettings(); return; }
+    if (e.repeat) return;
+    const ev = { key: e.key, code: e.code, ctrlKey: e.ctrlKey, altKey: e.altKey, shiftKey: e.shiftKey, metaKey: e.metaKey };
+    // main traduce la pulsación (src/lib/shortcut.js); null = solo modificadores, se sigue grabando.
+    ipcRenderer.invoke('settings:key', ev).then((acc) => {
+      if (!acc || !recordingKey) return;
+      stopRecording();
+      return changeSettings({ quickMenu: { accelerator: acc } });
+    }).catch(() => {});
+    return;
+  }
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    closeSettings();
+    gear.focus();
+  }
+}, true);
 
 // Portadas de las playlists de la barra lateral (como Spotify). main.js manda el mapa
 // { browseId: url }; covers.js marca cada entrada con data-md-id. Solo se toca el DOM si falta
@@ -138,6 +353,7 @@ function read() {
   reportLang();
   reportOpened();
   ensureBackButton();
+  ensureGear();
   markLongTitle();
   applyCovers();
   const bar = document.querySelector(MAIN_BAR);
