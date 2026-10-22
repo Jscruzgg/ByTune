@@ -14,9 +14,10 @@
   --md-accent: #fa2d48;
   --md-radius: 10px;
   --md-gap: 8px;
-  /* "Text" está dibujada para tamaños pequeños; "Display" solo para títulos grandes. */
-  --md-font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
-  --md-font-display: "Segoe UI Variable Display", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  /* Las fuentes originales de YT Music (Roboto y YouTube Sans): sus cajas de texto de alto fijo
+     están medidas para ellas; con otras fuentes más altas las letras se cortan. */
+  --md-font: Roboto, Arial, sans-serif;
+  --md-font-display: "YouTube Sans", Roboto, Arial, sans-serif;
 
   /* Los fondos de página (colores, degradados de carátula) se dejan como en YT Music. */
   --ytmusic-player-bar-background: var(--md-surface-2) !important;
@@ -25,10 +26,6 @@
   --ytmusic-color-youtubered: var(--md-accent) !important;
   --ytmusic-color-mediumred: var(--md-accent) !important;
   --ytmusic-color-lightred: var(--md-accent) !important;
-}
-
-html, body, ytmusic-app {
-  font-family: var(--md-font) !important;
 }
 
 /* Barras de scroll finas y redondeadas, sin flechas. YT fija scrollbar-color en html (se hereda)
@@ -46,18 +43,8 @@ html { scrollbar-color: auto !important; }
 }
 ::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,.32) !important; }
 
-/* ---------- Tipografía (Apple Music) ---------- */
-ytmusic-app, ytmusic-app * {
-  font-family: var(--md-font) !important;
-}
-.title.ytmusic-carousel-shelf-basic-header-renderer,
-ytmusic-carousel-shelf-basic-header-renderer .title,
-ytmusic-carousel-shelf-basic-header-renderer .title *,
-h1, h1 *, h2, h2 * {
-  font-family: var(--md-font-display) !important;
-  font-weight: 700 !important;
-  letter-spacing: -0.02em !important;
-}
+/* ---------- Tipografía ----------
+   Se mantienen las fuentes de YT Music (no se fuerza ninguna): solo se ajustan tamaños. */
 ytmusic-carousel-shelf-basic-header-renderer h2 .title,
 ytmusic-carousel-shelf-basic-header-renderer .title yt-formatted-string {
   font-size: 24px !important;
@@ -89,6 +76,16 @@ ytmusic-guide-entry-renderer:not([active]) .title { color: var(--md-text-2) !imp
 ytmusic-guide-section-renderer yt-button-renderer button,
 ytmusic-guide-renderer #buttons button {
   background: var(--md-surface-3) !important;
+  transition: background-color .15s linear !important;
+}
+/* El fondo forzado anulaba el hover de YT: se recupera aquí */
+ytmusic-guide-section-renderer yt-button-renderer button:hover,
+ytmusic-guide-renderer #buttons button:hover {
+  background: #3a3a3a !important;
+}
+ytmusic-guide-section-renderer yt-button-renderer button:active,
+ytmusic-guide-renderer #buttons button:active {
+  background: #464646 !important;
 }
 
 /* ---------- Buscador ---------- */
@@ -223,6 +220,14 @@ ytmusic-two-row-item-renderer {
   border-radius: var(--md-radius) !important;
   transition: background-color .15s linear !important;
 }
+/* Por ese margen negativo la primera tarjeta empieza 8 px antes que la lista con scroll y su
+   fondo quedaba cortado. Se le da 8 px de relleno por lado sin tocar su margen (YT la centra
+   con margin: 0 auto): con content-box crece 8 px por cada lado y sigue centrada, así las
+   carátulas no se mueven y el fondo de la primera y la última tiene sitio. */
+ytmusic-carousel ul#items {
+  box-sizing: content-box !important;
+  padding: 0 8px !important;
+}
 ytmusic-two-row-item-renderer:hover {
   background: var(--md-surface-3) !important;
 }
@@ -281,6 +286,24 @@ ytmusic-responsive-list-item-renderer img {
 /* ---------- Barra del reproductor (distribución de Spotify) ----------
    Izquierda: carátula + título. Centro: controles con la barra de progreso debajo.
    Derecha: volumen, repetir, aleatorio. Solo se reordena el grid de YT Music. */
+/* La barra se ve siempre, aunque no haya nada sonando (vacía). YT solo la muestra con
+   [player-visible], que pone al reproducir por primera vez; aquí se replica para el caso sin él. */
+ytmusic-app-layout:not([player-visible]) > [slot="player-bar"],
+ytmusic-app-layout:not([player-visible]) #player-bar-background {
+  transform: translateZ(0) !important;
+  visibility: visible !important;
+}
+ytmusic-app-layout:not([player-visible]) > #content {
+  margin-bottom: var(--ytmusic-player-bar-height) !important;
+}
+/* Sin canción no hay nada que controlar */
+ytmusic-app-layout:not([player-visible]) > [slot="player-bar"] #left-controls,
+ytmusic-app-layout:not([player-visible]) > [slot="player-bar"] #right-controls,
+ytmusic-app-layout:not([player-visible]) > [slot="player-bar"] #progress-bar {
+  opacity: .35 !important;
+  pointer-events: none !important;
+}
+
 /* Un poco más alta que la de YT (72px) para que botones y barra de progreso no se pisen. */
 ytmusic-app, ytmusic-app-layout {
   --ytmusic-player-bar-height: 92px !important;
@@ -1117,8 +1140,9 @@ ytmusic-player-page ytmusic-player-queue-item .duration {
 ytmusic-player-page ytmusic-player-queue-item:hover { background: rgba(227,227,227,.08) !important; }
 ytmusic-player-page ytmusic-player-queue-item:active { background: rgba(227,227,227,.12) !important; }
 /* La que suena: estado "seleccionado" de M3 (secondary container) */
+/* La que suena: gris discreto sobre el negro de la cola (el #474747 de M3 resaltaba demasiado) */
 ytmusic-player-page ytmusic-player-queue-item[selected] {
-  background: var(--m3-secondary-container) !important;
+  background: #262626 !important;
 }
 ytmusic-player-page ytmusic-player-queue-item[selected] .song-title {
   color: var(--m3-on-secondary-container) !important;
@@ -1160,6 +1184,43 @@ ytmusic-two-column-browse-results-renderer > #secondary > ytmusic-section-list-r
   overflow: visible !important;
   margin: 0 !important;
   padding: 0 !important;
+}
+
+/* Playlists propias: YT envuelve la cabecera en un contenedor flex estrecho y centrado (421 px),
+   que aplastaba el título. Se estira a todo el ancho, igual que en los álbumes. */
+ytmusic-two-column-browse-results-renderer ytmusic-editable-playlist-detail-header-renderer {
+  display: block !important;
+  width: auto !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+ytmusic-two-column-browse-results-renderer ytmusic-editable-playlist-detail-header-renderer > ytmusic-responsive-header-renderer {
+  width: 100% !important;
+}
+/* El dueño de la playlist (avatar + nombre) va donde en los álbumes va el artista */
+ytmusic-two-column-browse-results-renderer ytmusic-responsive-header-renderer > .facepile-container {
+  grid-area: by !important;
+  justify-content: flex-start !important;
+  align-items: center !important;
+  margin: 0 !important;
+}
+/* Autor/artista y "canciones • duración" centrados en su fila: tienen alturas distintas
+   (32 px con avatar y 17 px) y alineados por abajo sus textos quedaban desfasados 7 px. */
+ytmusic-two-column-browse-results-renderer ytmusic-responsive-header-renderer > .facepile-container,
+ytmusic-two-column-browse-results-renderer ytmusic-responsive-header-renderer > .strapline,
+ytmusic-two-column-browse-results-renderer ytmusic-responsive-header-renderer > .second-subtitle-container {
+  align-self: center !important;
+}
+/* Lápiz de "editar portada" (playlists propias): YT lo ancla a la esquina inferior derecha de la
+   carátula con un contenedor de 0×0. Ese contenedor va en la celda de la carátula, en su esquina
+   (la columna incluye los 24 px de separación, de ahí el margen). */
+ytmusic-two-column-browse-results-renderer ytmusic-responsive-header-renderer > .thumbnail-edit-button-wrapper {
+  grid-area: cover !important;
+  align-self: end !important;
+  justify-self: end !important;
+  margin: 0 24px 0 0 !important;
+  z-index: 1 !important;
 }
 
 /* Cabecera: [carátula] [tipo · año / título / artista • canciones, duración] */
@@ -1222,8 +1283,11 @@ ytmusic-two-column-browse-results-renderer ytmusic-responsive-header-renderer > 
   font-family: var(--md-font-display) !important;
   font-size: clamp(32px, 5.5vw, 88px) !important;
   font-weight: 800 !important;
-  line-height: 1.05 !important;
-  letter-spacing: -0.04em !important;
+  /* Líneas juntas (1.1). Para que no se corten los trazos que bajan (g, p, y) basta relleno
+     abajo: el recorte del line-clamp solo afecta a la última línea. Subir el alto de línea
+     separaba demasiado las dos líneas de los títulos largos. */
+  line-height: 1.1 !important;
+  letter-spacing: -0.03em !important;
   text-align: left !important;
   color: var(--md-text) !important;
   /* Títulos largos: como mucho dos líneas */
@@ -1231,7 +1295,14 @@ ytmusic-two-column-browse-results-renderer ytmusic-responsive-header-renderer > 
   -webkit-line-clamp: 2 !important;
   -webkit-box-orient: vertical !important;
   overflow: hidden !important;
-  padding-bottom: .08em !important;
+  /* Relleno también a los lados: con el interletrado negativo la última letra ("?", "y")
+     sobresale de su caja y el overflow la cortaba. */
+  padding: .1em .12em .3em 0 !important;
+  margin: -.1em -.12em -.2em 0 !important;
+}
+/* Títulos de más de 24 caracteres (los marca preload.js) más pequeños, como Spotify */
+ytmusic-two-column-browse-results-renderer ytmusic-responsive-header-renderer > h1 .title[data-md-long] {
+  font-size: clamp(28px, 3.4vw, 56px) !important;
 }
 /* Artista (con su avatar) • canciones, duración */
 ytmusic-two-column-browse-results-renderer ytmusic-responsive-header-renderer > .strapline {
@@ -1239,11 +1310,25 @@ ytmusic-two-column-browse-results-renderer ytmusic-responsive-header-renderer > 
   justify-content: flex-start !important;
   margin: 0 !important;
 }
+/* Avatar del artista: círculo de 24 px. YT dibujaba la imagen a 24×16 (estirada): se recorta
+   con object-fit en vez de deformarla. */
 ytmusic-two-column-browse-results-renderer ytmusic-responsive-header-renderer > .strapline .strapline-thumbnail,
+ytmusic-two-column-browse-results-renderer ytmusic-responsive-header-renderer > .strapline .strapline-thumbnail yt-img-shadow,
 ytmusic-two-column-browse-results-renderer ytmusic-responsive-header-renderer > .strapline .strapline-thumbnail img {
   width: 24px !important;
   height: 24px !important;
+  min-height: 24px !important;
+  margin: 0 !important;
   border-radius: 50% !important;
+  object-fit: cover !important;
+  overflow: hidden !important;
+}
+ytmusic-two-column-browse-results-renderer ytmusic-responsive-header-renderer > .strapline .strapline-thumbnail {
+  margin-right: 8px !important;
+  flex: none !important;
+}
+ytmusic-two-column-browse-results-renderer ytmusic-responsive-header-renderer > .strapline .strapline-text {
+  margin: 0 !important;
 }
 ytmusic-two-column-browse-results-renderer ytmusic-responsive-header-renderer > .strapline .strapline-text,
 ytmusic-two-column-browse-results-renderer ytmusic-responsive-header-renderer > .strapline .strapline-text * {
@@ -1266,37 +1351,86 @@ ytmusic-two-column-browse-results-renderer ytmusic-responsive-header-renderer > 
   font-size: 14px !important;
   color: var(--md-text-2) !important;
 }
+/* Descripción alineada a la izquierda (YT la centra), 2 líneas y "…" (el recorte lo hace YT) */
 ytmusic-two-column-browse-results-renderer ytmusic-responsive-header-renderer > #header-description {
   grid-area: desc !important;
   margin: 8px 0 0 !important;
   max-width: 720px !important;
+}
+ytmusic-two-column-browse-results-renderer ytmusic-responsive-header-renderer > #header-description #description-button {
+  justify-content: flex-start !important;
+  text-align: left !important;
+}
+ytmusic-two-column-browse-results-renderer ytmusic-responsive-header-renderer > #header-description .description,
+ytmusic-two-column-browse-results-renderer ytmusic-responsive-header-renderer > #header-description .description * {
   text-align: left !important;
   font-size: 14px !important;
+  line-height: 20px !important;
   color: var(--md-text-2) !important;
 }
-/* Fila de acciones: play grande primero, el resto como iconos sueltos */
+/* Fila de acciones: play grande primero y el resto como círculos iguales, a 12 px. Se anulan
+   los márgenes propios de YT (sumaban 16 px a cada botón). */
 ytmusic-two-column-browse-results-renderer ytmusic-responsive-header-renderer > #action-buttons {
   grid-area: act !important;
   justify-content: flex-start !important;
   align-items: center !important;
-  gap: 20px !important;
-  margin: 28px 0 8px !important;
+  gap: 12px !important;
+  margin: 24px 0 8px !important;
   width: auto !important;
+}
+ytmusic-two-column-browse-results-renderer #action-buttons > * {
+  margin: 0 !important;
+  flex: none !important;
 }
 ytmusic-two-column-browse-results-renderer #action-buttons > ytmusic-play-button-renderer {
   order: -1 !important;
   width: 56px !important;
+  min-width: 0 !important; /* YT le fuerza 64 px y quedaba ovalado */
   height: 56px !important;
-  margin-right: 8px !important;
+  margin-right: 4px !important;
   --ytmusic-play-button-size: 56px !important;
   --ytmusic-play-button-icon-size: 28px !important;
+  --ytmusic-responsive-header-primary-button-width: 56px !important;
   --ytmusic-play-button-background-color: var(--md-text) !important;
   --ytmusic-play-button-icon-color: #000 !important;
   background: var(--md-text) !important;
   border-radius: 50% !important;
   transition: transform .12s ease !important;
 }
+ytmusic-two-column-browse-results-renderer #action-buttons > ytmusic-play-button-renderer .content-wrapper {
+  width: 56px !important;
+  height: 56px !important;
+  margin: 0 !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
 ytmusic-two-column-browse-results-renderer #action-buttons > ytmusic-play-button-renderer:hover { transform: scale(1.05); }
+ytmusic-two-column-browse-results-renderer #action-buttons > :not(ytmusic-play-button-renderer) {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+/* "Guardar" trae un botón interior de 24 px descentrado: se iguala al círculo */
+ytmusic-two-column-browse-results-renderer #action-buttons ytmusic-toggle-button-renderer a,
+ytmusic-two-column-browse-results-renderer #action-buttons ytmusic-toggle-button-renderer yt-icon-button,
+ytmusic-two-column-browse-results-renderer #action-buttons ytmusic-toggle-button-renderer #button {
+  width: 40px !important;
+  height: 40px !important;
+  margin: 0 !important;
+  padding: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+}
+ytmusic-two-column-browse-results-renderer #action-buttons yt-icon,
+ytmusic-two-column-browse-results-renderer #action-buttons .ytSpecButtonShapeNextIcon {
+  width: 24px !important;
+  height: 24px !important;
+}
 ytmusic-two-column-browse-results-renderer #action-buttons button,
 ytmusic-two-column-browse-results-renderer #action-buttons yt-icon-button {
   background: transparent !important;
@@ -1365,24 +1499,20 @@ ytmusic-two-column-browse-results-renderer ytmusic-shelf-renderer ytmusic-respon
   height: 32px !important;
   margin-right: 16px !important;
 }
+/* Tipografía de las filas: la de YT Music tal cual (familia, tamaño y peso); solo colores */
 ytmusic-two-column-browse-results-renderer ytmusic-shelf-renderer ytmusic-responsive-list-item-renderer .index {
-  font-size: 16px !important;
   color: var(--md-text-2) !important;
   font-variant-numeric: tabular-nums;
 }
 ytmusic-two-column-browse-results-renderer ytmusic-shelf-renderer ytmusic-responsive-list-item-renderer .title,
 ytmusic-two-column-browse-results-renderer ytmusic-shelf-renderer ytmusic-responsive-list-item-renderer .title * {
-  font-size: 16px !important;
-  font-weight: 400 !important;
   color: var(--md-text) !important;
 }
 ytmusic-two-column-browse-results-renderer ytmusic-shelf-renderer ytmusic-responsive-list-item-renderer .secondary-flex-columns,
 ytmusic-two-column-browse-results-renderer ytmusic-shelf-renderer ytmusic-responsive-list-item-renderer .secondary-flex-columns * {
-  font-size: 14px !important;
   color: var(--md-text-2) !important;
 }
 ytmusic-two-column-browse-results-renderer ytmusic-shelf-renderer ytmusic-responsive-list-item-renderer .fixed-column {
-  font-size: 14px !important;
   color: var(--md-text-2) !important;
   font-variant-numeric: tabular-nums;
 }
