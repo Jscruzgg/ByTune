@@ -5,6 +5,7 @@
 //   node scripts/cdp.mjs css src/theme.css   reinyecta el tema sin reiniciar
 //   node scripts/cdp.mjs metrics             métricas de rendimiento + FPS de scroll
 //   node scripts/cdp.mjs go <url>            navega
+//   node scripts/cdp.mjs apicheck            comprueba src/page-api.js (biblioteca y búsqueda)
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const PORT = process.env.YTM_DEBUG_PORT || 9222;
@@ -204,6 +205,30 @@ if (cmd === 'eval') {
   // Pulsación real de tecla: node scripts/cdp.mjs key Escape
   for (const type of ['keyDown', 'keyUp']) await send('Input.dispatchKeyEvent', { type, key: args[0], code: args[0], windowsVirtualKeyCode: args[0] === 'Escape' ? 27 : 0 });
   console.log('Tecla', args[0]);
+} else if (cmd === 'apicheck') {
+  // API de la página (src/page-api.js): la carga y comprueba biblioteca y búsqueda de canciones
+  // contra la sesión real. Sale con código 1 y el motivo si algo no cuadra.
+  const fail = (msg) => { console.log('apicheck FALLA:', msg); ws.close(); process.exit(1); };
+  let src;
+  try { src = readFileSync(new URL('../src/page-api.js', import.meta.url), 'utf8'); } catch { fail('no existe src/page-api.js'); }
+  await evaluate(src);
+  const lib = await evaluate('window.__md.library()');
+  if (!lib || !Array.isArray(lib.items)) fail('library() sin items: ' + JSON.stringify(lib));
+  const full = lib.items.filter((i) => i.id && i.type && i.title && i.cover);
+  if (!full.length) fail('library(): ningún elemento con id, type, title y cover');
+  const noArtist = lib.items.filter((i) => i.type === 'album' && !i.artist);
+  if (noArtist.length) fail('álbumes sin artista: ' + noArtist.map((i) => i.title).join(', '));
+  const albums = lib.items.filter((i) => i.type === 'album').length;
+  console.log(`library(): ${lib.items.length} elementos (${lib.items.length - albums} playlists, ${albums} álbumes)`);
+  const res = await evaluate("window.__md.searchSongs('daft punk')");
+  if (!res || !Array.isArray(res.songs)) fail('searchSongs() sin songs: ' + JSON.stringify(res));
+  if (res.songs.length < 1 || res.songs.length > 5) fail(`searchSongs(): ${res.songs.length} canciones (se esperaban 1 a 5)`);
+  for (const s of res.songs) {
+    if (!s.videoId) fail('canción sin videoId: ' + JSON.stringify(s));
+    if (!/^\d+:\d\d/.test(s.duration || '')) fail('duración inválida: ' + JSON.stringify(s));
+  }
+  for (const s of res.songs) console.log(`  ${s.videoId} · ${s.title} · ${s.artist} · ${s.duration}`);
+  console.log('apicheck OK');
 } else if (cmd === 'go') {
   await send('Page.navigate', { url: args[0] });
   await new Promise((r) => setTimeout(r, 4000));
