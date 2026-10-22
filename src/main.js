@@ -29,7 +29,7 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
-const defaults = { bounds: { width: 1280, height: 820 }, maximized: false, notifications: true, closeToTray: true, theme: true, covers: {}, lang: null };
+const defaults = { bounds: { width: 1280, height: 820 }, maximized: false, notifications: true, closeToTray: true, theme: true, covers: {}, lang: null, library: [] };
 let settings = { ...defaults };
 try { settings = { ...defaults, ...JSON.parse(fs.readFileSync(settingsFile(), 'utf8')) }; } catch {}
 function saveSettings() {
@@ -107,12 +107,14 @@ function createWindow() {
   });
   // Cada documento nuevo (cargas y recargas) recibe el tema; la navegación interna de YT Music no recarga.
   win.webContents.on('dom-ready', () => {
+    pageApiReady = null; // documento nuevo: page-api.js se vuelve a ejecutar en la próxima llamada
     applyChrome();
     applyTheme();
     sendStrings(win.webContents);
     // Portadas de la barra lateral: primero las guardadas (al instante) y luego las frescas.
     if (Object.keys(settings.covers).length) win.webContents.send('covers', settings.covers);
     setTimeout(refreshCovers, 4000);
+    setTimeout(refreshLibrary, 4000);
   });
   win.setMenuBarVisibility(false);
   // Anclar a la barra de tareas: Windows ancla el programa que abrió la ventana. En la copia de
@@ -236,12 +238,69 @@ function createTray() {
   refreshUi();
 }
 
+// API dentro de la página (src/page-api.js): instala window.__md, con la sesión de YT Music.
+// Se ejecuta una vez por documento (dom-ready pone pageApiReady a null). pageApi(call, ...args)
+// llama a window.__md[call] y nunca rechaza: ante cualquier fallo resuelve { error }.
+const pageApiJs = fs.readFileSync(path.join(__dirname, 'page-api.js'), 'utf8');
+const PAGE_API_CALLS = new Set(['library', 'searchSongs', 'play', 'queue', 'open']);
+const PAGE_API_TIMEOUT = 20000;
+let pageApiReady = null;
+function onYouTubeMusic() {
+  try { return new URL(win.webContents.getURL()).hostname === 'music.youtube.com'; } catch { return false; }
+}
+function ensurePageApi() {
+  if (!pageApiReady) {
+    const ready = win.webContents.executeJavaScript(pageApiJs, true);
+    pageApiReady = ready;
+    ready.catch(() => { if (pageApiReady === ready) pageApiReady = null; });
+  }
+  return pageApiReady;
+}
+async function pageApi(call, ...args) {
+  let timer;
+  try {
+    if (!win || win.isDestroyed()) return { error: 'sin ventana' };
+    if (!PAGE_API_CALLS.has(call)) return { error: 'llamada desconocida: ' + call };
+    // En la página de inicio de sesión de Google (u otra) no hay nada que llamar.
+    if (!onYouTubeMusic()) return { error: 'fuera de YouTube Music' };
+    const timeout = new Promise((resolve) => { timer = setTimeout(() => resolve({ error: 'tiempo agotado' }), PAGE_API_TIMEOUT); });
+    const run = async () => {
+      await ensurePageApi();
+      // Si el documento cambió entre medias y __md no está, se reinstala y se reintenta una vez.
+      const expr = `window.__md ? window.__md.${call}(...${JSON.stringify(args)}) : { mdMissing: true }`;
+      let res = await win.webContents.executeJavaScript(expr, true);
+      if (res && res.mdMissing) {
+        pageApiReady = null;
+        await ensurePageApi();
+        res = await win.webContents.executeJavaScript(expr, true);
+      }
+      return res && typeof res === 'object' && !res.mdMissing ? res : { error: 'sin respuesta' };
+    };
+    return await Promise.race([run(), timeout]);
+  } catch (e) {
+    return { error: String((e && e.message) || e) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Biblioteca (playlists y álbumes) para el menú rápido; se guarda para tenerla sin conexión.
+async function refreshLibrary() {
+  const res = await pageApi('library');
+  if (!res || !Array.isArray(res.items) || !res.items.length) return;
+  settings.library = res.items;
+  saveSettings();
+}
+setInterval(refreshLibrary, 15 * 60 * 1000);
+
 // Portadas de las playlists de la barra lateral (como Spotify). covers.js corre dentro de la
 // página, con su sesión, y devuelve { browseId: url }; se guarda y se pasa a preload.js.
+// Usa window.__md.browse, así que antes se asegura page-api.js.
 const coversJs = fs.readFileSync(path.join(__dirname, 'covers.js'), 'utf8');
 async function refreshCovers() {
-  if (!win) return;
+  if (!win || !onYouTubeMusic()) return;
   try {
+    await ensurePageApi();
     const res = await win.webContents.executeJavaScript(coversJs, true);
     if (!res || !res.covers || !Object.keys(res.covers).length) return;
     settings.covers = res.covers;
