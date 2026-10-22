@@ -1,0 +1,1079 @@
+/* Music Desktop — tema que mezcla Spotify (paneles redondeados, tarjetas con hover),
+   Apple Music (tipografía, carátulas redondeadas, barra flotante) y la estructura de YT Music.
+   Regla de rendimiento: sin backdrop-filter, sin blur animado, transiciones solo en
+   transform/opacity, y content-visibility para no pintar lo que no está en pantalla. */
+
+:root {
+  /* Grises de Spotify */
+  --md-bg: #000;
+  --md-surface: #121212;
+  --md-surface-2: #1f1f1f;
+  --md-surface-3: #2a2a2a;
+  --md-text: #fff;
+  --md-text-2: #b3b3b3;
+  --md-accent: #fa2d48;
+  --md-radius: 10px;
+  --md-gap: 8px;
+  /* "Text" está dibujada para tamaños pequeños; "Display" solo para títulos grandes. */
+  --md-font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --md-font-display: "Segoe UI Variable Display", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+
+  /* Los fondos de página (colores, degradados de carátula) se dejan como en YT Music. */
+  --ytmusic-player-bar-background: var(--md-surface-2) !important;
+  --ytmusic-search-background: var(--md-surface-3) !important;
+  --ytmusic-text-secondary: var(--md-text-2) !important;
+  --ytmusic-color-youtubered: var(--md-accent) !important;
+  --ytmusic-color-mediumred: var(--md-accent) !important;
+  --ytmusic-color-lightred: var(--md-accent) !important;
+}
+
+html, body, ytmusic-app {
+  font-family: var(--md-font) !important;
+}
+
+/* Barras de scroll finas y redondeadas, sin flechas. YT fija scrollbar-color en html (se hereda)
+   y eso anula ::-webkit-scrollbar; se devuelve a auto. Las que YT oculta a propósito llevan su
+   propio scrollbar-color transparente y siguen ocultas. */
+html { scrollbar-color: auto !important; }
+::-webkit-scrollbar { width: 10px !important; height: 8px !important; background: transparent !important; }
+::-webkit-scrollbar-button { display: none !important; width: 0 !important; height: 0 !important; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent !important; }
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,.18) !important;
+  border: 2px solid transparent !important;
+  border-radius: 8px !important;
+  background-clip: padding-box !important;
+}
+::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,.32) !important; }
+
+/* ---------- Tipografía (Apple Music) ---------- */
+ytmusic-app, ytmusic-app * {
+  font-family: var(--md-font) !important;
+}
+.title.ytmusic-carousel-shelf-basic-header-renderer,
+ytmusic-carousel-shelf-basic-header-renderer .title,
+ytmusic-carousel-shelf-basic-header-renderer .title *,
+h1, h1 *, h2, h2 * {
+  font-family: var(--md-font-display) !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em !important;
+}
+ytmusic-carousel-shelf-basic-header-renderer h2 .title,
+ytmusic-carousel-shelf-basic-header-renderer .title yt-formatted-string {
+  font-size: 24px !important;
+}
+ytmusic-carousel-shelf-basic-header-renderer .strapline {
+  color: var(--md-text-2) !important;
+  letter-spacing: 0.04em !important;
+}
+
+/* Fondos de página: sin tocar. Barra superior, barra lateral, inicio y los degradados según la
+   carátula de álbumes, listas y artistas quedan exactamente como en YT Music. */
+
+/* Entradas del menú lateral */
+ytmusic-guide-entry-renderer tp-yt-paper-item {
+  border-radius: 6px !important;
+  transition: background-color .12s linear !important;
+}
+ytmusic-guide-entry-renderer[active] tp-yt-paper-item {
+  background: var(--md-surface-3) !important;
+}
+ytmusic-guide-entry-renderer:not([active]) tp-yt-paper-item:hover {
+  background: var(--md-surface-2) !important;
+}
+ytmusic-guide-entry-renderer[active] .guide-icon { color: var(--md-text) !important; }
+ytmusic-guide-entry-renderer:not([active]) .guide-icon,
+ytmusic-guide-entry-renderer:not([active]) .title { color: var(--md-text-2) !important; }
+
+/* Botón "Nueva lista" */
+ytmusic-guide-section-renderer yt-button-renderer button,
+ytmusic-guide-renderer #buttons button {
+  background: var(--md-surface-3) !important;
+}
+
+/* ---------- Buscador ---------- */
+ytmusic-search-box #input-box,
+ytmusic-search-box .search-box {
+  background: var(--md-surface-3) !important;
+  border: 1px solid transparent !important;
+  border-radius: 999px !important;
+}
+/* Buscador abierto: una sola superficie redondeada (fila de entrada + sugerencias), sin el
+   marco rectangular de 1 px que YT pone alrededor ni bordes propios en la lista. */
+ytmusic-search-box[opened] {
+  border: none !important;
+  border-radius: 24px !important;
+  background: transparent !important;
+}
+/* La lista de sugerencias va posicionada fuera de la caja del contenedor, así que el fondo se
+   pone en cada parte: fila de entrada (esquinas de arriba) y lista (esquinas de abajo). */
+ytmusic-search-box[opened] .search-container {
+  border-radius: 24px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+ytmusic-search-box[opened] .search-box {
+  border: none !important;
+  border-radius: 24px 24px 0 0 !important;
+  background: #2b2b2b !important; /* surface-container-high */
+}
+ytmusic-search-box[opened] #suggestion-list {
+  border: none !important;
+  border-top: 1px solid rgba(255,255,255,.08) !important;
+  border-radius: 0 0 24px 24px !important;
+  background: #2b2b2b !important;
+  box-shadow: 0 12px 24px rgba(0,0,0,.5) !important;
+  overflow: hidden !important;
+  padding-bottom: 8px !important;
+}
+ytmusic-search-box[opened] ytmusic-search-suggestions-section,
+ytmusic-search-box[opened] ytmusic-search-suggestion {
+  background: transparent !important;
+}
+ytmusic-search-box[opened] ytmusic-search-suggestion:hover,
+ytmusic-search-box[opened] ytmusic-search-suggestion[selected] {
+  background: rgba(255,255,255,.08) !important;
+}
+
+/* Chips como las píldoras de la app móvil: totalmente redondeadas, fondo blanco translúcido y
+   sin contorno; la seleccionada es blanca con texto oscuro. */
+ytmusic-chip-cloud-chip-renderer .gradient-box {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 999px !important;
+  padding: 0 !important;
+}
+ytmusic-chip-cloud-chip-renderer a {
+  display: inline-flex !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+  height: 36px !important;
+  padding: 0 16px !important;
+  border-radius: 999px !important;
+  border: none !important;
+  background: var(--md-pill) !important;
+  color: var(--md-text) !important;
+  transition: background-color .15s linear !important;
+}
+ytmusic-chip-cloud-chip-renderer a,
+ytmusic-chip-cloud-chip-renderer a * {
+  font-family: var(--m3-font) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  letter-spacing: .1px !important;
+}
+ytmusic-chip-cloud-chip-renderer a:hover { background: var(--md-pill-hover) !important; }
+ytmusic-chip-cloud-chip-renderer a:active { background: rgba(255,255,255,.22) !important; }
+ytmusic-chip-cloud-chip-renderer[is-selected] a {
+  background: var(--md-text) !important;
+  color: #030303 !important;
+}
+/* Selector Canción/Vídeo: cada opción lleva su icono (nota musical / vídeo) en vez de la marca */
+ytmusic-player-page ytmusic-av-toggle .av-toggle button::before {
+  content: "";
+  width: 22px;
+  height: 22px;
+  flex: none;
+  background: currentColor;
+  -webkit-mask: var(--md-av-icon) center / contain no-repeat;
+  mask: var(--md-av-icon) center / contain no-repeat;
+}
+ytmusic-player-page ytmusic-av-toggle .av-toggle .song-button { --md-av-icon: var(--m3-headphones); }
+ytmusic-player-page ytmusic-av-toggle .av-toggle .video-button { --md-av-icon: var(--m3-video); }
+
+/* ---------- Tarjetas (Spotify hover + carátulas Apple) ---------- */
+ytmusic-two-row-item-renderer {
+  padding: 10px !important;
+  margin-right: 6px !important;
+  border-radius: var(--md-radius) !important;
+  transition: background-color .15s linear !important;
+}
+ytmusic-two-row-item-renderer:hover {
+  background: var(--md-surface-3) !important;
+}
+ytmusic-two-row-item-renderer .image-wrapper,
+ytmusic-two-row-item-renderer ytmusic-thumbnail-renderer,
+ytmusic-two-row-item-renderer img {
+  border-radius: 8px !important;
+}
+ytmusic-two-row-item-renderer[aspect-ratio="MUSIC_TWO_ROW_ITEM_THUMBNAIL_ASPECT_RATIO_SQUARE"] .image-wrapper {
+  box-shadow: 0 8px 20px rgba(0,0,0,.45);
+}
+/* Artistas siguen siendo circulares */
+ytmusic-two-row-item-renderer[is-circular] .image-wrapper,
+ytmusic-two-row-item-renderer[is-circular] img {
+  border-radius: 50% !important;
+}
+
+/* Botón de reproducir que sube al pasar el ratón (Spotify) */
+ytmusic-two-row-item-renderer ytmusic-item-thumbnail-overlay-renderer {
+  background: transparent !important;
+}
+ytmusic-two-row-item-renderer ytmusic-play-button-renderer {
+  --ytmusic-play-button-background-color: var(--md-text) !important;
+  --ytmusic-play-button-icon-color: #000 !important;
+  --ytmusic-play-button-icon-loading-color: #000 !important;
+  /* YT dibuja el icono del tamaño del círculo (trae su propio disco); con el círculo blanco
+     el triángulo quedaba enorme. Icono a la mitad, centrado. */
+  --ytmusic-play-button-icon-size: 24px !important;
+  background: var(--md-text) !important;
+  color: #000 !important;
+  border-radius: 50% !important;
+  box-shadow: 0 6px 14px rgba(0,0,0,.5);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity .18s ease, transform .18s ease !important;
+}
+ytmusic-two-row-item-renderer:hover ytmusic-play-button-renderer,
+ytmusic-two-row-item-renderer ytmusic-play-button-renderer[state="playing"],
+ytmusic-two-row-item-renderer ytmusic-play-button-renderer[state="paused"] {
+  opacity: 1;
+  transform: none;
+}
+
+/* Listas (canciones) */
+ytmusic-responsive-list-item-renderer {
+  border-radius: 6px !important;
+}
+ytmusic-responsive-list-item-renderer:hover {
+  background: var(--md-surface-2) !important;
+}
+ytmusic-responsive-list-item-renderer ytmusic-thumbnail-renderer,
+ytmusic-responsive-list-item-renderer img {
+  border-radius: 4px !important;
+}
+
+/* ---------- Barra del reproductor (distribución de Spotify) ----------
+   Izquierda: carátula + título. Centro: controles con la barra de progreso debajo.
+   Derecha: volumen, repetir, aleatorio. Solo se reordena el grid de YT Music. */
+/* Un poco más alta que la de YT (72px) para que botones y barra de progreso no se pisen. */
+ytmusic-app, ytmusic-app-layout {
+  --ytmusic-player-bar-height: 92px !important;
+}
+/* Distribución con flujo real (sin posiciones calculadas), para que nada se pise al cambiar el
+   tamaño de la ventana:
+     [carátula + título] | [botones + ⋮ ]  | [me gusta · volumen · repetir · aleatorio · ▲]
+                         | [0:00 ━━━━ 3:30] |
+   La columna central tiene un ancho fijo proporcional y las laterales se reparten el resto
+   (minmax(0, 1fr): pueden encoger sin empujar al centro). preload.js mueve la píldora de
+   "me gusta" al bloque derecho y el menú "⋮" a la columna central. */
+ytmusic-player-bar {
+  --md-center-w: clamp(260px, 38vw, 600px);
+  height: var(--ytmusic-player-bar-height) !important;
+  /* Gris algo más claro que el fondo de la página para que la barra se distinga. */
+  background: var(--md-surface-2) !important;
+  border-top: 1px solid rgba(255,255,255,.06) !important;
+  box-sizing: border-box !important;
+  grid-template-columns: minmax(0, 1fr) var(--md-center-w) minmax(0, 1fr) !important;
+  grid-template-rows: auto auto !important;
+  grid-template-areas: "middle start end" "middle progress end" !important;
+  align-content: center !important;
+  column-gap: 24px !important;
+  row-gap: 2px !important;
+  padding: 0 16px !important;
+}
+ytmusic-player-bar .middle-controls,
+ytmusic-player-bar #right-controls {
+  grid-row: 1 / span 2 !important;
+  min-width: 0 !important;
+}
+/* Columna central: botones centrados y el "⋮" al final de la misma fila */
+ytmusic-player-bar #left-controls {
+  display: grid !important;
+  grid-template-columns: 1fr auto 1fr !important;
+  align-items: center !important;
+  width: auto !important;
+  padding: 0 !important;
+}
+ytmusic-player-bar #left-controls .left-controls-buttons { grid-column: 2 !important; }
+/* Ventanas estrechas: menos separación y columna central más contenida; por debajo de 760 px la
+   píldora deja solo "me gusta" para que el bloque derecho quepa sin invadir el centro.
+   (Por debajo de ~640 px YT cambia a su minirreproductor móvil.) */
+@media (max-width: 900px) {
+  ytmusic-player-bar {
+    /* 260 px: lo mínimo para anterior/play/siguiente centrados y el "⋮" al lado sin pisarse */
+    --md-center-w: clamp(260px, 36vw, 600px);
+    column-gap: 12px !important;
+  }
+}
+@media (max-width: 680px) {
+  ytmusic-player-bar {
+    column-gap: 8px !important;
+    padding: 0 12px !important;
+  }
+}
+@media (max-width: 760px) {
+  /* Más específico que la regla general (que va después en el archivo y si no ganaría) */
+  ytmusic-app ytmusic-player-bar { --md-like-w: 40px; }
+  ytmusic-player-bar ytmusic-like-button-renderer yt-button-shape.dislike { display: none !important; }
+  ytmusic-player-bar ytmusic-like-button-renderer yt-button-shape.like button {
+    width: 40px !important;
+    padding: 8px !important;
+  }
+}
+ytmusic-player-bar #left-controls ytmusic-menu-renderer {
+  grid-column: 3 !important;
+  justify-self: end !important;
+  margin: 0 !important;
+}
+/* Carátula separada del borde y del texto */
+ytmusic-player-bar .middle-controls .thumbnail-image-wrapper {
+  margin: 0 12px 0 0 !important;
+}
+ytmusic-player-bar .middle-controls .content-info-wrapper {
+  margin-left: 0 !important;
+}
+ytmusic-player-bar .right-controls-buttons { gap: 4px !important; }
+ytmusic-player-bar .middle-controls {
+  justify-content: flex-start !important;
+}
+ytmusic-player-bar .left-controls-buttons { gap: 4px !important; }
+ytmusic-player-bar #right-controls {
+  justify-content: flex-end !important;
+  gap: 8px !important;
+}
+/* Volumen: el deslizador es un panel flotante sobre su botón (preload crea .md-volume) */
+ytmusic-player-bar .md-volume {
+  position: relative !important;
+  display: inline-flex !important;
+}
+ytmusic-player-bar .md-volume #volume-slider {
+  position: absolute !important;
+  bottom: calc(100% + 12px) !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  width: 140px !important;
+  height: 40px !important;
+  margin: 0 !important;
+  padding: 0 14px !important;
+  box-sizing: border-box !important;
+  background: #2b2b2b !important; /* surface-container-high */
+  border-radius: 12px !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,.45) !important;
+  z-index: 3 !important;
+}
+/* Puente invisible para no perder el hover al subir del botón al panel */
+ytmusic-player-bar .md-volume #volume-slider::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 12px;
+}
+/* Todos los grupos de botones centrados en vertical (los de YT usan alineaciones distintas). */
+ytmusic-player-bar .left-controls-buttons,
+ytmusic-player-bar .middle-controls,
+ytmusic-player-bar .middle-controls-buttons,
+ytmusic-player-bar #right-controls,
+ytmusic-player-bar .right-controls-buttons {
+  align-items: center !important;
+}
+ytmusic-player-bar .middle-controls,
+ytmusic-player-bar #right-controls {
+  align-self: center !important;
+}
+ytmusic-player-bar .left-controls-buttons > *,
+ytmusic-player-bar .right-controls-buttons > * {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+/* El botón de abrir/cerrar Now Playing trae un margen de su tamaño original (28 px). */
+ytmusic-player-bar .toggle-player-page-button,
+ytmusic-player-bar .toggle-player-page-button #button {
+  margin: 0 !important;
+  top: 0 !important;
+}
+/* El "0:00 / 3:30" original se oculta: los tiempos van a los lados de la barra (abajo), y así
+   los botones quedan centrados exactamente sobre ella. */
+ytmusic-player-bar .time-info { display: none !important; }
+/* ---------- Material 3 en los controles de la barra ----------
+   Misma posición de todo; cambia solo el estilo: tokens de color neutros de M3 (oscuro),
+   escala tipográfica en Roboto, botones de icono de 40 px con capas de estado, botón de
+   reproducir relleno que cambia de forma, toggles tonales y slider con asa vertical. */
+:root {
+  --m3-on-surface: #e3e3e3;
+  --m3-on-surface-variant: #c4c7c5;
+  --m3-outline-variant: #444746;
+  --m3-primary: #e3e3e3;
+  --m3-on-primary: #1f1f1f;
+  --m3-secondary-container: #474747;
+  --m3-on-secondary-container: #e3e3e3;
+  --m3-surface-container: var(--md-surface-2);
+  --m3-outline: #8e918f;
+  /* Píldoras tonales de la app móvil: blanco translúcido sobre cualquier fondo */
+  --md-pill: rgba(255,255,255,.1);
+  --md-pill-hover: rgba(255,255,255,.16);
+  --m3-font: Roboto, "Segoe UI Variable Text", system-ui, sans-serif;
+  /* Iconos de Material Symbols (headphones, smart_display) para el selector Canción/Vídeo */
+  --m3-headphones: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'%3E%3Cpath d='M360-120H200q-33 0-56.5-23.5T120-200v-280q0-75 28.5-140.5t77-114q48.5-48.5 114-77T480-840q75 0 140.5 28.5t114 77q48.5 48.5 77 114T840-480v280q0 33-23.5 56.5T760-120H600v-320h160v-40q0-117-81.5-198.5T480-760q-117 0-198.5 81.5T200-480v40h160v320Z'/%3E%3C/svg%3E");
+  --m3-video: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'%3E%3Cpath d='m380-300 280-180-280-180v360ZM160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160H160Zm0-80h640v-480H160v480Z'/%3E%3C/svg%3E");
+  --m3-ease: cubic-bezier(.2, 0, 0, 1); /* "emphasized" de M3 */
+}
+ytmusic-player-bar, ytmusic-player-bar * { font-family: var(--m3-font) !important; }
+
+/* Tipografía: title-medium / body-medium / label-medium */
+ytmusic-player-bar .middle-controls .title {
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: 24px !important;
+  letter-spacing: .15px !important;
+  color: var(--m3-on-surface) !important;
+}
+ytmusic-player-bar .middle-controls .byline,
+ytmusic-player-bar .middle-controls .byline * {
+  font-size: 14px !important;
+  line-height: 20px !important;
+  letter-spacing: .25px !important;
+  color: var(--m3-on-surface-variant) !important;
+}
+ytmusic-player-bar .middle-controls .thumbnail-image-wrapper,
+ytmusic-player-bar .middle-controls img {
+  border-radius: 8px !important; /* forma "small" de M3 */
+}
+
+/* Botones de icono estándar: contenedor circular de 40 px, icono de 24 px */
+ytmusic-player-bar yt-icon-button:not(#play-pause-button),
+ytmusic-player-bar yt-icon-button:not(#play-pause-button) #button,
+ytmusic-player-bar yt-button-shape button,
+ytmusic-player-bar ytmusic-menu-renderer yt-button-shape button {
+  width: 40px !important;
+  height: 40px !important;
+  padding: 8px !important;
+  border-radius: 50% !important;
+  color: var(--m3-on-surface-variant) !important;
+  background-color: transparent !important;
+  transition: background-color .15s linear !important;
+}
+/* El relleno va solo en el botón interior; en el contenedor lo desplazaría 8 px hacia abajo. */
+ytmusic-player-bar yt-icon-button:not(#play-pause-button) { padding: 0 !important; }
+ytmusic-player-bar yt-icon-button:not(#play-pause-button) #button,
+ytmusic-player-bar yt-button-shape button { padding: 8px !important; }
+ytmusic-player-bar .previous-button #button,
+ytmusic-player-bar .next-button #button { color: var(--m3-on-surface) !important; }
+/* Capas de estado: 8 % al pasar, 12 % al pulsar */
+ytmusic-player-bar yt-icon-button:not(#play-pause-button) #button:hover,
+ytmusic-player-bar yt-button-shape button:hover {
+  background-color: rgba(227,227,227,.08) !important;
+}
+ytmusic-player-bar yt-icon-button:not(#play-pause-button) #button:active,
+ytmusic-player-bar yt-button-shape button:active {
+  background-color: rgba(227,227,227,.12) !important;
+}
+/* Toggles tonales: repetir activo y "me gusta" marcado */
+ytmusic-player-bar:not([repeat-mode="NONE"]) .repeat #button,
+ytmusic-player-bar yt-button-shape button[aria-pressed="true"] {
+  background-color: var(--m3-secondary-container) !important;
+  color: var(--m3-on-secondary-container) !important;
+}
+/* Indicador de foco de M3 */
+ytmusic-player-bar button:focus-visible {
+  outline: 3px solid var(--m3-on-surface) !important;
+  outline-offset: 2px !important;
+}
+/* Ripple de YT con el color y la opacidad de M3 */
+ytmusic-player-bar tp-yt-paper-ripple {
+  color: var(--m3-on-surface) !important;
+  opacity: .5;
+}
+
+/* Barra de progreso en la segunda fila de la columna central: slider de M3 (pista de 4 px,
+   asa vertical). Deja 50 px a cada lado para los tiempos. */
+ytmusic-player-bar #progress-bar {
+  --paper-slider-active-color: var(--m3-primary) !important;
+  --paper-slider-knob-color: var(--m3-primary) !important;
+  --paper-slider-container-color: var(--m3-outline-variant) !important;
+  --paper-slider-secondary-color: #5c5f5e !important;
+  --paper-slider-height: 4px !important;
+  grid-area: progress !important;
+  position: relative !important;
+  top: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  width: auto !important;
+  height: 24px !important;
+  transform: none !important;
+  overflow: visible !important;
+  margin: 0 50px !important;
+}
+/* El slider trae márgenes internos que desplazan la pista a la derecha: fuera, para centrarla. */
+ytmusic-player-bar #progress-bar #sliderContainer {
+  margin: 0 !important;
+  width: 100% !important;
+}
+ytmusic-player-bar #progress-bar .bar-container {
+  left: 0 !important;
+  right: 0 !important;
+  padding: 0 !important;
+}
+ytmusic-player-bar #progress-bar #sliderContainer,
+ytmusic-player-bar #progress-bar .bar-container { height: 24px !important; }
+ytmusic-player-bar #progress-bar #sliderBar {
+  padding: 10px 0 !important;
+  width: 100% !important;
+}
+/* Tiempos a los lados: transcurrido a la izquierda, total a la derecha (preload pone data-md-*) */
+ytmusic-player-bar #progress-bar::before,
+ytmusic-player-bar #progress-bar::after {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  font-family: var(--m3-font);
+  font-size: 12px; /* label-medium */
+  font-weight: 500;
+  letter-spacing: .5px;
+  line-height: 1;
+  color: var(--m3-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+ytmusic-player-bar #progress-bar::before {
+  content: attr(data-md-elapsed);
+  right: 100%;
+  margin-right: 6px;
+  text-align: right;
+}
+ytmusic-player-bar #progress-bar::after {
+  content: attr(data-md-total);
+  left: 100%;
+  margin-left: 6px;
+  text-align: left;
+}
+/* Pista con extremos redondeados (el progreso usa scaleX, así que se recorta el contenedor) */
+ytmusic-player-bar #progress-bar #progressContainer {
+  border-radius: 2px !important;
+  overflow: hidden !important;
+}
+ytmusic-player-bar #progress-bar #primaryProgress { background: var(--m3-primary) !important; }
+/* Asa de M3: barra vertical de 4×16 px con un "hueco" del color de la barra alrededor
+   (box-shadow: sin capas extra). Siempre visible, como en M3. */
+/* El contenedor del asa trae 34 px de alto (la fila original); con la fila de 24 px el asa
+   quedaba 5 px por debajo de la pista. Mismo alto que la fila y centrado. */
+ytmusic-player-bar #progress-bar .slider-knob {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 24px !important;
+  top: 0 !important;
+  margin-top: 0 !important;
+}
+ytmusic-player-bar #progress-bar .slider-knob-inner {
+  width: 4px !important;
+  height: 16px !important;
+  margin: 0 !important;
+  border: none !important;
+  border-radius: 2px !important;
+  background: var(--m3-primary) !important;
+  box-shadow: 0 0 0 3px var(--m3-surface-container) !important;
+  transform: none !important;
+  transition: height .15s var(--m3-ease) !important;
+}
+ytmusic-player-bar #progress-bar:hover .slider-knob-inner,
+ytmusic-player-bar #progress-bar[dragging] .slider-knob-inner {
+  height: 20px !important;
+}
+
+/* Reproducir/pausa: botón relleno (primary), siempre circular. */
+#play-pause-button.ytmusic-player-bar {
+  width: 44px !important;
+  height: 44px !important;
+  padding: 0 !important;
+  margin: 0 16px !important;
+}
+#play-pause-button.ytmusic-player-bar #button {
+  width: 44px !important;
+  height: 44px !important;
+  padding: 10px !important;
+  background: var(--m3-primary) !important;
+  border-radius: 50% !important;
+  color: var(--m3-on-primary) !important;
+  transition: box-shadow .15s linear !important;
+}
+
+/* Me gusta / No me gusta como en la app móvil: una sola píldora tonal con una línea divisoria
+   fina en medio. Al marcar no cambia el fondo: YT cambia el icono a relleno, como en el móvil.
+   Sigue en su sitio del DOM (si se mueve, YT confunde sus clics con clics en la barra) y se
+   dibuja junto al volumen con anclaje CSS: el bloque derecho es el ancla y además reserva el
+   hueco de la píldora con padding, así el flujo sigue evitando solapes. */
+ytmusic-player-bar #right-controls {
+  padding-left: calc(var(--md-like-w) + 8px) !important;
+  /* Su zona vacía (incluido el hueco reservado para la píldora) no recoge clics: así llegan
+     a la píldora, que está debajo en el orden de hit-testing. Sus botones sí los reciben. */
+  pointer-events: none !important;
+}
+ytmusic-player-bar #right-controls > * {
+  pointer-events: auto !important;
+}
+/* El ancla es el grupo de botones (volumen…), no todo el bloque, que ocupa la columna entera. */
+ytmusic-player-bar #right-controls .right-controls-buttons {
+  anchor-name: --md-right-controls;
+}
+ytmusic-player-bar {
+  --md-like-w: 105px; /* 52 + 1 + 52 */
+}
+/* Su referencia de posición debe ser la barra (que contiene el ancla), no sus contenedores. */
+ytmusic-player-bar .middle-controls,
+ytmusic-player-bar .middle-controls-buttons {
+  position: static !important;
+}
+ytmusic-player-bar ytmusic-like-button-renderer {
+  position: absolute !important;
+  position-anchor: --md-right-controls;
+  /* Borde derecho de la píldora a 8 px del borde izquierdo del grupo de botones */
+  left: auto !important;
+  right: calc(anchor(left) + 8px) !important;
+  top: anchor(center) !important;
+  translate: 0 -50% !important;
+  /* Por encima del bloque derecho (que va después en el DOM y la tapaba): si no, el clic
+     caía en la barra y abría Now Playing. */
+  z-index: 2 !important;
+  width: var(--md-like-w) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  flex: none !important;
+  gap: 0 !important;
+  margin: 0 !important;
+  height: 40px !important;
+  border-radius: 20px !important;
+  background: var(--md-pill) !important;
+  overflow: hidden !important;
+}
+ytmusic-player-bar ytmusic-like-button-renderer .like-button-wrapper,
+ytmusic-player-bar ytmusic-like-button-renderer yt-button-shape {
+  margin: 0 !important;
+}
+ytmusic-player-bar ytmusic-like-button-renderer yt-button-shape.dislike {
+  position: relative !important;
+}
+ytmusic-player-bar ytmusic-like-button-renderer yt-button-shape.dislike::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 1px;
+  background: rgba(255,255,255,.22);
+  pointer-events: none;
+}
+ytmusic-player-bar ytmusic-like-button-renderer yt-button-shape button {
+  width: 52px !important;
+  height: 40px !important;
+  border-radius: 0 !important;
+  background-color: transparent !important;
+  color: var(--md-text) !important;
+  transition: background-color .15s linear !important;
+}
+ytmusic-player-bar ytmusic-like-button-renderer yt-button-shape.like button { padding: 8px 12px 8px 16px !important; }
+ytmusic-player-bar ytmusic-like-button-renderer yt-button-shape.dislike button { padding: 8px 16px 8px 12px !important; }
+ytmusic-player-bar ytmusic-like-button-renderer yt-button-shape button:hover { background-color: rgba(255,255,255,.08) !important; }
+ytmusic-player-bar ytmusic-like-button-renderer yt-button-shape button:active { background-color: rgba(255,255,255,.14) !important; }
+/* Capa de estado sobre el relleno: on-primary al 8 % / 12 % */
+#play-pause-button.ytmusic-player-bar #button:hover { box-shadow: inset 0 0 0 44px rgba(31,31,31,.08); }
+#play-pause-button.ytmusic-player-bar #button:active { box-shadow: inset 0 0 0 44px rgba(31,31,31,.12); }
+#play-pause-button.ytmusic-player-bar yt-icon {
+  width: 24px !important;
+  height: 24px !important;
+  color: var(--m3-on-primary) !important;
+  fill: var(--m3-on-primary) !important;
+}
+
+/* ---------- Now Playing (Apple Music) ---------- */
+/* Fondo con la carátula difuminada. Truco de rendimiento: el blur se aplica a una capa de
+   64×64 px y luego se escala ×40 en la GPU, así el coste es mínimo y solo se repinta al
+   cambiar de canción. --md-art lo pone preload.js. */
+ytmusic-player-page {
+  background: var(--md-surface) !important;
+  overflow: hidden !important;
+  /* YT la deja siempre en su propia capa (will-change: transform); con el panel de la cola en
+     una posición fraccionaria, el texto se pintaba sin antialias de subpíxel y se veía borroso.
+     Chromium sigue creando la capa por su cuenta mientras dura la animación de abrir/cerrar. */
+  will-change: auto !important;
+}
+/* Degradado con el color de la carátula, bien presente (Apple Music). */
+ytmusic-player-page::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 64px;
+  height: 64px;
+  background: var(--md-art, none) center / cover no-repeat;
+  filter: blur(4px) saturate(1.6) brightness(.55);
+  transform-origin: 0 0;
+  transform: scale(40);
+  pointer-events: none;
+}
+ytmusic-player-page::after {
+  /* Oscurece hacia abajo para que el texto y la barra se lean con carátulas claras. */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,.15), rgba(0,0,0,.55));
+  pointer-events: none;
+}
+
+/* Carátula: tope de tamaño para que quepan título y artista debajo (solo en modo canción;
+   el vídeo conserva el tamaño de YT Music). */
+ytmusic-player-page {
+  --md-np-art: calc(100vh - 360px);
+}
+ytmusic-player-page #player[playback-mode="ATV_PREFERRED"] {
+  max-width: var(--md-np-art) !important;
+  max-height: var(--md-np-art) !important;
+}
+/* Título y artista grandes (Apple Music). preload.js pone los data-md-* en #main-panel. */
+ytmusic-player-page #main-panel::after,
+ytmusic-player-page #main-panel::before {
+  order: 10;
+  display: block;
+  width: min(100%, var(--md-np-art));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+ytmusic-player-page #main-panel::after {
+  content: attr(data-md-title);
+  font-family: var(--md-font-display);
+  margin-top: 20px;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  /* Alto de línea con hueco para los trazos descendentes (g, p, y): overflow: hidden (para los
+     puntos suspensivos) los recortaba con 1.2. */
+  line-height: 1.35;
+  padding-bottom: 2px;
+  color: var(--md-text);
+}
+ytmusic-player-page #main-panel::before {
+  content: attr(data-md-artist);
+  order: 11;
+  margin-top: 4px;
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--md-text-2);
+}
+/* Selector Canción/Vídeo: si no hay vídeo YT lo deja desactivado; se oculta sin mover la carátula. */
+ytmusic-player-page ytmusic-av-toggle[toggle-disabled] { visibility: hidden !important; }
+ytmusic-player-page > .content {
+  position: relative;
+  z-index: 1;
+}
+ytmusic-player-page #song-image img,
+ytmusic-player-page #thumbnail img,
+ytmusic-player-page #song-image,
+ytmusic-player-page #player.ytmusic-player-page {
+  border-radius: 12px !important;
+}
+ytmusic-player-page #song-image {
+  box-shadow: 0 24px 60px rgba(0,0,0,.55);
+}
+/* Panel de cola/letra como tarjeta translúcida (color sólido con alfa, sin backdrop-filter) */
+ytmusic-player-page #side-panel {
+  background: rgba(0,0,0,.28) !important;
+  border-radius: var(--md-radius) !important;
+  padding: 0 8px !important;
+  box-sizing: border-box !important;
+}
+/* En ventanas pequeñas YT apila carátula y cola: que nada genere scroll horizontal. */
+ytmusic-player-page > .content { overflow-x: hidden !important; }
+/* Pestañas: "primary tabs" de Material 3. Etiqueta title-small, indicador de 3 px con
+   esquinas superiores redondeadas, divisor de 1 px y capa de estado al pasar el ratón. */
+ytmusic-player-page tp-yt-paper-tabs {
+  --paper-tabs-selection-bar-color: var(--m3-primary) !important;
+  border-bottom: 1px solid var(--m3-outline-variant) !important;
+}
+ytmusic-player-page tp-yt-paper-tab {
+  height: 48px !important;
+  color: var(--m3-on-surface-variant) !important;
+  text-transform: none !important;
+  transition: background-color .15s linear !important;
+}
+ytmusic-player-page tp-yt-paper-tab,
+ytmusic-player-page tp-yt-paper-tab * {
+  font-family: var(--m3-font) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  letter-spacing: .1px !important;
+}
+ytmusic-player-page tp-yt-paper-tab:hover { background: rgba(227,227,227,.08) !important; }
+ytmusic-player-page tp-yt-paper-tab:active { background: rgba(227,227,227,.12) !important; }
+ytmusic-player-page tp-yt-paper-tab.iron-selected,
+ytmusic-player-page tp-yt-paper-tab[aria-selected="true"] {
+  color: var(--m3-primary) !important;
+}
+ytmusic-player-page tp-yt-paper-tabs #selectionBar {
+  height: 3px !important;
+  border: none !important;
+  border-radius: 3px 3px 0 0 !important;
+  background: var(--m3-primary) !important;
+}
+ytmusic-player-queue-item {
+  border-radius: 8px !important;
+  border-bottom: none !important;
+}
+ytmusic-player-queue-item:hover { background: rgba(255,255,255,.08) !important; }
+ytmusic-player-queue-item[selected],
+ytmusic-player-queue-item[play-button-state="playing"],
+ytmusic-player-queue-item[play-button-state="paused"] {
+  background: rgba(255,255,255,.14) !important;
+}
+ytmusic-player-queue-item img { border-radius: 4px !important; }
+/* Selector Canción/Vídeo */
+/* Selector Canción/Vídeo como en la app móvil: solo iconos (auriculares / vídeo) dentro de una
+   píldora oscura; el elegido va en una píldora interior algo más clara. El texto se oculta con
+   font-size 0, así los lectores de pantalla lo siguen leyendo. */
+ytmusic-player-page ytmusic-av-toggle { background: transparent !important; }
+ytmusic-player-page ytmusic-av-toggle .av-toggle {
+  display: inline-flex !important;
+  gap: 4px !important;
+  height: 44px !important;
+  padding: 4px !important;
+  border: none !important;
+  border-radius: 22px !important;
+  background: rgba(0,0,0,.32) !important;
+  box-sizing: border-box !important;
+}
+ytmusic-player-page ytmusic-av-toggle .av-toggle::before,
+ytmusic-player-page ytmusic-av-toggle .av-toggle::after { display: none !important; }
+ytmusic-player-page ytmusic-av-toggle .av-toggle button {
+  /* Sin esto Chromium pinta el botón nativo claro de Windows: solo cuenta los fondos de la
+     propia página, no los de esta hoja de usuario. */
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 0 !important;
+  width: 56px !important;
+  height: 36px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 18px !important;
+  background: transparent !important;
+  color: rgba(255,255,255,.7) !important;
+  font-size: 0 !important;
+  transition: background-color .15s linear, color .15s linear !important;
+}
+ytmusic-player-page ytmusic-av-toggle .av-toggle button:hover { background: rgba(255,255,255,.08) !important; }
+ytmusic-player-page ytmusic-av-toggle .av-toggle button[aria-pressed="true"] {
+  background: var(--md-pill-hover) !important;
+  color: var(--md-text) !important;
+}
+/* Letras grandes estilo Apple Music */
+ytmusic-player-page ytmusic-description-shelf-renderer .description {
+  font-size: 22px !important;
+  line-height: 1.45 !important;
+  font-weight: 700 !important;
+  color: rgba(255,255,255,.9) !important;
+}
+
+/* ---------- Cola de Now Playing en Material 3 ----------
+   Panel = surface container con esquinas de 16 px; cabecera con botón contorneado; fila de
+   reproducción automática con interruptor M3; canciones como elementos de lista de dos
+   líneas (64 px) y subcabecera con divisor. Todo en Roboto con la escala tipográfica de M3. */
+ytmusic-player-page #side-panel,
+ytmusic-player-page #side-panel * {
+  font-family: var(--m3-font) !important;
+}
+ytmusic-player-page #side-panel {
+  background: rgba(30,30,30,.62) !important;
+  border-radius: 16px !important;
+  padding: 0 8px !important;
+}
+/* Cabecera: "Reproduciendo de" (label-medium) / nombre de la cola (title-medium) */
+ytmusic-player-page ytmusic-queue-header-renderer {
+  padding: 12px 8px 4px !important;
+  align-items: center !important;
+}
+ytmusic-player-page ytmusic-queue-header-renderer .container-name > :first-child {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: .5px !important;
+  color: var(--m3-on-surface-variant) !important;
+}
+ytmusic-player-page ytmusic-queue-header-renderer .container-name > :last-child {
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: 24px !important;
+  letter-spacing: .15px !important;
+  color: var(--m3-on-surface) !important;
+}
+/* "Guardar": píldora tonal de 40 px con icono de 18 px, como las de la app móvil */
+ytmusic-player-page ytmusic-queue-header-renderer #buttons ytmusic-chip-cloud-chip-renderer .gradient-box,
+ytmusic-player-page ytmusic-queue-header-renderer #buttons ytmusic-chip-cloud-chip-renderer a {
+  border-radius: 20px !important;
+}
+ytmusic-player-page ytmusic-queue-header-renderer #buttons ytmusic-chip-cloud-chip-renderer a {
+  height: 40px !important;
+  padding: 0 16px 0 12px !important;
+  gap: 8px !important;
+  color: var(--md-text) !important;
+}
+ytmusic-player-page ytmusic-queue-header-renderer #buttons yt-icon {
+  width: 18px !important;
+  height: 18px !important;
+  margin: 0 !important;
+}
+
+/* Fila de reproducción automática: elemento de lista con interruptor al final.
+   (Hay dos .autoplay: la fila del interruptor cuelga de un div y la subcabecera de la cola de
+   ytmusic-player-queue; se distinguen por el padre, sin :has(), que es más caro.) */
+ytmusic-player-page #side-panel div > .autoplay {
+  padding: 8px !important;
+  margin: 4px 0 !important;
+  align-items: center !important;
+}
+ytmusic-player-page #side-panel div > .autoplay > div:first-child > :first-child {
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+  letter-spacing: .5px !important;
+  color: var(--m3-on-surface) !important;
+}
+ytmusic-player-page #side-panel div > .autoplay > div:first-child > :last-child:not(:first-child) {
+  font-size: 12px !important;
+  line-height: 16px !important;
+  letter-spacing: .4px !important;
+  color: var(--m3-on-surface-variant) !important;
+}
+/* Interruptor M3: pista de 52×32; apagado = contorno con asa de 16 px; encendido = relleno
+   primary con asa de 24 px. Solo se animan transform y colores. */
+ytmusic-player-page #automix {
+  width: 52px !important;
+  height: 32px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+ytmusic-player-page #automix .toggle-container {
+  width: 52px !important;
+  height: 32px !important;
+  padding: 0 !important;
+}
+ytmusic-player-page #automix #toggleBar {
+  top: 0 !important;
+  left: 0 !important;
+  width: 52px !important;
+  height: 32px !important;
+  box-sizing: border-box !important;
+  border-radius: 16px !important;
+  opacity: 1 !important;
+  background: rgba(54,54,54,.9) !important;
+  border: 2px solid var(--m3-outline) !important;
+  transition: background-color .2s linear, border-color .2s linear !important;
+}
+ytmusic-player-page #automix #toggleButton {
+  top: 0 !important;
+  left: 0 !important;
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 50% !important;
+  box-shadow: none !important;
+  background: var(--m3-outline) !important;
+  transform: translate(8px, 8px) !important;
+  transition: transform .2s var(--m3-ease), width .2s var(--m3-ease), height .2s var(--m3-ease), background-color .2s linear !important;
+}
+ytmusic-player-page #automix[checked] #toggleBar {
+  background: var(--m3-primary) !important;
+  border-color: var(--m3-primary) !important;
+}
+ytmusic-player-page #automix[checked] #toggleButton {
+  width: 24px !important;
+  height: 24px !important;
+  background: var(--m3-on-primary) !important;
+  transform: translate(24px, 4px) !important;
+}
+ytmusic-player-page #automix .toggle-label { display: none !important; }
+
+/* Subcabecera "Reproducción automática activada" con divisor encima */
+ytmusic-player-page ytmusic-player-queue > .autoplay {
+  margin: 8px 0 4px !important;
+  padding: 16px 8px 8px !important;
+  border-top: 1px solid var(--m3-outline-variant) !important;
+}
+ytmusic-player-page ytmusic-player-queue > .autoplay .title {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  letter-spacing: .1px !important;
+  color: var(--m3-on-surface-variant) !important;
+}
+
+/* Canciones: elemento de lista de dos líneas (64 px), miniatura de 40 px con esquinas de 8 px */
+ytmusic-player-page ytmusic-player-queue-item {
+  min-height: 64px !important;
+  padding: 0 12px 0 8px !important;
+  border-radius: 12px !important;
+  transition: background-color .15s linear !important;
+}
+ytmusic-player-page ytmusic-player-queue-item .left-items,
+ytmusic-player-page ytmusic-player-queue-item .left-items yt-img-shadow,
+ytmusic-player-page ytmusic-player-queue-item .left-items img,
+ytmusic-player-page ytmusic-player-queue-item .left-items ytmusic-item-thumbnail-overlay-renderer {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 8px !important;
+}
+ytmusic-player-page ytmusic-player-queue-item .left-items { margin-right: 16px !important; }
+ytmusic-player-page ytmusic-player-queue-item .song-title {
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+  letter-spacing: .5px !important;
+  color: var(--m3-on-surface) !important;
+}
+ytmusic-player-page ytmusic-player-queue-item .byline-wrapper,
+ytmusic-player-page ytmusic-player-queue-item .byline-wrapper * {
+  font-size: 14px !important;
+  line-height: 20px !important;
+  letter-spacing: .25px !important;
+  color: var(--m3-on-surface-variant) !important;
+}
+ytmusic-player-page ytmusic-player-queue-item .duration {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: .5px !important;
+  color: var(--m3-on-surface-variant) !important;
+  font-variant-numeric: tabular-nums;
+}
+ytmusic-player-page ytmusic-player-queue-item:hover { background: rgba(227,227,227,.08) !important; }
+ytmusic-player-page ytmusic-player-queue-item:active { background: rgba(227,227,227,.12) !important; }
+/* La que suena: estado "seleccionado" de M3 (secondary container) */
+ytmusic-player-page ytmusic-player-queue-item[selected] {
+  background: var(--m3-secondary-container) !important;
+}
+ytmusic-player-page ytmusic-player-queue-item[selected] .song-title {
+  color: var(--m3-on-secondary-container) !important;
+  font-weight: 500 !important;
+}
+ytmusic-player-queue-item { contain-intrinsic-size: auto 64px !important; }
+
+/* Espacio para la barra flotante al final del contenido */
+ytmusic-app-layout > #content { padding-bottom: calc(var(--md-gap) * 2) !important; }
+
+/* ---------- Rendimiento ---------- */
+/* No calcular ni pintar estanterías fuera de pantalla. */
+ytmusic-carousel-shelf-renderer,
+ytmusic-shelf-renderer,
+ytmusic-grid-renderer,
+ytmusic-immersive-carousel-shelf-renderer {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 360px;
+}
+ytmusic-responsive-list-item-renderer {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 56px;
+}
+ytmusic-player-queue-item {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 64px;
+}
+/* El reproductor a pantalla completa no debe costar nada cuando está cerrado. */
+ytmusic-app-layout:not([player-page-open]) ytmusic-player-page {
+  content-visibility: hidden;
+}
