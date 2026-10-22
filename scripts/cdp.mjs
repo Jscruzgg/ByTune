@@ -111,6 +111,33 @@ if (cmd === 'eval') {
   }
   await send('Emulation.clearDeviceMetricsOverride');
   console.log(failures ? `${failures} problemas` : 'Sin solapes en ningún ancho');
+} else if (cmd === 'navcheck') {
+  // Barra superior en varios anchos: buscador centrado y sin pisar logo ni avatar.
+  const widths = (args[0] || '1920,1600,1440,1280,1100,1000,940,900,860,800,760,700,640').split(',').map(Number);
+  let failures = 0;
+  for (const width of widths) {
+    await send('Emulation.setDeviceMetricsOverride', { width, height: 820, deviceScaleFactor: 1, mobile: false });
+    await new Promise((r) => setTimeout(r, 900));
+    const r = await evaluate(`(() => {
+      const vis = (e) => e && e.getBoundingClientRect().width > 1 && getComputedStyle(e).visibility !== 'hidden';
+      const box = (e) => e.getBoundingClientRect();
+      const sb = document.querySelector('ytmusic-nav-bar ytmusic-search-box');
+      const logo = document.querySelector('ytmusic-nav-bar ytmusic-logo');
+      const right = [...document.querySelectorAll('ytmusic-nav-bar #right-content > *')].filter(vis);
+      // En ventanas estrechas YT deja solo el icono de búsqueda (≈ 54 px) en su sitio.
+      if (!vis(sb) || box(sb).width < 100) return { collapsed: true };
+      const s = box(sb);
+      const rightLeft = Math.min(...right.map((e) => box(e).left));
+      const logoRight = vis(logo) ? box(logo).right : 0;
+      return { w: Math.round(s.width), offCenter: Math.round((s.left + s.right) / 2 - innerWidth / 2), gapLeft: Math.round(s.left - logoRight), gapRight: Math.round(rightLeft - s.right) };
+    })()`);
+    if (r.collapsed) { console.log(`${String(width).padStart(4)} px · YT muestra solo el icono de búsqueda`); continue; }
+    const ok = Math.abs(r.offCenter) <= 6 && r.gapLeft >= 16 && r.gapRight >= 16;
+    if (!ok) failures++;
+    console.log(`${String(width).padStart(4)} px · ancho ${r.w} · desvío del centro ${r.offCenter}px · libre izq ${r.gapLeft} / der ${r.gapRight} · ${ok ? 'ok' : 'PROBLEMA'}`);
+  }
+  await send('Emulation.clearDeviceMetricsOverride');
+  console.log(failures ? `${failures} problemas` : 'Buscador centrado y sin solapes en todos los anchos');
 } else if (cmd === 'click') {
   // Clic real de ratón (Input de CDP) en el centro del elemento: node scripts/cdp.mjs click "<selector>"
   const p = await evaluate(`(() => { const e = document.querySelector(${JSON.stringify(args[0])}); if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);

@@ -49,7 +49,31 @@ function arrangeBar(bar) {
   }
 }
 
+// Botón "atrás" en la barra superior (YT Music no trae uno). YT navega con el historial del
+// navegador, así que basta con history.back(); se desactiva cuando no hay a dónde volver.
+function updateBack(btn) {
+  const can = window.navigation ? window.navigation.canGoBack : history.length > 1;
+  if (btn.disabled === can) btn.disabled = !can;
+}
+function ensureBackButton() {
+  const nav = document.querySelector('ytmusic-nav-bar');
+  if (!nav) return;
+  let btn = nav.querySelector(':scope > .md-back');
+  if (!btn) {
+    btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'md-back';
+    btn.title = 'Atrás';
+    btn.setAttribute('aria-label', 'Atrás');
+    btn.addEventListener('click', () => history.back());
+    nav.appendChild(btn);
+    if (window.navigation) window.navigation.addEventListener('currententrychange', () => updateBack(btn));
+  }
+  updateBack(btn);
+}
+
 function read() {
+  ensureBackButton();
   const bar = document.querySelector(MAIN_BAR);
   if (!bar) return;
   arrangeBar(bar);

@@ -8,6 +8,43 @@ ytmusic-nav-bar {
   padding-right: var(--md-wco-space) !important;
   box-sizing: border-box !important;
 }
+/* Botón "atrás" (lo crea preload.js): círculo oscuro con flecha, justo a la derecha de la zona
+   del logo (240 px), como en Spotify. */
+ytmusic-nav-bar .md-back {
+  position: absolute;
+  top: 50%;
+  left: 256px;
+  translate: 0 -50%;
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0,0,0,.55);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-app-region: no-drag;
+  transition: background-color .15s linear, opacity .15s linear;
+}
+ytmusic-nav-bar .md-back::before {
+  content: "";
+  width: 22px;
+  height: 22px;
+  background: currentColor;
+  /* chevron_left de Material Symbols */
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'%3E%3Cpath d='M560-240 320-480l240-240 56 56-184 184 184 184-56 56Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'%3E%3Cpath d='M560-240 320-480l240-240 56 56-184 184 184 184-56 56Z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+ytmusic-nav-bar .md-back:hover:not(:disabled) { background: rgba(255,255,255,.14); }
+ytmusic-nav-bar .md-back:disabled { opacity: .35; cursor: default; }
+ytmusic-nav-bar .md-back:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
 /* Ventana ancha: el avatar va en posición absoluta (el padding no le afecta) y se aparta con
    right. En el flujo normal right no hace nada, así que cada regla actúa en su caso. */
 ytmusic-nav-bar #right-content {
