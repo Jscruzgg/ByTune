@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, Notification, globalShortcut, ipcMain, nativeImage, nativeTheme, screen, shell } = require('electron');
+const { app, BrowserWindow, Tray, Menu, Notification, dialog, globalShortcut, ipcMain, nativeImage, nativeTheme, screen, shell } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { pickLang, t, STRINGS } = require('./lib/i18n');
@@ -240,6 +240,7 @@ function buildTrayMenu() {
   return Menu.buildFromTemplate([
     { label: trackLabel(), enabled: false },
     { type: 'separator' },
+    ...(updateReady ? [{ label: t(lang, 'upd.tray', { version: updateReady }), click: installUpdate }, { type: 'separator' }] : []),
     { label: t(lang, track.playing ? 'tray.pause' : 'tray.play'), click: () => player('playPause') },
     { label: t(lang, 'tray.next'), click: () => player('next') },
     { label: t(lang, 'tray.previous'), click: () => player('previous') },
@@ -637,6 +638,51 @@ ipcMain.handle('settings:set', (e, patch) => {
   return settingsView();
 });
 
+// --- Actualizaciones automáticas ---
+// En cada arranque se mira en los releases de GitHub (repo público, sin token) si hay una versión
+// más nueva; se descarga en segundo plano y se ofrece reiniciar. Si se deja para luego, se instala
+// al salir. Solo en la app instalada: la portable no tiene instalador que sustituir y la copia de
+// desarrollo no está empaquetada. Sin conexión no se avisa de nada: se reintenta al próximo arranque.
+let updater = null;
+let updateReady = null; // versión descargada y lista para instalar
+function updateLog(level, msg) {
+  try { fs.appendFileSync(path.join(app.getPath('userData'), 'updater.log'), `${new Date().toISOString()} ${level} ${msg}\n`); } catch {}
+}
+function installUpdate() {
+  if (!updater || !updateReady) return;
+  quitting = true; // si no, "cerrar a la bandeja" esconde la ventana en vez de dejar salir
+  updater.quitAndInstall();
+}
+async function askToRestart() {
+  const parent = win && win.isVisible() ? win : undefined;
+  const { response } = await dialog.showMessageBox(parent, {
+    type: 'info',
+    title: t(lang, 'upd.title'),
+    message: t(lang, 'upd.title'),
+    detail: t(lang, 'upd.body', { version: updateReady }),
+    buttons: [t(lang, 'upd.restart'), t(lang, 'upd.later')],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true,
+  });
+  if (response === 0) installUpdate();
+}
+function setupUpdates() {
+  if (!app.isPackaged || process.env.PORTABLE_EXECUTABLE_DIR) return;
+  try { updater = require('electron-updater').autoUpdater; } catch { return; }
+  const log = (level) => (m) => updateLog(level, String(m));
+  updater.logger = { info: log('info'), warn: log('warn'), error: log('error'), debug: () => {} };
+  updater.autoDownload = true;
+  updater.autoInstallOnAppQuit = true;
+  updater.on('update-downloaded', (info) => {
+    updateReady = info.version;
+    refreshUi();
+    askToRestart();
+  });
+  updater.on('error', (e) => updateLog('error', (e && e.message) || e));
+  updater.checkForUpdates().catch(() => {});
+}
+
 app.on('second-instance', showWindow);
 app.on('before-quit', () => { quitting = true; saveSettings(); });
 app.on('will-quit', () => globalShortcut.unregisterAll());
@@ -653,6 +699,7 @@ app.whenReady().then(() => {
   // Atajos globales (las teclas multimedia del teclado ya funcionan solas vía Windows).
   registerPlayerShortcuts();
   applyQuickMenuShortcut(settings.quickMenu);
+  setupUpdates();
 });
 
 app.on('window-all-closed', () => {

@@ -33,6 +33,13 @@ const STRINGS = {
     'set.next': 'Reproducir a continuación',
     'set.title': 'Ajustes',
 
+    // Actualizaciones
+    'upd.title': 'Actualización lista',
+    'upd.body': 'Music Desktop {version} ya está descargada. Reinicia para instalarla; si no, se instalará al salir.',
+    'upd.restart': 'Reiniciar ahora',
+    'upd.later': 'Más tarde',
+    'upd.tray': 'Reiniciar para actualizar a {version}',
+
     // Botón atrás
     'nav.back': 'Atrás',
 
@@ -81,6 +88,13 @@ const STRINGS = {
     'set.queue': 'Add to the end of the queue',
     'set.next': 'Play next',
     'set.title': 'Settings',
+
+    // Updates
+    'upd.title': 'Update ready',
+    'upd.body': 'Music Desktop {version} has been downloaded. Restart to install it; otherwise it installs when you quit.',
+    'upd.restart': 'Restart now',
+    'upd.later': 'Later',
+    'upd.tray': 'Restart to update to {version}',
 
     // Back button
     'nav.back': 'Back',

@@ -5,10 +5,16 @@ Cliente de escritorio (Electron) para YouTube Music: abre music.youtube.com en s
 ## Instalar (Windows)
 
 1. Ve a **Releases** en GitHub y descarga la última versión:
-   - `Music Desktop Setup x.y.z.exe`: instalador (crea accesos directos y desinstalador).
-   - `Music Desktop x.y.z.exe`: versión portable, no hace falta instalar.
+   - `Music-Desktop-Setup-x.y.z.exe`: instalador (crea accesos directos y desinstalador; se actualiza solo).
+   - `Music-Desktop-x.y.z-portable.exe`: versión portable, no hace falta instalar (no se actualiza sola).
 2. Ejecútalo. Como no está firmado, Windows SmartScreen puede avisar: *Más información → Ejecutar de todas formas*.
 3. Inicia sesión con tu cuenta de Google dentro de la app (se recuerda entre reinicios).
+
+## Actualizaciones
+
+La app instalada busca una versión nueva en los Releases de GitHub cada vez que se abre. Si la hay, la descarga en segundo plano y pregunta si reiniciar para instalarla; si eliges "Más tarde", se instala al salir (también puedes hacerlo desde el icono de la bandeja). La versión portable no se actualiza sola. El registro está en `%APPDATA%\Music Desktop\updater.log`.
+
+Para publicar una versión: sube `version` en `package.json`, haz commit y push, y ejecuta `npm run release` (necesita `gh` con sesión iniciada). El script comprueba tests, que no haya cambios sin subir y que la versión no exista, compila y publica el instalador, su `.blockmap` y `latest.yml`.
 
 ## Compilar desde el código
 
