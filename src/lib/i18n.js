@@ -59,6 +59,7 @@ const STRINGS = {
     'qm.queueHint': 'a la cola',
     'qm.nextHint': 'a continuación',
     'qm.close': 'cerrar',
+    'qm.playback': 'anterior / pausa / siguiente',
   },
   en: {
     // System tray
@@ -117,6 +118,7 @@ const STRINGS = {
     'qm.queueHint': 'add to queue',
     'qm.nextHint': 'play next',
     'qm.close': 'close',
+    'qm.playback': 'previous / pause / next',
   },
 };
 

@@ -52,7 +52,7 @@ npm run dist
 - Notification on song change, "Start with Windows" option.
 - Keyboard media keys and the Windows media panel (via Chromium).
 - Quick menu (`Ctrl+Shift+Space` by default) to search songs, jump to playlists and control playback; settings menu under the gear icon.
-- Global shortcuts: `Ctrl+Alt+Space` play/pause, `Ctrl+Alt+→/←` next/previous, `Ctrl+Alt+M` show/hide.
+- Global shortcuts: `Ctrl+Alt+→/←` next/previous, `Ctrl+Alt+M` show/hide. Play/pause: media key, or `Alt+↓` in the quick menu (`Alt+←/→` previous/next).
 - In the window: `F5` reload, `Alt+←/→` back/forward, `Ctrl +/-/0` zoom.
 - External links open in your browser.
 - Remembers the window size and position.

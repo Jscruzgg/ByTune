@@ -237,6 +237,7 @@ if (typeof document !== 'undefined') {
       hint('↑↓', t('qm.move')),
       hint('Enter', t('qm.playOpen')),
       hint('Shift + Enter', t(shiftEnter === 'next' ? 'qm.nextHint' : 'qm.queueHint')),
+      hint('Alt + ← ↓ →', t('qm.playback')),
       hint('Esc', t('qm.close')),
     );
   }
@@ -306,6 +307,13 @@ if (typeof document !== 'undefined') {
 
   document.addEventListener('keydown', (e) => {
     if (e.isComposing) return;
+    // Alt + ← ↓ →: anterior / reproducir-pausa / siguiente, también mientras se escribe.
+    const accion = e.altKey && { ArrowLeft: 'previous', ArrowDown: 'playPause', ArrowRight: 'next' }[e.key];
+    if (accion) {
+      e.preventDefault();
+      if (!e.repeat) window.qm.player(accion);
+      return;
+    }
     switch (e.key) {
       case 'ArrowDown': e.preventDefault(); mover(1); break;
       case 'ArrowUp': e.preventDefault(); mover(-1); break;

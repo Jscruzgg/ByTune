@@ -603,10 +603,10 @@ ipcMain.on('lang', (e, code) => {
 });
 
 // --- Atajos globales ---
-// Los cuatro del reproductor, y el del menú rápido solo en modo "en cualquier lugar".
+// Anterior, siguiente y mostrar/ocultar, y el del menú rápido solo en modo "en cualquier lugar".
+// Play/pausa no tiene: chocaba con el del menú rápido; va por Alt+↓ en el menú o la tecla multimedia.
 // Nunca se usa unregisterAll: cada atajo se quita por su nombre.
 const PLAYER_SHORTCUTS = {
-  'CommandOrControl+Alt+Space': () => player('playPause'),
   'CommandOrControl+Alt+Right': () => player('next'),
   'CommandOrControl+Alt+Left': () => player('previous'),
   'CommandOrControl+Alt+M': () => (win && win.isVisible() ? win.hide() : showWindow()),
