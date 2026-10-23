@@ -232,16 +232,11 @@ if (typeof document !== 'undefined') {
       s.append(k, ' ' + texto);
       return s;
     };
-    // qm.queueHint / qm.nextHint llegan como "Mayús + Intro: a la cola": la tecla va en kbd y el resto como texto.
-    const shiftHint = t(shiftEnter === 'next' ? 'qm.nextHint' : 'qm.queueHint');
-    const [tecla, ...resto] = shiftHint.split(':');
-    const partido = Boolean(tecla) && resto.length > 0;
-    const shiftTecla = partido ? tecla.trim() : 'Shift + Enter';
-    const shiftTexto = partido ? resto.join(':').trim() : shiftHint;
+    // Las teclas van con el nombre impreso en el teclado (Shift, Enter) en todos los idiomas, como el atajo en los ajustes.
     foot.replaceChildren(
       hint('↑↓', t('qm.move')),
       hint('Enter', t('qm.playOpen')),
-      hint(shiftTecla, shiftTexto),
+      hint('Shift + Enter', t(shiftEnter === 'next' ? 'qm.nextHint' : 'qm.queueHint')),
       hint('Esc', t('qm.close')),
     );
   }
