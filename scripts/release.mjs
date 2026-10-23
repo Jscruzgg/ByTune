@@ -14,7 +14,9 @@ const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const { owner, repo } = pkg.build.publish[0];
 const version = pkg.version;
 const tag = `v${version}`;
-const run = (cmd, args, opts = {}) => execFileSync(cmd, args, { cwd: root, encoding: 'utf8', shell: process.platform === 'win32', ...opts });
+// Solo npm necesita shell en Windows (es npm.cmd). git y gh van sin shell: con ella, los
+// argumentos con espacios (título y notas del release) se partían en varios.
+const run = (cmd, args, opts = {}) => execFileSync(cmd, args, { cwd: root, encoding: 'utf8', shell: process.platform === 'win32' && cmd === 'npm', ...opts });
 const fail = (msg) => { console.error(`\n✖ ${msg}`); process.exit(1); };
 
 console.log(`Release ${tag} → ${owner}/${repo}`);
