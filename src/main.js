@@ -147,7 +147,7 @@ function createWindow() {
   }
   if (settings.maximized) win.maximize();
   win.once('ready-to-show', () => win.show());
-  win.on('show', () => updateThumbar(true));
+  win.on('show', thumbarAfterShow);
   win.loadURL(HOME);
 
   // Enlaces externos → navegador del sistema.
@@ -217,18 +217,34 @@ const thumbImg = (name) => nativeImage.createFromPath(path.join(__dirname, '..',
 const THUMB = process.platform === 'win32'
   ? { prev: thumbImg('prev'), play: thumbImg('play'), pause: thumbImg('pause'), next: thumbImg('next') }
   : null;
+// Al abrir por primera vez, 'show' llega antes de que Windows cree el botón de la barra de tareas
+// y los botones se pierden sin aviso. Por eso solo se da por hecho si setThumbarButtons devuelve
+// true, y tras mostrarse la ventana se reintenta unas veces (ver thumbarAfterShow).
 let thumbPlaying = null;
+let thumbOk = false;
 function updateThumbar(force) {
   if (!THUMB || !win || win.isDestroyed() || THUMB.play.isEmpty()) return;
-  if (!force && thumbPlaying === track.playing) return;
+  if (!force && thumbOk && thumbPlaying === track.playing) return;
   thumbPlaying = track.playing;
-  win.setThumbarButtons([
+  thumbOk = win.setThumbarButtons([
     { tooltip: t(lang, 'tray.previous'), icon: THUMB.prev, click: () => player('previous') },
     // El icono cambia al instante (sin esperar a que la página confirme); si algo falla, la
     // página manda el estado real enseguida (preload.js avisa en 'play'/'pause' del vídeo).
     { tooltip: t(lang, track.playing ? 'tray.pause' : 'tray.play'), icon: track.playing ? THUMB.pause : THUMB.play, click: () => { player('playPause'); track.playing = !track.playing; refreshUi(); } },
     { tooltip: t(lang, 'tray.next'), icon: THUMB.next, click: () => player('next') },
   ]);
+}
+// Tras mostrarse la ventana: al momento y a los 0,5, 1,5 y 4 s, para cubrir el retraso con el
+// que Windows crea el botón de la barra de tareas la primera vez.
+let thumbTimers = [];
+function thumbarAfterShow() {
+  for (const timer of thumbTimers) clearTimeout(timer);
+  const attempt = (ms) => {
+    updateThumbar(true);
+    if (process.env.YTM_DEBUG_PORT) console.log(`[thumbar] ${ms} ms tras mostrar: ${thumbOk ? 'puestos' : 'no aceptados'}`);
+  };
+  attempt(0);
+  thumbTimers = [500, 1500, 4000].map((ms) => setTimeout(() => attempt(ms), ms));
 }
 
 function trackLabel() {
