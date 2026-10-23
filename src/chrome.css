@@ -13,7 +13,8 @@ ytmusic-nav-bar {
 ytmusic-nav-bar .md-back {
   position: absolute;
   top: 50%;
-  left: 256px;
+  /* 16 px tras el borde de la barra lateral (sigue su ancho al estirarla); plegada, tras el logo */
+  left: calc(max(var(--ytmusic-guide-width, 240px), 240px) + 16px);
   translate: 0 -50%;
   z-index: 2;
   width: 36px;

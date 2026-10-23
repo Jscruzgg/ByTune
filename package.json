@@ -1,8 +1,8 @@
 {
   "name": "youtube-music-client",
   "productName": "Music Desktop",
-  "version": "1.0.1",
-  "description": "Cliente de escritorio para YouTube Music",
+  "version": "1.0.2",
+  "description": "Desktop client for YouTube Music",
   "main": "src/main.js",
   "private": true,
   "scripts": {
@@ -21,7 +21,8 @@
     "files": [
       "src/**/*",
       "build/icon.png",
-      "build/icon.ico"
+      "build/icon.ico",
+      "build/thumb-*.png"
     ],
     "win": {
       "icon": "build/icon.ico",

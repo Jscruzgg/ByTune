@@ -34,6 +34,7 @@ const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
 const defaults = {
   bounds: { width: 1280, height: 820 }, maximized: false, notifications: true, closeToTray: true, theme: true, covers: {},
   lang: null, library: [], recent: [],
+  panels: {}, // ancho elegido de la barra lateral y de la cola: { left?: px, right?: px }
   quickMenu: { accelerator: 'CommandOrControl+Shift+Space', reach: 'focused', fromOtherApps: 'float', shiftEnter: 'queue' },
 };
 let settings = { ...defaults };
@@ -104,7 +105,9 @@ function createWindow() {
     // Sin barra de título blanca: los botones de ventana se dibujan sobre la barra negra de la app.
     titleBarStyle: 'hidden',
     // Fondo transparente: los botones flotan sobre el fondo original de la página.
-    titleBarOverlay: { color: '#00000000', symbolColor: '#ffffff', height: 40 },
+    // Alto = el de la barra superior de YT Music (64 px): así minimizar/maximizar/cerrar quedan
+    // centrados en la misma línea que transmitir, ajustes y el avatar.
+    titleBarOverlay: { color: '#00000000', symbolColor: '#ffffff', height: 64 },
     webPreferences: {
       partition: 'persist:ytmusic', // mantiene la sesión iniciada entre reinicios
       preload: path.join(__dirname, 'preload.js'),
@@ -123,6 +126,7 @@ function createWindow() {
     applyChrome();
     applyTheme();
     sendStrings(win.webContents);
+    win.webContents.send('panels', settings.panels);
     // Portadas de la barra lateral: primero las guardadas (al instante) y luego las frescas.
     if (Object.keys(settings.covers).length) win.webContents.send('covers', settings.covers);
     setTimeout(refreshCovers, 4000);
@@ -143,6 +147,7 @@ function createWindow() {
   }
   if (settings.maximized) win.maximize();
   win.once('ready-to-show', () => win.show());
+  win.on('show', () => updateThumbar(true));
   win.loadURL(HOME);
 
   // Enlaces externos → navegador del sistema.
@@ -205,6 +210,27 @@ function player(action) {
   if (win) win.webContents.executeJavaScript(PLAYER_JS[action]).catch(() => {});
 }
 
+// Botones en la vista previa de la barra de tareas de Windows (al pasar el ratón por el icono):
+// anterior, reproducir/pausa y siguiente, como Spotify. Windows los olvida cuando la ventana se
+// oculta, así que se vuelven a poner al mostrarla; si no, solo cuando cambia reproducir/pausa.
+const thumbImg = (name) => nativeImage.createFromPath(path.join(__dirname, '..', 'build', `thumb-${name}.png`));
+const THUMB = process.platform === 'win32'
+  ? { prev: thumbImg('prev'), play: thumbImg('play'), pause: thumbImg('pause'), next: thumbImg('next') }
+  : null;
+let thumbPlaying = null;
+function updateThumbar(force) {
+  if (!THUMB || !win || win.isDestroyed() || THUMB.play.isEmpty()) return;
+  if (!force && thumbPlaying === track.playing) return;
+  thumbPlaying = track.playing;
+  win.setThumbarButtons([
+    { tooltip: t(lang, 'tray.previous'), icon: THUMB.prev, click: () => player('previous') },
+    // El icono cambia al instante (sin esperar a que la página confirme); si algo falla, la
+    // página manda el estado real enseguida (preload.js avisa en 'play'/'pause' del vídeo).
+    { tooltip: t(lang, track.playing ? 'tray.pause' : 'tray.play'), icon: track.playing ? THUMB.pause : THUMB.play, click: () => { player('playPause'); track.playing = !track.playing; refreshUi(); } },
+    { tooltip: t(lang, 'tray.next'), icon: THUMB.next, click: () => player('next') },
+  ]);
+}
+
 function trackLabel() {
   return track.title ? `${track.title}${track.artist ? ' — ' + track.artist : ''}` : 'YouTube Music';
 }
@@ -262,6 +288,7 @@ function refreshUi() {
     tray.setContextMenu(buildTrayMenu());
   }
   if (win) win.setTitle(track.title ? `${label} · YouTube Music` : 'YouTube Music');
+  updateThumbar(false);
 }
 
 function createTray() {
@@ -526,6 +553,19 @@ ipcMain.on('track', (_e, info) => {
   if (changed && info.playing && settings.notifications && Notification.isSupported() && !(win && win.isFocused())) {
     new Notification({ title: track.title, body: track.artist, icon, silent: true }).show();
   }
+});
+
+// Anchos de los paneles laterales elegidos arrastrando su borde (preload.js). Se guardan solo
+// números dentro de los límites; un lado sin valor vuelve al ancho por defecto.
+const PANEL_LIMITS = { left: [240, 420], right: [280, 480] };
+ipcMain.on('panels', (e, w) => {
+  if (!win || e.sender !== win.webContents || !w || typeof w !== 'object') return;
+  const next = {};
+  for (const [side, [min, max]] of Object.entries(PANEL_LIMITS)) {
+    if (Number.isFinite(w[side])) next[side] = Math.round(Math.min(max, Math.max(min, w[side])));
+  }
+  settings.panels = next;
+  saveSettings();
 });
 
 // La página (preload.js) informa de su idioma; si cambia, se guarda y se rehace la bandeja.

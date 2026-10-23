@@ -42,6 +42,16 @@ html { scrollbar-color: auto !important; }
   background-clip: padding-box !important;
 }
 ::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,.32) !important; }
+/* La barra de scroll de la página ocupa todo el alto de la ventana: sin esto subía hasta detrás
+   de minimizar/maximizar/cerrar. Su carril va entre la barra superior (64 px) y la del
+   reproductor (92 px). */
+/* Solo funciona con margen en los tramos del carril (track-piece) y con el selector sin
+   elemento: "html::" no llega a la barra de la ventana. Por eso se pone en general y se anula
+   para todas las barras de dentro de la página (cola, barra lateral…). */
+::-webkit-scrollbar-track-piece:vertical:start { margin-top: 64px !important; }
+::-webkit-scrollbar-track-piece:vertical:end { margin-bottom: 92px !important; }
+body *::-webkit-scrollbar-track-piece:vertical:start,
+body *::-webkit-scrollbar-track-piece:vertical:end { margin: 0 !important; }
 
 /* ---------- Tipografía ----------
    Se mantienen las fuentes de YT Music (no se fuerza ninguna): solo se ajustan tamaños. */
@@ -71,6 +81,89 @@ ytmusic-guide-entry-renderer:not([active]) tp-yt-paper-item:hover {
 ytmusic-guide-entry-renderer[active] .guide-icon { color: var(--md-text) !important; }
 ytmusic-guide-entry-renderer:not([active]) .guide-icon,
 ytmusic-guide-entry-renderer:not([active]) .title { color: var(--md-text-2) !important; }
+
+/* Barra lateral de ancho ajustable (como Spotify). YT dimensiona la barra y todo lo que depende
+   de ella (margen del contenido, barra superior, Now Playing) con --ytmusic-guide-width, que vale
+   240 px con el menú abierto: aquí sale de --md-left-w (240–420 px, lo pone preload.js al
+   arrastrar). Plegada (72 px), oculta o en ventanas estrechas se deja como YT la tenga. */
+/* Ancho efectivo: el elegido, pero sin pasar de 50vw − 164 px en ventanas estrechas; así el
+   botón atrás (barra + 52 px) siempre queda a la izquierda del buscador centrado, incluso a su
+   ancho mínimo de 200 px. Lo usan la barra y su tirador. */
+html {
+  --md-left-eff: min(var(--md-left-w, 240px), max(240px, 50vw - 164px));
+}
+@media (min-width: 936px) {
+  ytmusic-app:not([guide-collapsed]):not([is-hidden-guide-page]) {
+    --ytmusic-guide-width: var(--md-left-eff) !important;
+  }
+  /* El contenido de la barra trae anchos fijos en cada capa (240, 224, 200, 192 px…): con la
+     barra más ancha quedaba una franja negra vacía. Aquí todo llena el ancho del panel. */
+  ytmusic-app:not([guide-collapsed]) ytmusic-guide-renderer,
+  ytmusic-app:not([guide-collapsed]) ytmusic-guide-renderer #sections,
+  ytmusic-app:not([guide-collapsed]) ytmusic-guide-section-renderer {
+    width: 100% !important;
+  }
+  ytmusic-app:not([guide-collapsed]) ytmusic-guide-section-renderer #items,
+  ytmusic-app:not([guide-collapsed]) ytmusic-guide-section-renderer #buttons,
+  ytmusic-app:not([guide-collapsed]) ytmusic-guide-section-renderer #divider,
+  ytmusic-app:not([guide-collapsed]) ytmusic-guide-entry-renderer tp-yt-paper-item {
+    width: auto !important;
+  }
+  /* Las filas al 100 %: #items las coloca con flex y, a ancho automático, se encogían a su
+     contenido y se ponían de dos en dos. */
+  ytmusic-app:not([guide-collapsed]) ytmusic-guide-entry-renderer {
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  ytmusic-app:not([guide-collapsed]) ytmusic-guide-section-renderer #buttons yt-button-renderer,
+  ytmusic-app:not([guide-collapsed]) ytmusic-guide-section-renderer #buttons yt-button-shape,
+  ytmusic-app:not([guide-collapsed]) ytmusic-guide-section-renderer #buttons button {
+    width: 100% !important;
+  }
+}
+
+/* Tiradores para ajustar el ancho (los crea preload.js): franja de 8 px sobre el borde del
+   panel, entre la barra superior y la del reproductor. Una línea fina aparece al pasar el
+   ratón o al arrastrar. Solo se ven cuando su panel está a la vista. */
+.md-resize {
+  display: none;
+  position: fixed;
+  /* Fijos: el tirador cuelga de <body>, fuera de ytmusic-app, y no ve sus variables (con la de
+     YT, 72 px, la línea se metía 20 px en la barra del reproductor, que aquí mide 92). */
+  top: 64px;
+  bottom: 92px;
+  width: 8px;
+  z-index: 5;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+.md-resize::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  background: transparent;
+  transition: background-color .15s linear;
+}
+.md-resize:hover::after,
+.md-resize:focus-visible::after,
+.md-resize.dragging::after { background: rgba(255,255,255,.4); }
+html[data-md-guide-open] .md-resize-left {
+  display: block;
+  left: calc(var(--md-left-eff, 240px) - 4px);
+}
+html[data-md-queue-open] .md-resize-right {
+  display: block;
+  right: calc(var(--md-right-w, clamp(340px, 28vw, 440px)) - 4px);
+}
+/* Mientras se arrastra: el cursor no cambia al pasar por encima de otras cosas ni se selecciona texto */
+html.md-resizing, html.md-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
 
 /* Portadas de las playlists en la barra lateral (como Spotify). Las añade preload.js. */
 ytmusic-guide-entry-renderer[data-md-id] tp-yt-paper-item {
@@ -119,11 +212,13 @@ ytmusic-search-box .search-box {
 /* Buscador centrado en la ventana (como Spotify). YT tiene dos maquetaciones de la barra según
    el ancho (contenedor absoluto o en el flujo, con desplazamientos propios), así que no se toca
    el contenedor: se hace estático y el buscador se coloca respecto a la barra superior (fija,
-   empieza en x = 0) en el centro de la ventana. El ancho deja 310 px libres a cada lado: a la
-   derecha hacen falta ~290 (botones de ventana ~145 + transmitir y avatar ~132 + margen), así
-   el hueco con el avatar es de ~21 px a cualquier ancho hasta que el buscador llega a 560 px
-   y a partir de ahí crece. Solo con el buscador completo:
-   en ventanas estrechas YT lo convierte en un icono con su propio panel y no se toca. */
+   empieza en x = 0). Solo con el buscador completo: en ventanas estrechas YT lo convierte en un
+   icono con su propio panel y no se toca.
+   Hueco libre: a la izquierda, la barra lateral + el botón atrás (--md-nav-l); a la derecha, lo
+   que ocupan transmitir, ajustes, avatar y los botones de ventana, que preload.js mide
+   (--md-nav-right). El buscador mide como mucho 480 px (Spotify) y lo que quepa entre ambos;
+   va centrado en la ventana mientras quepa y, si no, se desliza dentro del hueco: nunca pisa
+   a nadie. */
 @media (min-width: 820px) {
   /* Sin transform: en la maquetación ancha YT lo desplaza con translateX y eso lo convertiría
      en la referencia de posición del buscador. */
@@ -131,15 +226,24 @@ ytmusic-search-box .search-box {
     position: static !important;
     transform: none !important;
   }
+  ytmusic-nav-bar {
+    --md-nav-l: calc(max(var(--ytmusic-guide-width, 240px), 240px) + 70px);
+    --md-nav-r: var(--md-nav-right, 360px);
+    --md-search-w: clamp(160px, calc(100vw - var(--md-nav-l) - var(--md-nav-r)), 480px);
+  }
   ytmusic-nav-bar ytmusic-search-box {
     position: absolute !important;
     top: 50% !important;
-    left: 50vw !important;
+    left: clamp(var(--md-nav-l), calc(50vw - var(--md-search-w) / 2), calc(100vw - var(--md-nav-r) - var(--md-search-w))) !important;
     right: auto !important;
-    translate: -50% -50% !important;
-    width: clamp(200px, calc(100vw - 620px), 480px) !important; /* máx. 480 px, como Spotify */
+    translate: 0 -50% !important;
+    width: var(--md-search-w) !important;
     max-width: none !important;
     margin: 0 !important;
+  }
+  /* Si el texto de ayuda no cabe, termina en "…" en vez de cortarse */
+  ytmusic-nav-bar ytmusic-search-box input {
+    text-overflow: ellipsis !important;
   }
 }
 
@@ -1556,9 +1660,12 @@ ytmusic-two-column-browse-results-renderer ytmusic-shelf-renderer ytmusic-respon
     box-sizing: border-box !important;
   }
   ytmusic-player-page {
+    /* Ancho de la cola: el que elija el usuario arrastrando su borde (--md-right-w, lo pone
+       preload.js, 280–480 px) o, si no ha elegido, uno proporcional a la ventana. */
+    --md-np-side: var(--md-right-w, clamp(340px, 28vw, 440px));
     /* Alto útil = ventana − barra superior (64) − barra inferior (92) − márgenes (64) −
        selector Canción/Vídeo con su hueco (~110) − título y artista (~90) */
-    --md-np-art: min(calc(100vh - 430px), calc(100vw - var(--ytmusic-guide-width, 0px) - clamp(340px, 28vw, 440px) - 96px));
+    --md-np-art: min(calc(100vh - 430px), calc(100vw - var(--ytmusic-guide-width, 0px) - var(--md-np-side) - 96px));
   }
   ytmusic-player-page #main-panel {
     flex: 1 1 auto !important;
@@ -1569,8 +1676,8 @@ ytmusic-two-column-browse-results-renderer ytmusic-shelf-renderer ytmusic-respon
     box-sizing: border-box !important;
   }
   ytmusic-player-page #side-panel {
-    flex: 0 0 clamp(340px, 28vw, 440px) !important;
-    width: clamp(340px, 28vw, 440px) !important;
+    flex: 0 0 var(--md-np-side) !important;
+    width: var(--md-np-side) !important;
     max-width: none !important;
     height: 100% !important;
     margin: 0 !important;

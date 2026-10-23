@@ -1,55 +1,58 @@
 # Music Desktop
 
-Cliente de escritorio (Electron) para YouTube Music: abre music.youtube.com en su propia ventana, con tu cuenta.
+Desktop client (Electron) for YouTube Music: opens music.youtube.com in its own window, signed in with your account.
 
-## Instalar (Windows)
+## Install (Windows)
 
-1. Ve a **Releases** en GitHub y descarga la última versión:
-   - `Music-Desktop-Setup-x.y.z.exe`: instalador (crea accesos directos y desinstalador; se actualiza solo).
-   - `Music-Desktop-x.y.z-portable.exe`: versión portable, no hace falta instalar (no se actualiza sola).
-2. Ejecútalo. Como no está firmado, Windows SmartScreen puede avisar: *Más información → Ejecutar de todas formas*.
-3. Inicia sesión con tu cuenta de Google dentro de la app (se recuerda entre reinicios).
+1. Go to **Releases** on GitHub and download the latest version:
+   - `Music-Desktop-Setup-x.y.z.exe`: installer (shortcuts and uninstaller; updates itself).
+   - `Music-Desktop-x.y.z-portable.exe`: portable, no install needed (does not update itself).
+2. Run it. The app is not code-signed, so Windows SmartScreen may warn: *More info → Run anyway*.
+3. Sign in with your Google account inside the app (the session is remembered between restarts).
 
-## Actualizaciones
+## Updates
 
-La app instalada busca una versión nueva en los Releases de GitHub cada vez que se abre. Si la hay, la descarga en segundo plano y pregunta si reiniciar para instalarla; si eliges "Más tarde", se instala al salir (también puedes hacerlo desde el icono de la bandeja). La versión portable no se actualiza sola. El registro está en `%APPDATA%\Music Desktop\updater.log`.
+The installed app checks GitHub Releases for a new version every time it opens. If there is one, it downloads it in the background and asks whether to restart to install it; if you choose "Later", it installs when you quit (you can also do it from the tray icon). The portable version does not update itself. The log is at `%APPDATA%\Music Desktop\updater.log`.
 
-Para publicar una versión: sube `version` en `package.json`, haz commit y push, y ejecuta `npm run release` (necesita `gh` con sesión iniciada). El script comprueba tests, que no haya cambios sin subir y que la versión no exista, compila y publica el instalador, su `.blockmap` y `latest.yml`.
+To publish a version: bump `version` in `package.json`, commit and push, then run `npm run release` (requires `gh` signed in). The script checks that tests pass, that there are no unpushed changes and that the version does not exist yet, then builds and publishes the installer, its `.blockmap` and `latest.yml`.
 
-## Compilar desde el código
+## Build from source
 
-Requisitos: Windows 10/11 y [Node.js](https://nodejs.org) 20 o superior.
+Requirements: Windows 10/11 and [Node.js](https://nodejs.org) 20 or later.
 
 ```bash
-git clone https://github.com/Jscruzgg/youtube-music-client.git
-cd youtube-music-client
+git clone https://github.com/Jscruzgg/yt-music-dash.git
+cd yt-music-dash
 npm install
 npx --no install-electron --no
 npm run dist
 ```
 
-- `npx --no install-electron --no` descarga el binario de Electron: las versiones recientes de npm bloquean los scripts de instalación y sin este paso Electron no arranca.
-- `npm run dist` genera el icono y deja el instalador y la versión portable en `dist\`.
-- Para probar sin instalar: `npm start`.
+- `npx --no install-electron --no` downloads the Electron binary: recent npm versions block install scripts, and without this step Electron does not start.
+- `npm run dist` generates the icons and puts the installer and the portable version in `dist\`.
+- To try it without installing: `npm start`.
 
-## Interfaz
+## Interface
 
-- `src/theme.css`: tema propio (grises de Spotify en botones y chips, barra con la canción a la izquierda, controles al centro y tiempos a los lados del progreso, pantalla "Now Playing" con la carátula difuminada y título grande al estilo Apple Music). Los fondos de página (inicio, degradados según la carátula de álbumes y listas) se dejan como en YT Music. Se activa o desactiva desde la bandeja: *Tema Music Desktop*.
-- `src/chrome.css`: quita la barra de título de Windows; la barra superior de la app sirve para arrastrar la ventana. Se aplica siempre.
-- Solo CSS, sin JS extra en la página: sin `backdrop-filter`, transiciones solo de `transform`/`opacity`, `content-visibility` para lo que no está en pantalla, y el blur del fondo se hace sobre 64×64 px y se escala en la GPU.
-- Portadas de las playlists en la barra lateral (como Spotify): `src/covers.js` se ejecuta en la página con tu sesión, pide la lista de playlists de la biblioteca y devuelve la portada de cada una; se guardan para que aparezcan al instante en el siguiente arranque y se refrescan cada 15 minutos.
-- Álbumes y playlists al estilo Spotify (cabecera con carátula y título grande, play grande, lista a todo el ancho hasta 1400 px); cola de Now Playing pegada a la derecha; buscador centrado; botón "atrás" en la barra superior.
-- Iterar en vivo: `YTM_DEBUG_PORT=9222 npm start` y `node scripts/cdp.mjs css src/theme.css` (también `shot`, `metrics`, `eval`, `click`); F5 recarga los CSS desde disco.
-- Pruebas: `node scripts/cdp.mjs overlaps` (barra inferior sin solapes en varios anchos), `node scripts/cdp.mjs navcheck` (buscador centrado), `node scripts/test-like.mjs` (me gusta / no me gusta con clics reales; deshace lo que marca).
+- `src/theme.css`: custom theme (Spotify-style grays on buttons and chips; player bar with the song on the left, controls in the center and times on both sides of the progress bar; Apple Music-style "Now Playing" with a blurred cover and large title). Page backgrounds (home, cover-based gradients on albums and playlists) stay as in YT Music. Toggle it from the tray: *Music Desktop theme*.
+- `src/chrome.css`: removes the Windows title bar; the app's top bar drags the window. Always applied.
+- CSS only, no extra JS in the page where possible: no `backdrop-filter`, transitions only on `transform`/`opacity`, `content-visibility` for off-screen content, and the background blur is done on a 64×64 px image scaled on the GPU.
+- Playlist covers in the sidebar (like Spotify): `src/covers.js` runs in the page with your session, fetches your library's playlists and returns each cover; they are saved so they show instantly on the next launch and refreshed every 15 minutes.
+- Resizable sidebar (240–420 px) and queue (280–480 px): drag their edge; double-click resets it; widths are remembered.
+- Spotify-style albums and playlists (cover and large title header, big play button, track list up to 1400 px wide); Now Playing queue pinned to the right; centered search box that never overlaps the top-bar icons; "back" button in the top bar.
+- Live iteration: `YTM_DEBUG_PORT=9222 npm start` and `node scripts/cdp.mjs css src/theme.css` (also `shot`, `metrics`, `eval`, `click`); F5 reloads the CSS from disk.
+- Checks: `node scripts/cdp.mjs overlaps` (player bar has no overlaps at several widths), `node scripts/cdp.mjs navcheck` (centered search box), `node scripts/cdp.mjs clipcheck` (no clipped text), `node scripts/test-like.mjs` (like / dislike with real clicks; undoes what it marks).
 
-## Funciones
+## Features
 
-- La sesión de Google queda guardada entre reinicios.
-- Icono en la bandeja: reproducir/pausar, siguiente, anterior, canción actual; clic para mostrar u ocultar.
-- Al cerrar la ventana se queda en la bandeja (desactivable desde el menú de la bandeja).
-- Notificación al cambiar de canción, opción "Iniciar con Windows".
-- Teclas multimedia del teclado y panel multimedia de Windows (vía Chromium).
-- Atajos globales: `Ctrl+Alt+Espacio` reproducir/pausar, `Ctrl+Alt+→/←` siguiente/anterior, `Ctrl+Alt+M` mostrar/ocultar.
-- En la ventana: `F5` recargar, `Alt+←/→` atrás/adelante, `Ctrl +/-/0` zoom.
-- Los enlaces externos se abren en tu navegador.
-- Recuerda el tamaño y la posición de la ventana.
+- The Google session is kept between restarts.
+- Taskbar preview buttons (hover the taskbar icon): previous, play/pause, next.
+- Tray icon: play/pause, next, previous, current song; click to show or hide.
+- Closing the window keeps it in the tray (can be turned off from the tray menu).
+- Notification on song change, "Start with Windows" option.
+- Keyboard media keys and the Windows media panel (via Chromium).
+- Quick menu (`Ctrl+Shift+Space` by default) to search songs and jump to playlists; settings menu under the gear icon.
+- Global shortcuts: `Ctrl+Alt+Space` play/pause, `Ctrl+Alt+→/←` next/previous, `Ctrl+Alt+M` show/hide.
+- In the window: `F5` reload, `Alt+←/→` back/forward, `Ctrl +/-/0` zoom.
+- External links open in your browser.
+- Remembers the window size and position.

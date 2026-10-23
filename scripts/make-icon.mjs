@@ -1,7 +1,8 @@
-// Genera build/icon.png (256x256) y build/icon.ico (16–256 px): círculo oscuro con tres
-// barras de ecualizador. Cada tamaño del .ico se dibuja aparte (no se escala el de 256) para
-// que se vea nítido en la barra de tareas, la bandeja y el escritorio.
-// Sin dependencias: escribe PNG e ICO a mano con zlib.
+// Genera los iconos de la app, sin dependencias (PNG e ICO escritos a mano con zlib):
+// - build/icon.png (256) y build/icon.ico (16–256): círculo oscuro con barras de ecualizador
+//   rojas. Cada tamaño del .ico se dibuja aparte para que se vea nítido.
+// - build/thumb-*.png (16 px y @2x 32 px): botones blancos de la vista previa de la barra de
+//   tareas (anterior, reproducir, pausa, siguiente).
 import { deflateSync } from 'node:zlib';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -9,27 +10,38 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ICO_SIZES = [16, 20, 24, 32, 40, 48, 64, 128, 256];
-const BG = [28, 28, 34];
-const BAR = [255, 92, 92];
+const DARK = [28, 28, 34];
+const RED = [255, 92, 92];
+const WHITE = [255, 255, 255];
 
-// Forma en coordenadas unitarias (0..1): devuelve 'bar', 'bg' o null (transparente).
-function shape(u, v) {
+// Triángulo que apunta a la derecha: punta en (x1, cy), base vertical en x0 de alto 2·h.
+const inTriangle = (u, v, x0, x1, cy, h) => u >= x0 && u <= x1 && Math.abs(v - cy) <= (h * (x1 - u)) / (x1 - x0);
+const inRect = (u, v, x0, x1, y0, y1) => u >= x0 && u <= x1 && v >= y0 && v <= y1;
+
+// Icono de la app en coordenadas unitarias (0..1): círculo oscuro con tres barras de ecualizador
+// rojas. Color del punto o null (transparente).
+function appIcon(u, v) {
   const dx = u - 0.5, dy = v - 0.5;
   if (Math.hypot(dx, dy) > 0.47) return null;
-  // Tres barras redondeadas de distinta altura, apoyadas en una base común
-  const bars = [[-0.17, 0.2], [0, 0.34], [0.17, 0.26]];
+  const bars = [[-0.17, 0.2], [0, 0.34], [0.17, 0.26]]; // [centro x, alto]
   const w = 0.055, base = 0.17;
   const inBar = bars.some(([cx, hh]) => {
-    const top = base - hh;
-    const cy = Math.max(top + w, Math.min(base - w, dy));
+    const cy = Math.max(base - hh + w, Math.min(base - w, dy));
     return Math.hypot(dx - cx, dy - cy) <= w;
   });
-  return inBar ? 'bar' : 'bg';
+  return inBar ? RED : DARK;
 }
 
-// Rasteriza a `size` px con 4×4 muestras por píxel (antialias en bordes y barras).
-// Devuelve RGBA fila a fila, de arriba abajo.
-function render(size) {
+// Glifos de la barra de tareas, blancos sobre transparente.
+const GLYPHS = {
+  play: (u, v) => (inTriangle(u, v, 0.28, 0.8, 0.5, 0.32) ? WHITE : null),
+  pause: (u, v) => (inRect(u, v, 0.24, 0.42, 0.18, 0.82) || inRect(u, v, 0.58, 0.76, 0.18, 0.82) ? WHITE : null),
+  next: (u, v) => (inTriangle(u, v, 0.18, 0.66, 0.5, 0.3) || inRect(u, v, 0.68, 0.8, 0.2, 0.8) ? WHITE : null),
+  prev: (u, v) => GLYPHS.next(1 - u, v),
+};
+
+// Rasteriza a `size` px con 4×4 muestras por píxel (antialias). Devuelve RGBA fila a fila.
+function render(size, shape) {
   const S = 4;
   const rgba = Buffer.alloc(size * size * 4);
   for (let y = 0; y < size; y++) {
@@ -37,9 +49,8 @@ function render(size) {
       let r = 0, g = 0, b = 0, a = 0;
       for (let sy = 0; sy < S; sy++) {
         for (let sx = 0; sx < S; sx++) {
-          const hit = shape((x + (sx + 0.5) / S) / size, (y + (sy + 0.5) / S) / size);
-          if (!hit) continue;
-          const c = hit === 'bar' ? BAR : BG;
+          const c = shape((x + (sx + 0.5) / S) / size, (y + (sy + 0.5) / S) / size);
+          if (!c) continue;
           r += c[0]; g += c[1]; b += c[2]; a++;
         }
       }
@@ -73,12 +84,6 @@ function bmpEntry(size, rgba) {
   return Buffer.concat([header, pixels, Buffer.alloc(maskRow * size)]);
 }
 
-function pngFromRgba(size, rgba) {
-  const raw = Buffer.alloc((size * 4 + 1) * size);
-  for (let y = 0; y < size; y++) rgba.copy(raw, y * (size * 4 + 1) + 1, y * size * 4, (y + 1) * size * 4);
-  return png(size, raw);
-}
-
 const crcTable = Array.from({ length: 256 }, (_, n) => {
   let c = n;
   for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
@@ -95,7 +100,9 @@ function chunk(type, data) {
   const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(td));
   return Buffer.concat([len, td, crc]);
 }
-function png(size, raw) {
+function png(size, rgba) {
+  const raw = Buffer.alloc((size * 4 + 1) * size);
+  for (let y = 0; y < size; y++) rgba.copy(raw, y * (size * 4 + 1) + 1, y * size * 4, (y + 1) * size * 4);
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(size, 0); ihdr.writeUInt32BE(size, 4);
   ihdr[8] = 8; ihdr[9] = 6; // 8 bits, RGBA
@@ -124,12 +131,16 @@ function ico(images) {
   return Buffer.concat([header, ...entries, ...images.map((i) => i.data)]);
 }
 
-const images = ICO_SIZES.map((size) => {
-  const rgba = render(size);
-  return { size, data: size >= 256 ? pngFromRgba(size, rgba) : bmpEntry(size, rgba) };
-});
 const outDir = join(root, 'build');
 mkdirSync(outDir, { recursive: true });
+const images = ICO_SIZES.map((size) => {
+  const rgba = render(size, appIcon);
+  return { size, data: size >= 256 ? png(size, rgba) : bmpEntry(size, rgba) };
+});
 writeFileSync(join(outDir, 'icon.png'), images.find((i) => i.size === 256).data);
 writeFileSync(join(outDir, 'icon.ico'), ico(images));
-console.log('Iconos generados en', outDir, '(png 256 + ico', ICO_SIZES.join('/'), 'px)');
+for (const [name, shape] of Object.entries(GLYPHS)) {
+  writeFileSync(join(outDir, `thumb-${name}.png`), png(16, render(16, shape)));
+  writeFileSync(join(outDir, `thumb-${name}@2x.png`), png(32, render(32, shape)));
+}
+console.log('Iconos generados en', outDir, '(ico', ICO_SIZES.join('/'), 'px + botones de la barra de tareas)');

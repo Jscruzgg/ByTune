@@ -322,6 +322,120 @@ function applyCovers() {
   }
 }
 
+// Ancho de los paneles laterales, ajustable arrastrando su borde (como Spotify). Solo cambia una
+// variable CSS en <html> (--md-left-w / --md-right-w), como mucho una vez por fotograma;
+// theme.css hace el resto. main.js guarda los anchos (IPC 'panels') y los manda al cargar.
+// Doble clic en el borde vuelve al ancho por defecto; con el foco en él, ← y → lo ajustan.
+const PANELS = {
+  left: { min: 240, max: 420, cssVar: '--md-left-w', label: 'Ajustar ancho de la barra lateral' },
+  right: { min: 280, max: 480, cssVar: '--md-right-w', label: 'Ajustar ancho de la cola' },
+};
+let panelWidths = {};
+ipcRenderer.on('panels', (_e, w) => { panelWidths = w && typeof w === 'object' ? w : {}; applyPanelWidths(); });
+function applyPanelWidths() {
+  const root = document.documentElement.style;
+  for (const [side, cfg] of Object.entries(PANELS)) {
+    const v = panelWidths[side];
+    if (typeof v === 'number') root.setProperty(cfg.cssVar, `${v}px`);
+    else root.removeProperty(cfg.cssVar);
+  }
+}
+const clampPanel = (side, w) => Math.round(Math.min(PANELS[side].max, Math.max(PANELS[side].min, w)));
+function savePanels() { ipcRenderer.send('panels', panelWidths); }
+function setPanel(side, w) {
+  panelWidths[side] = clampPanel(side, w);
+  document.documentElement.style.setProperty(PANELS[side].cssVar, `${panelWidths[side]}px`);
+}
+function currentPanelWidth(side) {
+  if (typeof panelWidths[side] === 'number') return panelWidths[side];
+  const el = side === 'left' ? document.querySelector('#guide-wrapper') : document.querySelector('ytmusic-player-page #side-panel');
+  return el ? el.getBoundingClientRect().width : PANELS[side].min;
+}
+function makeResizer(side) {
+  const h = document.createElement('div');
+  h.className = `md-resize md-resize-${side}`;
+  h.tabIndex = 0;
+  h.setAttribute('role', 'separator');
+  h.setAttribute('aria-orientation', 'vertical');
+  h.setAttribute('aria-label', PANELS[side].label);
+  let pending = null;
+  let frame = 0;
+  const onMove = (e) => {
+    pending = side === 'left' ? e.clientX : window.innerWidth - e.clientX;
+    if (!frame) frame = requestAnimationFrame(() => { frame = 0; if (pending !== null) setPanel(side, pending); });
+  };
+  const onUp = (e) => {
+    h.releasePointerCapture(e.pointerId);
+    h.removeEventListener('pointermove', onMove);
+    h.removeEventListener('pointerup', onUp);
+    h.classList.remove('dragging');
+    document.documentElement.classList.remove('md-resizing');
+    if (pending !== null) { setPanel(side, pending); savePanels(); }
+  };
+  h.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    pending = null;
+    h.setPointerCapture(e.pointerId);
+    h.classList.add('dragging');
+    document.documentElement.classList.add('md-resizing');
+    h.addEventListener('pointermove', onMove);
+    h.addEventListener('pointerup', onUp);
+  });
+  h.addEventListener('dblclick', () => { delete panelWidths[side]; applyPanelWidths(); savePanels(); });
+  h.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    const grow = (e.key === 'ArrowRight') === (side === 'left');
+    setPanel(side, currentPanelWidth(side) + (grow ? 16 : -16));
+    savePanels();
+  });
+  document.body.appendChild(h);
+}
+// Crea los tiradores (una vez) y marca en <html> qué paneles se ven, para mostrar solo esos.
+// Solo escribe atributos cuando cambian.
+function updateResizers() {
+  if (!document.body) return;
+  if (!document.querySelector('.md-resize-left')) makeResizer('left');
+  if (!document.querySelector('.md-resize-right')) makeResizer('right');
+  const app = document.querySelector('ytmusic-app');
+  const layout = document.querySelector('ytmusic-app-layout');
+  const root = document.documentElement;
+  const guideOpen = !!app && !app.hasAttribute('guide-collapsed') && !app.hasAttribute('is-hidden-guide-page') && window.innerWidth >= 936;
+  const queueOpen = !!layout && layout.hasAttribute('player-page-open') && window.innerWidth >= 940;
+  if (guideOpen !== root.hasAttribute('data-md-guide-open')) root.toggleAttribute('data-md-guide-open', guideOpen);
+  if (queueOpen !== root.hasAttribute('data-md-queue-open')) root.toggleAttribute('data-md-queue-open', queueOpen);
+}
+
+// Espacio que ocupan los iconos de la derecha de la barra superior (transmitir, ajustes, avatar)
+// más los botones de ventana, en --md-nav-right: theme.css coloca el buscador para no pisarlos.
+// Se mide al cambiar el tamaño de la ventana o esos iconos (y en cada pasada de read()); solo se
+// escribe si cambia.
+let navRight = '';
+function measureNavRight() {
+  const icons = [...document.querySelectorAll('ytmusic-nav-bar #right-content > *')]
+    .map((e) => e.getBoundingClientRect())
+    .filter((r) => r.width > 2);
+  if (!icons.length) return;
+  const value = `${Math.ceil(window.innerWidth - Math.min(...icons.map((r) => r.left)) + 16)}px`;
+  if (value !== navRight) {
+    navRight = value;
+    document.documentElement.style.setProperty('--md-nav-right', value);
+  }
+}
+let navFrame = 0;
+const scheduleNavRight = () => { if (!navFrame) navFrame = requestAnimationFrame(() => { navFrame = 0; measureNavRight(); }); };
+window.addEventListener('resize', scheduleNavRight, { passive: true });
+let navObserved = null;
+function watchNavRight() {
+  const rc = document.querySelector('ytmusic-nav-bar #right-content');
+  if (rc && rc !== navObserved) {
+    navObserved = rc;
+    new ResizeObserver(scheduleNavRight).observe(rc);
+  }
+  measureNavRight();
+}
+
 // Títulos largos de álbum/playlist: se marcan para que theme.css los muestre más pequeños
 // (como Spotify), en vez de dos líneas gigantes. Solo escribe si cambia.
 function markLongTitle() {
@@ -356,6 +470,8 @@ function read() {
   ensureGear();
   markLongTitle();
   applyCovers();
+  updateResizers();
+  watchNavRight();
   const bar = document.querySelector(MAIN_BAR);
   if (!bar) return;
   arrangeBar(bar);
@@ -368,6 +484,10 @@ function read() {
     boundVideo = video;
     video.addEventListener('timeupdate', syncTime, { passive: true });
     video.addEventListener('durationchange', syncTime, { passive: true });
+    // Reproducir/pausa se avisa al momento (no en la siguiente pasada de un segundo): la bandeja
+    // y los botones de la barra de tareas cambian de icono sin retraso.
+    video.addEventListener('play', read, { passive: true });
+    video.addEventListener('pause', read, { passive: true });
   }
   syncTime();
   const info = {
