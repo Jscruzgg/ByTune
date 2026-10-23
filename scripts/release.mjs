@@ -46,5 +46,5 @@ if (!latest.includes(`version: ${version}`)) fail('latest.yml no corresponde a e
 
 console.log('Publicando…');
 run('gh', ['release', 'create', tag, ...files, '--repo', `${owner}/${repo}`, '--target', head, '--title', `Music Desktop ${version}`,
-  '--notes', `Music Desktop ${version}. La app instalada se actualiza sola al abrirla; para instalarla por primera vez descarga Music-Desktop-Setup-${version}.exe.`], { stdio: 'inherit' });
+  '--notes', `Music Desktop ${version}. Installed copies update themselves on launch; for a first install, download Music-Desktop-Setup-${version}.exe.`], { stdio: 'inherit' });
 console.log(`\n✔ Publicada: https://github.com/${owner}/${repo}/releases/tag/${tag}`);
