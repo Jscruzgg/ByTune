@@ -22,17 +22,21 @@ function latestOnly(fn) {
 if (typeof module !== 'undefined') module.exports = { latestOnly };
 
 if (typeof document !== 'undefined') {
-  const NOTE_MS = 1500;
-  const NOTE_KEY = { added: 'qm.added', playingNext: 'qm.playingNext' };
+  const TOAST_MS = 2200;
+  const NOTE_KEY = { added: 'qm.added', playingNext: 'qm.playingNext', failed: 'qm.queueFailed' };
 
   const input = document.getElementById('q');
   const list = document.getElementById('list');
   const foot = document.getElementById('foot');
   const panel = document.getElementById('qm');
+  const toast = document.getElementById('toast');
+  const np = document.getElementById('np');
 
   let strings = {};
   let shiftEnter = 'queue';
   let recent = [];
+  let suggested = [];
+  let toastTimer = 0;
   let library = [];
   let songs = [];
   let songsText = '';
@@ -91,9 +95,6 @@ if (typeof document !== 'undefined') {
     meta.className = 'qm-meta';
     meta.textContent = item.details;
     row.append(art, title, meta);
-    row._meta = meta;
-    row._details = item.details;
-    row._timer = 0;
     return row;
   }
 
@@ -110,7 +111,12 @@ if (typeof document !== 'undefined') {
   const escribiendo = () => input.value.trim() !== '';
 
   function secciones() {
-    if (!escribiendo()) return [{ label: t('qm.recent'), items: normalizarTodos(recent) }];
+    if (!escribiendo()) {
+      return [
+        { label: t('qm.recent'), items: normalizarTodos(recent) },
+        { label: t('qm.suggested'), items: normalizarTodos(suggested) },
+      ];
+    }
     return [
       { label: t('qm.library'), items: normalizarTodos(library) },
       { label: t('qm.songs'), items: normalizarTodos(songs) },
@@ -171,14 +177,35 @@ if (typeof document !== 'undefined') {
     pintarSeleccion();
   }
 
-  function mostrarNota(row, texto) {
-    clearTimeout(row._timer);
-    row._meta.textContent = texto;
-    row._meta.classList.add('note');
-    row._timer = setTimeout(() => {
-      row._meta.textContent = row._details;
-      row._meta.classList.remove('note');
-    }, NOTE_MS);
+  function mostrarAviso(texto, cancion, error) {
+    clearTimeout(toastTimer);
+    document.getElementById('toastText').textContent = texto;
+    document.getElementById('toastSong').textContent = cancion || '';
+    toast.classList.toggle('err', error);
+    toast.classList.add('show');
+    toastTimer = setTimeout(() => toast.classList.remove('show'), TOAST_MS);
+  }
+
+  function ocultarAviso() {
+    clearTimeout(toastTimer);
+    toast.classList.remove('show');
+  }
+
+  // Buscando canciones: rueda en el campo hasta que llegan (o fallan).
+  const cargando = (si) => {
+    panel.classList.toggle('loading', si);
+    list.setAttribute('aria-busy', si ? 'true' : 'false');
+  };
+
+  // --- Lo que suena: título, artista y anterior / reproducir-pausa / siguiente ---
+  function pintarTrack(tr) {
+    tr = tr || {};
+    np.classList.toggle('off', !tr.title); // sin canción no hay nada que controlar
+    np.classList.toggle('playing', !!tr.playing);
+    document.getElementById('npTitle').textContent = tr.title || '';
+    document.getElementById('npArtist').textContent = tr.artist || '';
+    const etiqueta = { previous: 'tray.previous', playPause: tr.playing ? 'tray.pause' : 'tray.play', next: 'tray.next' };
+    for (const b of np.querySelectorAll('button')) b.setAttribute('aria-label', t(etiqueta[b.dataset.act]));
   }
 
   function activar(shift, indice = selIndex) {
@@ -191,7 +218,7 @@ if (typeof document !== 'undefined') {
     Promise.resolve(window.qm.activate({ kind, id }, shift))
       .then((res) => {
         const key = res && res.keepOpen && NOTE_KEY[res.note];
-        if (key && t(key)) mostrarNota(actual.row, t(key));
+        if (key && t(key)) mostrarAviso(t(key), actual.item.title, res.note === 'failed');
       })
       .catch(() => {})
       .finally(() => { activando = false; });
@@ -229,9 +256,11 @@ if (typeof document !== 'undefined') {
     if (!text.trim()) {
       library = [];
       songs = [];
+      cargando(false);
       render();
       return;
     }
+    cargando(true);
     // Las canciones anteriores se quedan mientras la consulta nueva sea una ampliación o recorte de la
     // anterior (sin parpadeos); si cambia del todo, se quitan.
     if (songs.length && !(text.startsWith(songsText) || songsText.startsWith(text))) songs = [];
@@ -240,7 +269,10 @@ if (typeof document !== 'undefined') {
       .then((res) => {
         if (!res || res.seq !== latestSeq) return;
         library = Array.isArray(res.library) ? res.library : [];
-        if (Array.isArray(res.songs)) songs = res.songs;
+        if (Array.isArray(res.songs)) { // ya estaban en la caché: no hay que esperar a onSongs
+          songs = res.songs;
+          cargando(false);
+        }
         render();
       })
       .catch(() => {});
@@ -250,6 +282,7 @@ if (typeof document !== 'undefined') {
     if (!msg || msg.seq !== latestSeq || !escribiendo()) return; // canciones de una consulta vieja
     songs = Array.isArray(msg.songs) ? msg.songs : []; // null o error: sección oculta
     songsText = input.value;
+    cargando(false);
     render();
   }
 
@@ -258,12 +291,15 @@ if (typeof document !== 'undefined') {
     strings = data.strings || {};
     shiftEnter = data.shiftEnter === 'next' ? 'next' : 'queue';
     recent = Array.isArray(data.recent) ? data.recent : [];
+    suggested = Array.isArray(data.suggested) ? data.suggested : [];
     library = [];
     songs = [];
     songsText = '';
     activando = false;
     latestSeq++; // descarta respuestas pendientes de la vez anterior
-    for (const row of rows.values()) clearTimeout(row._timer);
+    cargando(false);
+    ocultarAviso();
+    pintarTrack(data.track);
     rows = new Map();
     selKey = null;
     input.value = '';
@@ -301,6 +337,12 @@ if (typeof document !== 'undefined') {
       pintarSeleccion();
     }
   });
+  // Los botones no le quitan el foco al campo.
+  np.addEventListener('mousedown', (e) => e.preventDefault());
+  np.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (b) window.qm.player(b.dataset.act);
+  });
   list.addEventListener('click', (e) => {
     const row = e.target.closest('.qm-row');
     const i = flat.findIndex((f) => f.row === row);
@@ -308,5 +350,6 @@ if (typeof document !== 'undefined') {
   });
 
   window.qm.onShow(alMostrar);
+  window.qm.onTrack(pintarTrack);
   window.qm.onSongs(alLlegarCanciones);
 }

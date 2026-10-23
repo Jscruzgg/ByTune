@@ -5,6 +5,7 @@
 //   browse(body)              petición autenticada a /youtubei/v1/browse; lanza si falla (la usa covers.js)
 //   library()                 -> { items: LibraryItem[] }  playlists y álbumes de la biblioteca
 //   searchSongs(q)            -> { songs: Song[] }         hasta 5 canciones
+//   suggestions()             -> { songs: Song[] }         hasta 5 canciones del inicio ("Selección rápida")
 //   play(videoId)             -> { ok: true }              como pulsar la canción en la búsqueda de YT
 //   queue(videoId, 'end'|'next') -> { ok: true }          "Añadir a la cola" / "Reproducir a continuación"
 //   open(browseId)            -> { ok: true }              abre el álbum o la playlist sin recargar
@@ -158,10 +159,8 @@
     return { videoId, title: text(cols[0]).trim(), artist: artistOf(segs, segs.length ? segs[0].text : ''), duration, cover: coverOf(thumbs) };
   };
 
-  const searchSongs = async (q) => {
-    const query = String(q == null ? '' : q).trim();
-    if (!query) return { songs: [] };
-    const json = await api('search', { query, params: SONGS_PARAMS });
+  // Las primeras 5 canciones distintas de una respuesta.
+  const firstSongs = (json) => {
     const songs = [];
     const seen = new Set();
     walk(json, (o) => {
@@ -169,8 +168,17 @@
       const s = songOf(o.musicResponsiveListItemRenderer);
       if (s && !seen.has(s.videoId)) { seen.add(s.videoId); songs.push(s); }
     });
-    return { songs };
+    return songs;
   };
+
+  const searchSongs = async (q) => {
+    const query = String(q == null ? '' : q).trim();
+    if (!query) return { songs: [] };
+    return { songs: firstSongs(await api('search', { query, params: SONGS_PARAMS })) };
+  };
+
+  // Primeras canciones del inicio de YT Music: la estantería "Selección rápida" es la primera con filas de canción.
+  const suggestions = async () => ({ songs: firstSongs(await browse({ browseId: 'FEmusic_home' })) });
 
   // Reproducir, encolar y abrir pasan por el propio manejo de comandos de YT Music, sin tocar
   // location: así no se recarga la página y la reproducción sigue.
@@ -234,6 +242,7 @@
     browse,
     library: safe(library),
     searchSongs: safe(searchSongs),
+    suggestions: safe(suggestions),
     play: safe(play),
     queue: safe(queue),
     open: safe(open),

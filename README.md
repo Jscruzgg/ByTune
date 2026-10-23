@@ -51,7 +51,7 @@ npm run dist
 - Closing the window keeps it in the tray (can be turned off from the tray menu).
 - Notification on song change, "Start with Windows" option.
 - Keyboard media keys and the Windows media panel (via Chromium).
-- Quick menu (`Ctrl+Shift+Space` by default) to search songs and jump to playlists; settings menu under the gear icon.
+- Quick menu (`Ctrl+Shift+Space` by default) to search songs, jump to playlists and control playback; settings menu under the gear icon.
 - Global shortcuts: `Ctrl+Alt+Space` play/pause, `Ctrl+Alt+→/←` next/previous, `Ctrl+Alt+M` show/hide.
 - In the window: `F5` reload, `Alt+←/→` back/forward, `Ctrl +/-/0` zoom.
 - External links open in your browser.

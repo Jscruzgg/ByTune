@@ -7,13 +7,29 @@
   <link rel="stylesheet" href="quickmenu.css">
 </head>
 <body>
+  <div class="qm-toast" id="toast" role="status" aria-live="polite">
+    <svg class="qm-toast-ok" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>
+    <svg class="qm-toast-err" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M12 7v6M12 17h.01"/></svg>
+    <span id="toastText"></span><span class="qm-toast-song" id="toastSong"></span>
+  </div>
   <div class="qm" id="qm">
     <div class="qm-input">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <input id="q" type="text" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="true" aria-controls="list">
+      <span class="qm-spin" aria-hidden="true"></span>
     </div>
     <div class="qm-div"></div>
     <div class="qm-list" id="list" role="listbox"></div>
+    <div class="qm-np off" id="np">
+      <div class="qm-np-text"><span class="qm-np-title" id="npTitle"></span><span class="qm-np-artist" id="npArtist"></span></div>
+      <!-- tabindex -1: el teclado se queda en el campo de búsqueda (Intro activa la fila, no el botón) -->
+      <button type="button" tabindex="-1" data-act="previous"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+      <button type="button" tabindex="-1" data-act="playPause" class="qm-np-play">
+        <svg class="qm-np-icon-play" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+        <svg class="qm-np-icon-pause" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
+      </button>
+      <button type="button" tabindex="-1" data-act="next"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    </div>
     <div class="qm-foot" id="foot"></div>
   </div>
   <script src="quickmenu.js"></script>
