@@ -1,0 +1,47 @@
+# Publica un release en GitHub cada vez que se fusiona un PR a main (ver scripts/release.mjs).
+# Si el PR no subió "version" en package.json, sube el patch y lo commitea a main.
+name: Release
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+# Un release a la vez, en orden de merge.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.event.pull_request.merged == true
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Bump version if already released
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if gh release view "v$version" > /dev/null 2>&1; then
+            npm version patch --no-git-tag-version
+            version=$(node -p "require('./package.json').version")
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -am "Release $version"
+            git push origin main
+          fi
+      - run: npm run release
