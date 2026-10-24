@@ -60,6 +60,7 @@ const STRINGS = {
     'qm.nextHint': 'a continuación',
     'qm.close': 'cerrar',
     'qm.playback': 'anterior / pausa / siguiente',
+    'qm.allShortcuts': 'Todos los atajos (F1)',
   },
   en: {
     // System tray
@@ -119,6 +120,7 @@ const STRINGS = {
     'qm.nextHint': 'play next',
     'qm.close': 'close',
     'qm.playback': 'previous / pause / next',
+    'qm.allShortcuts': 'All shortcuts (F1)',
   },
 };
 

@@ -511,9 +511,9 @@ ipcMain.handle('qm:query', (e, msg) => {
   return { seq, library: filterLibrary(settings.library, text), songs: cached || null };
 });
 
-// Intro: canción → suena (sustituye la cola, como en la búsqueda de YT); playlist o álbum → se abre
-// su página sin tocar la reproducción. Mayús + Intro en una canción: a la cola o a continuación,
-// y el menú sigue abierto con un aviso. El menú no se cierra solo: lo cierra main.
+// Intro: canción → suena (sustituye la cola, como en la búsqueda de YT) y el menú sigue abierto;
+// playlist o álbum → se abre su página sin tocar la reproducción. Mayús + Intro en una canción: a la
+// cola o a continuación, con un aviso. El menú no se cierra solo: lo cierra main.
 ipcMain.handle('qm:activate', async (e, msg) => {
   if (!fromQuickMenu(e)) return { keepOpen: true };
   const item = (msg && msg.item) || {};
@@ -526,8 +526,7 @@ ipcMain.handle('qm:activate', async (e, msg) => {
       return { keepOpen: true, note: !(res && res.ok) ? 'failed' : next ? 'playingNext' : 'added' };
     }
     pageApi('play', item.id);
-    hideQuickMenu();
-    return { keepOpen: false };
+    return { keepOpen: true };
   }
   if (item.kind === 'playlist' || item.kind === 'album') {
     if (shift) return { keepOpen: true }; // Mayús + Intro solo vale para canciones

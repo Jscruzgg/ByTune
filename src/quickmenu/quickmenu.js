@@ -31,12 +31,14 @@ if (typeof document !== 'undefined') {
   const panel = document.getElementById('qm');
   const toast = document.getElementById('toast');
   const np = document.getElementById('np');
+  const more = document.getElementById('more');
 
   let strings = {};
   let shiftEnter = 'queue';
   let recent = [];
   let suggested = [];
   let toastTimer = 0;
+  let pieAbierto = false; // pie con todos los atajos; se recoge cada vez que se abre el menú
   let library = [];
   let songs = [];
   let songsText = '';
@@ -233,13 +235,20 @@ if (typeof document !== 'undefined') {
       return s;
     };
     // Las teclas van con el nombre impreso en el teclado (Shift, Enter) en todos los idiomas, como el atajo en los ajustes.
-    foot.replaceChildren(
-      hint('↑↓', t('qm.move')),
-      hint('Enter', t('qm.playOpen')),
+    const hints = [
       hint('Shift + Enter', t(shiftEnter === 'next' ? 'qm.nextHint' : 'qm.queueHint')),
       hint('Alt + ← ↓ →', t('qm.playback')),
-      hint('Esc', t('qm.close')),
-    );
+    ];
+    if (pieAbierto) hints.push(hint('↑↓', t('qm.move')), hint('Enter', t('qm.playOpen')), hint('Esc', t('qm.close')));
+    foot.replaceChildren(...hints);
+    more.setAttribute('aria-expanded', String(pieAbierto));
+    more.setAttribute('aria-label', t('qm.allShortcuts'));
+    more.title = t('qm.allShortcuts');
+  }
+
+  function alternarPie() {
+    pieAbierto = !pieAbierto;
+    pintarPie();
   }
 
   // --- Búsqueda: la biblioteca responde al instante y las canciones llegan después por onSongs ---
@@ -296,6 +305,7 @@ if (typeof document !== 'undefined') {
     cargando(false);
     ocultarAviso();
     pintarTrack(data.track);
+    pieAbierto = false;
     rows = new Map();
     selKey = null;
     input.value = '';
@@ -320,6 +330,7 @@ if (typeof document !== 'undefined') {
       // Con la tecla mantenida no se repite (si no, Mayús + Intro encolaría la canción muchas veces).
       case 'Enter': e.preventDefault(); if (!e.repeat) activar(e.shiftKey); break;
       case 'Escape': e.preventDefault(); window.qm.close(); break;
+      case 'F1': e.preventDefault(); alternarPie(); break;
     }
   });
 
@@ -342,6 +353,8 @@ if (typeof document !== 'undefined') {
   });
   // Los botones no le quitan el foco al campo.
   np.addEventListener('mousedown', (e) => e.preventDefault());
+  more.addEventListener('mousedown', (e) => e.preventDefault());
+  more.addEventListener('click', alternarPie);
   np.addEventListener('click', (e) => {
     const b = e.target.closest('button');
     if (b) window.qm.player(b.dataset.act);

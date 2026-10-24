@@ -94,9 +94,16 @@ body {
 .qm-np.playing .qm-np-icon-pause { display: block; }
 
 .qm-foot {
-  display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 8px -8px -8px; padding: 9px 18px;
+  display: flex; align-items: flex-start; gap: 8px; margin: 8px -8px -8px; padding: 9px 10px 9px 18px;
   border-top: 1px solid #2e2e2e; font-size: 12px; color: #7f7f7f;
 }
+.qm-keys { flex: 1; display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.qm-more {
+  flex: none; display: grid; place-items: center; width: 22px; height: 20px; padding: 0;
+  border: 0; border-radius: 4px; background: none; color: #9a9a9a; cursor: pointer;
+}
+.qm-more:hover { background: #2c2c2c; color: #fff; }
+.qm-more[aria-expanded="true"] svg { transform: rotate(180deg); }
 .qm-foot span { white-space: nowrap; }
 .qm-foot kbd {
   background: #2a2a2a; border: 1px solid #353535; border-radius: 4px;
