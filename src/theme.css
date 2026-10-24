@@ -335,6 +335,14 @@ ytmusic-player-page ytmusic-av-toggle .av-toggle button::before {
 ytmusic-player-page ytmusic-av-toggle .av-toggle .song-button { --md-av-icon: var(--m3-headphones); }
 ytmusic-player-page ytmusic-av-toggle .av-toggle .video-button { --md-av-icon: var(--m3-video); }
 
+/* Resultado principal de la búsqueda: sin la columna "Más de YouTube" (vídeos que casi nunca
+   tienen que ver); la tarjeta de la canción ocupa todo el ancho. */
+ytmusic-card-shelf-renderer #undercards { display: none !important; }
+ytmusic-card-shelf-renderer .card-container {
+  grid-template-columns: 1fr !important;
+  grid-template-areas: "card-content-container" !important;
+}
+
 /* ---------- Tarjetas (Spotify hover + carátulas Apple) ---------- */
 /* El relleno es solo para el fondo al pasar el ratón: los márgenes negativos lo compensan, así
    las carátulas quedan a 24 px entre sí (el espacio propio de YT) y la primera alineada con el
