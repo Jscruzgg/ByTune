@@ -49,9 +49,10 @@ test('validateAccelerator', () => {
   assert.deepEqual(validateAccelerator('CommandOrControl+Shift+Space'), { ok: true });
 });
 
-test('validateAccelerator: rechaza los cuatro atajos globales existentes', () => {
-  assert.equal(RESERVED.length, 4);
+test('validateAccelerator: rechaza los tres atajos globales existentes', () => {
+  assert.equal(RESERVED.length, 3);
   for (const acc of RESERVED) assert.deepEqual(validateAccelerator(acc), { ok: false, reason: 'reserved' });
+  assert.deepEqual(validateAccelerator('CommandOrControl+Alt+Space'), { ok: true }); // ya no es global
 });
 
 test('displayAccelerator', () => {

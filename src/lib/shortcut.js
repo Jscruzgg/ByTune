@@ -1,9 +1,8 @@
 // Utilidades para atajos de teclado (aceleradores de Electron). Sin dependencias: lo usa main.js
 // con los objetos de 'before-input-event' y también acepta KeyboardEvent del DOM.
 
-// Los cuatro atajos globales que ya existen: el atajo del menú rápido no puede coincidir con ellos.
+// Los atajos globales que ya existen: el atajo del menú rápido no puede coincidir con ellos.
 const RESERVED = [
-  'CommandOrControl+Alt+Space',
   'CommandOrControl+Alt+Right',
   'CommandOrControl+Alt+Left',
   'CommandOrControl+Alt+M',

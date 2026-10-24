@@ -15,6 +15,10 @@ contextBridge.exposeInMainWorld('qm', {
   // item: { kind: 'song'|'playlist'|'album', id }. Responde { keepOpen, note? }.
   activate: (item, shift) => ipcRenderer.invoke('qm:activate', { item, shift }),
   close: () => ipcRenderer.send('qm:close'),
-  // { strings, recent, shiftEnter } cada vez que se abre el menú.
+  // action: 'previous' | 'playPause' | 'next'
+  player: (action) => ipcRenderer.send('qm:player', action),
+  // { title, artist, playing } cada vez que cambia la canción o su estado.
+  onTrack: (cb) => suscribir('qm:track', cb),
+  // { strings, recent, suggested, track, shiftEnter } cada vez que se abre el menú.
   onShow: (cb) => suscribir('qm:show', cb),
 });
