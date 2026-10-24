@@ -1,15 +1,12 @@
-// Caché en memoria con caducidad y tope de entradas: al pasarse del tope sale la más vieja. Sin dependencias.
-function createCache(max, ttlMs, now = Date.now) {
+// Caché en memoria con tope de entradas: al pasarse del tope sale la más vieja. Sin dependencias.
+// Como stale-while-revalidate: get devuelve { value, fresh } y, pasado freshMs, la entrada sigue
+// sirviendo (fresh: false) mientras se pide otra vez.
+function createCache(max, freshMs, now = Date.now) {
   const map = new Map();
   return {
     get(key) {
       const hit = map.get(key);
-      if (!hit) return undefined;
-      if (now() - hit.at > ttlMs) {
-        map.delete(key);
-        return undefined;
-      }
-      return hit.value;
+      return hit && { value: hit.value, fresh: now() - hit.at <= freshMs };
     },
     set(key, value) {
       map.delete(key); // así vuelve al final del orden de inserción

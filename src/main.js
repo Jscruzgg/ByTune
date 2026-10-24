@@ -350,11 +350,20 @@ async function pageApi(call, ...args) {
 }
 
 // Biblioteca (playlists y álbumes) para el menú rápido; se guarda para tenerla sin conexión.
-async function refreshLibrary() {
-  const res = await pageApi('library');
-  if (!res || !Array.isArray(res.items) || !res.items.length) return;
-  settings.library = res.items;
-  saveSettings();
+// Si ya se está pidiendo, se reutiliza esa petición. libraryAt: último intento, para no repetir
+// al abrir el menú (showQuickMenu) si es de hace menos de un minuto.
+let libraryLoading = null;
+let libraryAt = 0;
+function refreshLibrary() {
+  if (libraryLoading) return libraryLoading;
+  libraryAt = Date.now();
+  libraryLoading = (async () => {
+    const res = await pageApi('library');
+    if (!res || !Array.isArray(res.items) || !res.items.length) return;
+    settings.library = res.items;
+    saveSettings();
+  })().finally(() => { libraryLoading = null; });
+  return libraryLoading;
 }
 setInterval(refreshLibrary, 15 * 60 * 1000);
 
@@ -468,6 +477,8 @@ async function showQuickMenu(fromOutside) {
     placeQuickMenu(overWin && !!win);
     qmWin.show();
     qmWin.focus();
+    // Se abre con la biblioteca guardada y se pide de nuevo detrás: cada búsqueda filtra la última.
+    if (Date.now() - libraryAt > 60 * 1000) refreshLibrary();
   } finally {
     qmOpening = false;
   }
@@ -487,7 +498,8 @@ const fromQuickMenu = (e) => !!qmWin && e.sender === qmWin.webContents;
 
 // Búsqueda: la biblioteca responde al momento; las canciones, 200 ms después de la última
 // tecla, por 'qm:songs'. Las respuestas llevan el seq de su consulta (el menú descarta las viejas).
-// Las búsquedas ya hechas salen de la caché en la propia respuesta, sin esperar.
+// Las búsquedas ya hechas salen de la caché en la propia respuesta, sin esperar; si tienen más de
+// 10 minutos se piden otra vez igualmente y la nueva llega por 'qm:songs'.
 const songsCache = createCache(100, 10 * 60 * 1000);
 let songsTimer = null;
 let songsSeq = 0;
@@ -496,19 +508,20 @@ ipcMain.handle('qm:query', (e, msg) => {
   const seq = msg && msg.seq;
   const text = msg && typeof msg.text === 'string' ? msg.text.slice(0, 200) : '';
   const key = text.trim().toLowerCase().replace(/\s+/g, ' ');
-  const cached = key ? songsCache.get(key) : undefined;
+  const hit = key ? songsCache.get(key) : undefined;
   songsSeq = seq;
   clearTimeout(songsTimer);
-  if (key && !cached) {
+  if (key && !(hit && hit.fresh)) {
     const sender = e.sender;
     songsTimer = setTimeout(async () => {
       const res = await pageApi('searchSongs', text);
       if (Array.isArray(res.songs)) songsCache.set(key, res.songs);
+      else if (hit) return; // si falla, se quedan las de la caché que ya se ven
       if (seq !== songsSeq || sender.isDestroyed()) return; // ya hay una consulta más nueva
       sender.send('qm:songs', { seq, songs: Array.isArray(res.songs) ? res.songs : [] });
     }, 200);
   }
-  return { seq, library: filterLibrary(settings.library, text), songs: cached || null };
+  return { seq, library: filterLibrary(settings.library, text), songs: hit ? hit.value : null };
 });
 
 // Intro: canción → suena (sustituye la cola, como en la búsqueda de YT) y el menú sigue abierto;
