@@ -151,6 +151,7 @@ function createWindow() {
   if (settings.maximized) win.maximize();
   win.once('ready-to-show', () => win.show());
   win.on('show', thumbarAfterShow);
+  win.on('focus', () => updateThumbar(true));
   win.loadURL(HOME);
 
   // Enlaces externos → navegador del sistema.
@@ -215,20 +216,25 @@ function player(action) {
 
 // Botones en la vista previa de la barra de tareas de Windows (al pasar el ratón por el icono):
 // anterior, reproducir/pausa y siguiente, como Spotify. Windows los olvida cuando la ventana se
-// oculta, así que se vuelven a poner al mostrarla; si no, solo cuando cambia reproducir/pausa.
+// oculta, así que se vuelven a poner al mostrarla; si no, cuando cambia reproducir/pausa o la canción.
 const thumbImg = (name) => nativeImage.createFromPath(path.join(__dirname, '..', 'build', `thumb-${name}.png`));
 const THUMB = process.platform === 'win32'
   ? { prev: thumbImg('prev'), play: thumbImg('play'), pause: thumbImg('pause'), next: thumbImg('next') }
   : null;
 // Al abrir por primera vez, 'show' llega antes de que Windows cree el botón de la barra de tareas
-// y los botones se pierden sin aviso. Por eso solo se da por hecho si setThumbarButtons devuelve
-// true, y tras mostrarse la ventana se reintenta unas veces (ver thumbarAfterShow).
+// y los botones se pierden sin aviso. Tras una actualización es peor: el instalador abre la app y
+// rehace los accesos directos, y Windows vuelve a crear el botón segundos después, otra vez sin
+// botones. setThumbarButtons devuelve true igualmente, así que no se puede saber si siguen ahí:
+// se vuelven a poner tras mostrar la ventana (ver thumbarAfterShow), al darle el foco y con cada
+// canción nueva. Ponerlos es barato.
 let thumbPlaying = null;
+let thumbTitle = null;
 let thumbOk = false;
 function updateThumbar(force) {
   if (!THUMB || !win || win.isDestroyed() || THUMB.play.isEmpty()) return;
-  if (!force && thumbOk && thumbPlaying === track.playing) return;
+  if (!force && thumbOk && thumbPlaying === track.playing && thumbTitle === track.title) return;
   thumbPlaying = track.playing;
+  thumbTitle = track.title;
   thumbOk = win.setThumbarButtons([
     { tooltip: t(lang, 'tray.previous'), icon: THUMB.prev, click: () => player('previous') },
     // El icono cambia al instante (sin esperar a que la página confirme); si algo falla, la
@@ -237,8 +243,8 @@ function updateThumbar(force) {
     { tooltip: t(lang, 'tray.next'), icon: THUMB.next, click: () => player('next') },
   ]);
 }
-// Tras mostrarse la ventana: al momento y a los 0,5, 1,5 y 4 s, para cubrir el retraso con el
-// que Windows crea el botón de la barra de tareas la primera vez.
+// Tras mostrarse la ventana: al momento y a los 0,5, 1,5, 4, 10 y 30 s, para cubrir el retraso
+// con el que Windows crea (o rehace, tras instalar) el botón de la barra de tareas.
 let thumbTimers = [];
 function thumbarAfterShow() {
   for (const timer of thumbTimers) clearTimeout(timer);
@@ -247,7 +253,7 @@ function thumbarAfterShow() {
     if (process.env.YTM_DEBUG_PORT) console.log(`[thumbar] ${ms} ms tras mostrar: ${thumbOk ? 'puestos' : 'no aceptados'}`);
   };
   attempt(0);
-  thumbTimers = [500, 1500, 4000].map((ms) => setTimeout(() => attempt(ms), ms));
+  thumbTimers = [500, 1500, 4000, 10000, 30000].map((ms) => setTimeout(() => attempt(ms), ms));
 }
 
 function trackLabel() {
