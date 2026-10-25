@@ -263,13 +263,10 @@ ytmusic-player-page tp-yt-paper-tabs tp-yt-paper-tab:nth-of-type(2) { display: n
 ytmusic-player-page[player-page-open] #player .song-media-controls { display: none !important; }
 
 /* ---------- Pantalla completa (lyrics-view.js: html[data-md-fullscreen]) ----------
-   Solo el espacio de color de Now Playing: sin barra lateral ni cola. La barra de reproducción
-   sale desde abajo con el puntero cerca del borde (html[data-md-controls]) y la superior desde
-   arriba (html[data-md-topbar]); se van solas. */
-html[data-md-fullscreen] #nav-bar-divider,
-html[data-md-fullscreen] ytmusic-player-page #side-panel {
-  display: none !important;
-}
+   Solo el espacio de color de Now Playing. La barra de reproducción sale desde abajo con el
+   puntero cerca del borde (html[data-md-controls]), la superior desde arriba (html[data-md-topbar])
+   y la cola desde la derecha (html[data-md-side]); se van solas. */
+html[data-md-fullscreen] #nav-bar-divider { display: none !important; }
 html[data-md-fullscreen] ytmusic-player-page {
   top: 0 !important;
   bottom: 0 !important;
@@ -319,6 +316,25 @@ html[data-md-fullscreen] :is(tp-yt-app-drawer#guide, #mini-guide, #mini-guide-ba
 }
 html[data-md-fullscreen][data-md-topbar] :is(ytmusic-nav-bar, #nav-bar-background, tp-yt-app-drawer#guide, #mini-guide, #mini-guide-background),
 html[data-md-fullscreen]:has(ytmusic-nav-bar :focus-visible) :is(ytmusic-nav-bar, #nav-bar-background) {
+  translate: 0 0;
+  opacity: 1;
+}
+/* La cola: por encima de Now Playing, bajo la altura de la barra superior (que no tape sus
+   pestañas). La de reproducción sí la tapa por abajo al aparecer: la lista se desplaza. */
+html[data-md-fullscreen] ytmusic-player-page #side-panel {
+  position: fixed !important;
+  z-index: 3 !important;
+  top: var(--ytmusic-nav-bar-height, 64px) !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: var(--md-np-side, 400px) !important;
+  height: auto !important;
+  translate: 100% 0;
+  opacity: 0;
+  transition: translate .3s ease, opacity .3s ease !important;
+}
+html[data-md-fullscreen][data-md-side] ytmusic-player-page #side-panel,
+html[data-md-fullscreen] ytmusic-player-page #side-panel:has(:focus-visible) {
   translate: 0 0;
   opacity: 1;
 }

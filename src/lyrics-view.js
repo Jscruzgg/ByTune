@@ -512,16 +512,19 @@ window.__mdLyrics = (() => {
   // La ventana la pone a pantalla completa main.js (no la API del documento: con ella YT cambia a
   // su propio diseño de pantalla completa) y avisa con setFullscreen; Esc también sale (main.js).
   // lyrics.css deja solo el espacio de color de Now Playing. La barra de reproducción aparece con
-  // el puntero cerca del borde de abajo y la superior cerca del de arriba; el puntero, al moverlo.
-  // Todo se esconde a los CONTROLS_MS sin moverlo (salvo con el puntero sobre una barra o un menú).
+  // el puntero cerca del borde de abajo, la superior cerca del de arriba y la cola pegado al
+  // derecho; el puntero, al moverlo. Todo se esconde a los CONTROLS_MS sin moverlo (salvo con el
+  // puntero sobre una barra, la cola o un menú).
   const CONTROLS_MS = 3000;
   const EDGE_PX = 150; // distancia al borde a la que aparece cada barra
+  const SIDE_PX = 16; // la cola, solo pegado al borde: a 24 px están los botones de la esquina
   const NAV = 'ytmusic-nav-bar, tp-yt-app-drawer#guide, #mini-guide'; // barra superior y menú lateral
+  const SIDE = `${PAGE} #side-panel`; // la cola
   const POPUP = 'ytmusic-popup-container, tp-yt-iron-dropdown'; // menús abiertos desde las barras
   const html = document.documentElement;
   let fullscreen = false;
   function hideControls() {
-    for (const a of ['data-md-pointer', 'data-md-controls', 'data-md-topbar']) setAttr(html, a, null);
+    for (const a of ['data-md-pointer', 'data-md-controls', 'data-md-topbar', 'data-md-side']) setAttr(html, a, null);
   }
   function hideControlsLater() {
     clearTimeout(controlsTimer);
@@ -545,9 +548,10 @@ window.__mdLyrics = (() => {
     if (!(t && t.closest(POPUP))) {
       setAttr(html, 'data-md-controls', e.clientY > innerHeight - EDGE_PX || (t && t.closest(BAR)) ? '' : null);
       setAttr(html, 'data-md-topbar', e.clientY < EDGE_PX || (t && t.closest(NAV)) ? '' : null);
+      setAttr(html, 'data-md-side', e.clientX >= innerWidth - SIDE_PX || (t && t.closest(SIDE)) ? '' : null);
     }
     setAttr(html, 'data-md-pointer', '');
-    if (t && t.closest(`${BAR}, ${NAV}, ${POPUP}`)) clearTimeout(controlsTimer);
+    if (t && t.closest(`${BAR}, ${NAV}, ${SIDE}, ${POPUP}`)) clearTimeout(controlsTimer);
     else hideControlsLater();
   }
   // Al cerrar Now Playing, se sale de la pantalla completa (fuera de él no hay nada que mostrar).
