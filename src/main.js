@@ -665,7 +665,7 @@ const lyricsSource = createLyricsSource({ fetchJson, pageLyrics: (videoId) => pa
 // Texto recibido de la página: solo cadenas, recortadas a 300 caracteres.
 const lyricsText = (v) => (typeof v === 'string' ? v.slice(0, 300) : '');
 ipcMain.on('lyrics:request', async (e, t) => {
-  if (!fromMainPage(e) || !t || typeof t !== 'object') return;
+  if (!fromMainPage(e) || !onYouTubeMusic() || !t || typeof t !== 'object') return;
   if (typeof t.videoId !== 'string' || !/^[\w-]{6,20}$/.test(t.videoId)) return;
   const req = {
     videoId: t.videoId,
@@ -682,7 +682,7 @@ ipcMain.on('lyrics:request', async (e, t) => {
 });
 // Panel de letras abierto o cerrado: se recuerda para la próxima vez.
 ipcMain.on('lyrics:open', (e, open) => {
-  if (!fromMainPage(e) || typeof open !== 'boolean') return;
+  if (!fromMainPage(e) || !onYouTubeMusic() || typeof open !== 'boolean') return;
   if (settings.lyricsOpen === open) return;
   settings.lyricsOpen = open;
   saveSettings();

@@ -85,8 +85,10 @@ window.__mdLyrics = (() => {
     else if (el.getAttribute(name) !== value) el.setAttribute(name, value);
   }
   function setText(el, text) { if (el.textContent !== text) el.textContent = text; }
-  function setVar(name, px) {
-    const v = `${Math.round(px * 10) / 10}px`;
+  // Variables CSS en <html>: solo se escriben si cambian. setVar en px, setNum sin unidad.
+  function setVar(name, px) { setRaw(name, `${Math.round(px * 10) / 10}px`); }
+  function setNum(name, n) { setRaw(name, String(Math.round(n * 1000) / 1000)); }
+  function setRaw(name, v) {
     if (vars[name] === v) return;
     vars[name] = v;
     document.documentElement.style.setProperty(name, v);
@@ -213,7 +215,7 @@ window.__mdLyrics = (() => {
       const s = fit / cw;
       const yc = (top + bottom) / 2;
       const dy = (e) => (e ? (1 - s) * (yc - (e.offsetTop + e.offsetHeight / 2)) : 0);
-      document.documentElement.style.setProperty('--md-lyr-s', String(Math.round(s * 1000) / 1000));
+      setNum('--md-lyr-s', s);
       setVar('--md-lyr-tx', -W / 4);
       setVar('--md-lyr-av-y', dy(av));
       setVar('--md-lyr-cover-y', dy(cover));
@@ -226,7 +228,7 @@ window.__mdLyrics = (() => {
       // transformaciones: cambiar anchos movería el panel de YT.
       const infoW = info.offsetWidth;
       const infoX = EDGE + THUMB + THUMB_GAP;
-      document.documentElement.style.setProperty('--md-lyr-thumb-s', String(Math.round((THUMB / cw) * 1000) / 1000));
+      setNum('--md-lyr-thumb-s', THUMB / cw);
       setVar('--md-lyr-thumb-x', EDGE + THUMB / 2 - (cover.offsetLeft + cw / 2));
       setVar('--md-lyr-thumb-y', EDGE + THUMB / 2 - (cover.offsetTop + cover.offsetHeight / 2));
       setVar('--md-lyr-ninfo-x', infoX - (W - infoW) / 2);
@@ -359,7 +361,9 @@ window.__mdLyrics = (() => {
       nodes.push(el('div', 'md-lyrics-credit', str('lyrics.credit')));
     } else {
       for (const text of lyrics.lines) nodes.push(text ? el('div', 'md-line', text) : el('div', 'md-line is-break'));
-      if (lyrics.source) nodes.push(el('div', 'md-lyrics-credit', lyrics.source));
+      // La de YouTube trae su propio texto de fuente; la de LRCLIB lleva el crédito traducido.
+      const source = lyrics.source === 'LRCLIB' ? str('lyrics.credit') : lyrics.source;
+      if (source) nodes.push(el('div', 'md-lyrics-credit', source));
     }
     trackEl.replaceChildren(...nodes);
     times = lyrics && lyrics.kind === 'synced' ? lyrics.lines.map((l) => l.t) : [];

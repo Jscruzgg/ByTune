@@ -32,7 +32,8 @@ function lookupUrls({ title, artist, album, duration }) {
   const hasDuration = Number.isFinite(duration) && duration > 0;
   const secs = hasDuration ? Math.round(duration) : '';
   const alb = album || '';
-  const cleanT = cleanTitle(title);
+  // Un título que es solo un sufijo ("(Official Video)") quedaría vacío: se usa tal cual.
+  const cleanT = cleanTitle(title) || title;
   const mainA = primaryArtist(artist);
   const urls = [];
   if (hasDuration) {

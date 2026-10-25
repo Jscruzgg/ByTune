@@ -66,3 +66,9 @@ test('pickSearchResult cae a letra plana y luego a null', () => {
   assert.equal(pickSearchResult([], 165), null);
   assert.equal(pickSearchResult([{ syncedLyrics: null, plainLyrics: '' }], 165), null);
 });
+
+test('lookupUrls: un título que es solo un sufijo se busca tal cual', () => {
+  const urls = lookupUrls({ title: '(Official Video)', artist: 'A', album: '', duration: NaN });
+  assert.equal(urls.length, 1);
+  assert.ok(urls[0].includes('track_name=%28Official+Video%29'));
+});
