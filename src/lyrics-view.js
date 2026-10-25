@@ -249,6 +249,8 @@ window.__mdLyrics = (() => {
       setVar('--md-lyr-thumb-x', EDGE + THUMB / 2 - (cover.offsetLeft + cw / 2));
       setVar('--md-lyr-thumb-y', EDGE + THUMB / 2 - (cover.offsetTop + cover.offsetHeight / 2));
       setVar('--md-lyr-ninfo-x', infoX - (W - infoW) / 2);
+      // El texto no pasa del borde del panel (si no, un título largo se mete en la cola).
+      setVar('--md-lyr-ninfo-w', Math.max(0, W - infoX - EDGE));
       setVar('--md-lyr-ninfo-y', EDGE + THUMB / 2 - (info.offsetTop + info.offsetHeight / 2));
       setVar('--md-lyr-top', EDGE + THUMB + 24);
       setVar('--md-lyr-h', Math.min(H - EDGE, maxBottom) - (EDGE + THUMB + 24));

@@ -168,6 +168,10 @@ ytmusic-player-page[data-md-lyrics="open"][data-md-lyrics-narrow] #main-panel > 
 ytmusic-player-page[data-md-lyrics="open"][data-md-lyrics-narrow] #main-panel > #md-np-info {
   translate: var(--md-lyr-ninfo-x) var(--md-lyr-ninfo-y);
 }
+/* Al lado de la miniatura, título y artista se cortan con puntos suspensivos antes del borde. */
+ytmusic-player-page[data-md-lyrics="open"][data-md-lyrics-narrow] #md-np-info .md-np-text {
+  max-width: var(--md-lyr-ninfo-w, 100%) !important;
+}
 
 /* Área de la letra: mitad derecha, mismo alto que la columna; aparece 0,2 s después desde la
    derecha y, al cerrar, se va rápido (0,2 s) antes de que vuelva la carátula. Bordes de arriba
@@ -283,8 +287,10 @@ html[data-md-fullscreen] ytmusic-player-page {
   left: 0 !important;
   width: 100% !important;
   height: 100% !important;
-  /* Carátula más grande: ya no hay barras arriba ni abajo (solo selector, título y márgenes). */
-  --md-np-art: min(calc(100vh - 300px), calc(100vw - 96px));
+  /* Carátula más grande: ya no hay barras arriba ni abajo. Quedan el selector Canción/Vídeo
+     (~110 px), el título y el artista (~85), los márgenes y el hueco de la barra de controles
+     cuando aparece (~92): con 400 px de reserva todo cabe aunque la canción tenga selector. */
+  --md-np-art: min(calc(100vh - 400px), calc(100vw - 96px));
 }
 html[data-md-fullscreen] ytmusic-player-bar[slot="player-bar"],
 html[data-md-fullscreen] #player-bar-background {
