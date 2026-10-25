@@ -20,10 +20,12 @@ const mdLyricsTiming = (() => {
 
   // Milisegundos hasta la siguiente línea (según la velocidad); null si no hay más.
   function msUntilNext(times, t, rate) {
-    if (!(rate > 0)) return null;
+    if (!(rate > 0) || !Number.isFinite(t)) return null;
     const next = activeIndex(times, t) + 1;
     if (next >= times.length) return null;
-    return Math.max(0, Math.ceil(((times[next] - t) * 1000) / rate));
+    // se redondea a 6 decimales antes del ceil para evitar ruido de coma flotante (100.00000000000009 -> 101)
+    const ms = Math.round(((times[next] - t) * 1000 / rate) * 1e6) / 1e6;
+    return Math.max(0, Math.ceil(ms));
   }
 
   return { activeIndex, msUntilNext };

@@ -19,6 +19,9 @@ test('msUntilNext calcula los ms hasta la siguiente línea según la velocidad',
   assert.equal(timing.msUntilNext(times, 10, 1), null);
   assert.equal(timing.msUntilNext(times, -0.5, 1), 500);
   assert.equal(timing.msUntilNext(times, 2, 0), null);
+  assert.equal(timing.msUntilNext(times, NaN, 1), null);
+  assert.equal(timing.msUntilNext([0, 3], 2.9, 1), 100);
+  assert.equal(timing.msUntilNext(times, 3, 1), 3500);
 });
 
 test('el módulo exporta ambas funciones con require', () => {
