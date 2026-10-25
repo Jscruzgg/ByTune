@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, Notification, dialog, globalShortcut, ipcMain, nativeImage, nativeTheme, net, screen, shell } = require('electron');
+const { app, BrowserWindow, Tray, Menu, Notification, globalShortcut, ipcMain, nativeImage, nativeTheme, net, screen, shell } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { pickLang, t, STRINGS } = require('./lib/i18n');
@@ -345,7 +345,6 @@ function buildTrayMenu() {
   return Menu.buildFromTemplate([
     { label: trackLabel(), enabled: false },
     { type: 'separator' },
-    ...(updateReady ? [{ label: t(lang, 'upd.tray', { version: updateReady }), click: installUpdate }, { type: 'separator' }] : []),
     { label: t(lang, track.playing ? 'tray.pause' : 'tray.play'), click: () => player('playPause') },
     { label: t(lang, 'tray.next'), click: () => player('next') },
     { label: t(lang, 'tray.previous'), click: () => player('previous') },
@@ -828,59 +827,63 @@ ipcMain.handle('settings:set', (e, patch) => {
 });
 
 // --- Actualizaciones automáticas ---
-// En cada arranque se mira en los releases de GitHub (repo público, sin token) si hay una versión
-// más nueva; se descarga en segundo plano y se ofrece reiniciar. Si se deja para luego, se instala
-// al salir. Solo en la app instalada: la portable no tiene instalador que sustituir y la copia de
-// desarrollo no está empaquetada. Sin conexión no se avisa de nada: se reintenta al próximo arranque.
-let updater = null;
-let updateReady = null; // versión descargada y lista para instalar
+// Como Discord: en cada arranque, antes de abrir la ventana, se mira en los releases de GitHub (repo
+// público, sin token) si hay una versión más nueva. Si la hay, se descarga mostrando solo un aviso
+// pequeño, se instala en silencio encima de la actual (misma carpeta, accesos directos y anclajes,
+// sin asistente) y se abre la nueva. Sin preguntar y sin "más tarde". Sin conexión, o si algo falla,
+// se abre la versión actual y se reintenta al próximo arranque. Solo en la app instalada: la
+// portable no tiene instalador que sustituir y la copia de desarrollo no está empaquetada.
+const UPDATE_CHECK_TIMEOUT = 10000; // una red colgada no puede dejar la app sin abrir
 function updateLog(level, msg) {
   try { fs.appendFileSync(path.join(app.getPath('userData'), 'updater.log'), `${new Date().toISOString()} ${level} ${msg}\n`); } catch {}
 }
-function installUpdate() {
-  if (!updater || !updateReady) return;
-  quitting = true; // si no, "cerrar a la bandeja" esconde la ventana en vez de dejar salir
-  updater.quitAndInstall();
+function showUpdateSplash(version) {
+  const splash = new BrowserWindow({ width: 340, height: 110, frame: false, resizable: false, icon, backgroundColor: '#000000', show: false });
+  const html = `<body style="margin:0;height:100vh;display:grid;place-items:center;background:#000;color:#fff;font:14px 'Segoe UI',sans-serif;-webkit-app-region:drag">${t(lang, 'upd.splash', { version })}</body>`;
+  splash.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  splash.once('ready-to-show', () => splash.show());
+  return splash;
 }
-async function askToRestart() {
-  const parent = win && win.isVisible() ? win : undefined;
-  const { response } = await dialog.showMessageBox(parent, {
-    type: 'info',
-    title: t(lang, 'upd.title'),
-    message: t(lang, 'upd.title'),
-    detail: t(lang, 'upd.body', { version: updateReady }),
-    buttons: [t(lang, 'upd.restart'), t(lang, 'upd.later')],
-    defaultId: 0,
-    cancelId: 1,
-    noLink: true,
-  });
-  if (response === 0) installUpdate();
-}
-function setupUpdates() {
-  if (!app.isPackaged || process.env.PORTABLE_EXECUTABLE_DIR) return;
-  try { updater = require('electron-updater').autoUpdater; } catch { return; }
+// true si se está instalando una versión nueva: la app se cierra sola y el instalador abre la nueva.
+async function updateBeforeLaunch() {
+  if (!app.isPackaged || process.env.PORTABLE_EXECUTABLE_DIR) return false;
+  let updater;
+  try { updater = require('electron-updater').autoUpdater; } catch { return false; }
   const log = (level) => (m) => updateLog(level, String(m));
   updater.logger = { info: log('info'), warn: log('warn'), error: log('error'), debug: () => {} };
-  updater.autoDownload = true;
-  updater.autoInstallOnAppQuit = true;
-  updater.on('update-downloaded', (info) => {
-    updateReady = info.version;
-    refreshUi();
-    askToRestart();
-  });
+  updater.autoDownload = false;
+  updater.autoInstallOnAppQuit = false;
   updater.on('error', (e) => updateLog('error', (e && e.message) || e));
-  updater.checkForUpdates().catch(() => {});
+  let splash = null;
+  try {
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('update check timed out')), UPDATE_CHECK_TIMEOUT));
+    const result = await Promise.race([updater.checkForUpdates(), timeout]);
+    if (!result || !result.isUpdateAvailable) return false;
+    splash = showUpdateSplash(result.updateInfo.version);
+    await updater.downloadUpdate();
+    // /S: sin asistente, sobre la instalación actual. --force-run: abre la versión nueva al acabar.
+    if (!updater.install(true, true)) throw new Error('installer did not start');
+    quitting = true;
+    app.quit();
+    return true;
+  } catch (e) {
+    updateLog('warn', `opening current version: ${(e && e.message) || e}`);
+    if (splash) splash.destroy();
+    return false;
+  }
 }
 
-app.on('second-instance', showWindow);
 app.on('before-quit', () => { quitting = true; saveSettings(); });
 app.on('will-quit', () => globalShortcut.unregisterAll());
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Solo instalada: el instalador crea el acceso directo con este ID y su icono. Sin acceso
   // directo (copia de desarrollo) Windows mostraría el icono de electron.exe, el átomo.
   if (app.isPackaged) app.setAppUserModelId('local.youtube-music-client');
   nativeTheme.themeSource = 'dark'; // menús, barras de scroll y diálogos oscuros
+  if (await updateBeforeLaunch()) return;
+  // Se registra aquí y no antes: abrir la app otra vez durante la descarga no debe abrir esta versión.
+  app.on('second-instance', showWindow);
   createWindow();
   if (process.argv.includes('--hidden')) win.once('ready-to-show', () => win.hide());
   createTray();
@@ -888,7 +891,6 @@ app.whenReady().then(() => {
   // Atajos globales (las teclas multimedia del teclado ya funcionan solas vía Windows).
   registerPlayerShortcuts();
   applyQuickMenuShortcut(settings.quickMenu);
-  setupUpdates();
 });
 
 app.on('window-all-closed', () => {
