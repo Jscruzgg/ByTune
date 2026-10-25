@@ -14,16 +14,16 @@ ytmusic-player-page #player[playback-mode="ATV_PREFERRED"] {
   max-height: var(--md-np-art) !important;
 }
 
-/* Fila de título bajo la carátula: título y artista grandes (Apple Music) y el botón de letras
-   alineado con el borde derecho de la carátula. */
+/* Fila de título bajo la carátula: título y artista grandes (Apple Music). contain: su texto
+   (sin saltos de línea) no ensancha el panel de YT; el ancho lo pone width. */
 ytmusic-player-page #md-np-info {
   display: flex !important;
   align-items: center !important;
-  gap: 16px !important;
   flex: none !important;
   width: min(100%, var(--md-np-art)) !important;
   margin-top: 20px !important;
   box-sizing: border-box !important;
+  contain: inline-size !important;
 }
 ytmusic-player-page #md-np-info .md-np-text {
   flex: 1 1 auto !important;
@@ -55,12 +55,17 @@ ytmusic-player-page #md-np-info .md-np-artist {
 }
 
 /* Botón de letras: redondo de 44 px con un bocadillo; contorno si está cerrado, blanco relleno
-   si está abierto. Oculto (sin ocupar otro sitio) hasta saber que la canción tiene letra. */
-ytmusic-player-page #md-np-info .md-lyrics-btn {
+   si está abierto. Fijo en la esquina inferior derecha del panel principal (encima de la barra
+   de reproducción, a la izquierda de la cola): no se mueve al abrir o cerrar la letra. Oculto
+   hasta saber que la canción tiene letra, y en modo vídeo. */
+ytmusic-player-page #main-panel > .md-lyrics-btn {
+  position: absolute !important;
+  z-index: 2 !important;
+  right: 24px !important;
+  bottom: 24px !important;
   /* Sin esto Chromium pinta el botón nativo claro de Windows (no ve los fondos de una hoja de usuario). */
   -webkit-appearance: none !important;
   appearance: none !important;
-  flex: none !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -77,13 +82,13 @@ ytmusic-player-page #md-np-info .md-lyrics-btn {
   pointer-events: none !important;
   transition: opacity .3s ease !important;
 }
-ytmusic-player-page[data-md-has-lyrics]:not([data-md-video]) #md-np-info .md-lyrics-btn {
+ytmusic-player-page[data-md-has-lyrics]:not([data-md-video]) #main-panel > .md-lyrics-btn {
   opacity: 1 !important;
   pointer-events: auto !important;
 }
-ytmusic-player-page #md-np-info .md-lyrics-btn:hover { background: rgba(255,255,255,.1) !important; }
-ytmusic-player-page #md-np-info .md-lyrics-btn:focus-visible { outline: 2px solid #fff !important; outline-offset: 2px !important; }
-ytmusic-player-page #md-np-info .md-lyrics-btn[aria-pressed="true"] {
+ytmusic-player-page #main-panel > .md-lyrics-btn:hover { background: rgba(255,255,255,.1) !important; }
+ytmusic-player-page #main-panel > .md-lyrics-btn:focus-visible { outline: 2px solid #fff !important; outline-offset: 2px !important; }
+ytmusic-player-page #main-panel > .md-lyrics-btn[aria-pressed="true"] {
   border-color: #fff !important;
   background: #fff !important;
   color: #000 !important;
@@ -113,7 +118,7 @@ ytmusic-player-page[data-md-lyrics="open"]:not([data-md-lyrics-narrow]) #main-pa
   translate: var(--md-lyr-tx) var(--md-lyr-info-y) !important;
   scale: var(--md-lyr-s) !important;
 }
-/* Estrecha: carátula en miniatura arriba a la izquierda, título y botón a su lado; el selector
+/* Estrecha: carátula en miniatura arriba a la izquierda, título y artista a su lado; el selector
    Canción/Vídeo se aparta (vuelve al cerrar la letra). */
 ytmusic-player-page[data-md-lyrics="open"][data-md-lyrics-narrow] #main-panel > #av-id {
   opacity: 0 !important;
@@ -124,7 +129,6 @@ ytmusic-player-page[data-md-lyrics="open"][data-md-lyrics-narrow] #main-panel > 
   scale: var(--md-lyr-thumb-s) !important;
 }
 ytmusic-player-page[data-md-lyrics="open"][data-md-lyrics-narrow] #main-panel > #md-np-info {
-  width: var(--md-lyr-ninfo-w) !important;
   translate: var(--md-lyr-ninfo-x) var(--md-lyr-ninfo-y) !important;
 }
 
@@ -158,9 +162,12 @@ ytmusic-player-page[data-md-lyrics-narrow] #md-lyrics {
   right: 32px !important;
 }
 ytmusic-player-page #md-lyrics .md-lyrics-track {
+  position: relative !important; /* las líneas miden su offsetTop desde aquí */
   padding: 0 5% 0 6px !important;
   transition: transform .6s cubic-bezier(.22,.8,.3,1) !important;
 }
+/* Con la rueda, la letra sigue al gesto sin el retardo largo. */
+ytmusic-player-page #md-lyrics.is-manual .md-lyrics-track { transition: transform .15s linear !important; }
 /* Líneas: la activa en blanco y algo más grande, las siguientes tenues y las cantadas más. */
 ytmusic-player-page #md-lyrics .md-line {
   margin: 0 !important;
@@ -208,3 +215,7 @@ ytmusic-player-page[data-md-lyrics-mode="plain"] #md-lyrics {
 ytmusic-player-page[data-md-lyrics-mode="plain"] #md-lyrics .md-lyrics-track { padding-top: 48px !important; }
 ytmusic-player-page[data-md-lyrics-mode="plain"] #md-lyrics .md-line { opacity: 1 !important; padding: 8px 0 !important; }
 ytmusic-player-page[data-md-lyrics-mode="plain"] #md-lyrics .md-line.is-break { height: 32px !important; padding: 0 !important; }
+
+/* La pestaña "Letra" del panel derecho sobra: la letra está ahora junto a la carátula. Es la
+   segunda de las pestañas (A continuación, Letra, Comentarios, Relacionado). */
+ytmusic-player-page tp-yt-paper-tabs tp-yt-paper-tab:nth-of-type(2) { display: none !important; }
