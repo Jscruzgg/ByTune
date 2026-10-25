@@ -1,7 +1,7 @@
 {
   "name": "bytune",
   "productName": "ByTune",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "Desktop client for YouTube Music",
   "main": "src/main.js",
   "private": true,
