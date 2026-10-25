@@ -35,6 +35,11 @@ const STRINGS = {
 
     // Actualizaciones
     'upd.splash': 'Actualizando ByTune a la versión {version}…',
+    'upd.check': 'Buscar actualizaciones',
+    'upd.checking': 'Buscando…',
+    'upd.latest': 'Ya tienes la última versión',
+    'upd.unsupported': 'Solo en la versión instalada',
+    'upd.error': 'No se pudo comprobar',
 
     // Botón atrás
     'nav.back': 'Atrás',
@@ -99,6 +104,11 @@ const STRINGS = {
 
     // Updates
     'upd.splash': 'Updating ByTune to version {version}…',
+    'upd.check': 'Check for updates',
+    'upd.checking': 'Checking…',
+    'upd.latest': "You're up to date",
+    'upd.unsupported': 'Installed version only',
+    'upd.error': "Couldn't check",
 
     // Back button
     'nav.back': 'Back',
