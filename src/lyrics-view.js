@@ -3,13 +3,22 @@
 // Habla con main.js por preload.js: deja el mensaje en <html data-md-lyrics-msg> y lanza 'md-lyrics'.
 // Dibuja su propia fila de título bajo la carátula (#md-np-info, con el botón de letras) y el área
 // de letras (#md-lyrics). El estado va en atributos de ytmusic-player-page y el CSS (lyrics.css)
-// hace todo el movimiento. YouTube Music impone Trusted Types: nada de innerHTML.
-// Sin bucles: todo va por eventos del <video>, del reproductor y de la barra.
+// hace todo el movimiento; aquí solo se miden tamaños cuando cambian. YouTube Music impone
+// Trusted Types: nada de innerHTML. Sin bucles: todo va por eventos del <video>, del reproductor y
+// de la barra.
 if (window.__mdLyrics && window.__mdLyrics.destroy) window.__mdLyrics.destroy();
 window.__mdLyrics = (() => {
   const PAGE = 'ytmusic-player-page';
   const BAR = 'ytmusic-player-bar[slot="player-bar"]';
   const SVG_NS = 'http://www.w3.org/2000/svg';
+  // Medidas del diseño (px). GUTTER: hueco a cada lado de la carátula en la mitad izquierda.
+  const GUTTER = 24;
+  const EDGE = 32; // margen de la disposición estrecha
+  const THUMB = 88; // carátula en miniatura (disposición estrecha)
+  const THUMB_GAP = 18;
+  // Por debajo de estos anchos, carátula y letra no caben lado a lado: disposición estrecha.
+  const MIN_COVER = 300;
+  const MIN_LYRICS = 400; // ancho del área de letra (mitad derecha menos su margen de 40 px)
 
   let strings = {};
   let initialized = false;
@@ -18,25 +27,32 @@ window.__mdLyrics = (() => {
   // Canción actual y su letra.
   let track = { videoId: '', title: '' }; // title: el de la barra cuando se pidió la letra
   let requested = false;
-  let hasLyrics = false;
+  let lyrics = null; // { kind: 'synced' | 'plain', lines, source } de la canción actual
+  let loading = false; // vista abierta esperando la letra de una canción nueva
+  let shown = false;
 
   // Elementos propios y lo que se observa.
   let info = null; // #md-np-info
   let titleEl = null;
   let artistEl = null;
   let btn = null;
+  let area = null; // #md-lyrics
+  let trackEl = null; // contenedor de las líneas (se desplaza con translateY)
   let boundVideo = null;
   let boundBarTitle = null;
   let boundPlayer = null;
+  let boundPanel = null;
   const cleanups = [];
   const barObserver = new MutationObserver(() => check('bar'));
   const modeObserver = new MutationObserver(() => applyState());
+  const sizeObserver = new ResizeObserver(() => measure());
+  const vars = {}; // variables CSS escritas en <html> (para no repetir escrituras)
 
   function send(msg) {
     document.documentElement.dataset.mdLyricsMsg = JSON.stringify(msg);
     document.dispatchEvent(new Event('md-lyrics'));
   }
-  const t = (key) => strings[key] || '';
+  const str = (key) => strings[key] || '';
   const page = () => document.querySelector(PAGE);
   const player = () => document.querySelector('#movie_player');
   // Escribe en el DOM solo si el valor cambia.
@@ -45,6 +61,18 @@ window.__mdLyrics = (() => {
     else if (el.getAttribute(name) !== value) el.setAttribute(name, value);
   }
   function setText(el, text) { if (el.textContent !== text) el.textContent = text; }
+  function setVar(name, px) {
+    const v = `${Math.round(px * 10) / 10}px`;
+    if (vars[name] === v) return;
+    vars[name] = v;
+    document.documentElement.style.setProperty(name, v);
+  }
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
 
   // ---------- Elementos propios ----------
   function svgIcon() {
@@ -58,18 +86,14 @@ window.__mdLyrics = (() => {
     return svg;
   }
   function build() {
-    info = document.createElement('div');
+    info = el('div');
     info.id = 'md-np-info';
-    const text = document.createElement('div');
-    text.className = 'md-np-text';
-    titleEl = document.createElement('div');
-    titleEl.className = 'md-np-title';
-    artistEl = document.createElement('div');
-    artistEl.className = 'md-np-artist';
+    const text = el('div', 'md-np-text');
+    titleEl = el('div', 'md-np-title');
+    artistEl = el('div', 'md-np-artist');
     text.append(titleEl, artistEl);
-    btn = document.createElement('button');
+    btn = el('button', 'md-lyrics-btn');
     btn.type = 'button';
-    btn.className = 'md-lyrics-btn';
     btn.append(svgIcon());
     btn.addEventListener('click', () => {
       wantOpen = !wantOpen;
@@ -77,16 +101,75 @@ window.__mdLyrics = (() => {
       applyState();
     });
     info.append(text, btn);
+    area = el('div');
+    area.id = 'md-lyrics';
+    trackEl = el('div', 'md-lyrics-track');
+    area.append(trackEl);
   }
-  // YT puede rehacer el panel: si falta, se vuelve a poner (al final de #main-panel).
+  // YT puede rehacer el panel: si falta, se vuelve a poner (la fila al final de #main-panel).
   function ensureDom() {
     const panel = document.querySelector(`${PAGE} #main-panel`);
     if (panel && info.parentElement !== panel) panel.append(info);
+    if (panel && area.parentElement !== panel) panel.insertBefore(area, info);
     const pl = document.querySelector(`${PAGE} #player`);
     if (pl !== boundPlayer) {
       modeObserver.disconnect();
       boundPlayer = pl;
       if (pl) modeObserver.observe(pl, { attributes: true, attributeFilter: ['playback-mode'] });
+    }
+    if (panel !== boundPanel) {
+      sizeObserver.disconnect();
+      boundPanel = panel;
+      if (panel) {
+        for (const e of [panel, pl, panel.querySelector('#av-id'), info]) if (e) sizeObserver.observe(e);
+      }
+    }
+  }
+
+  // ---------- Medidas ----------
+  // Se miden el panel, la carátula y la fila de título (sin transformaciones: offset* no las
+  // ve) y se dejan en variables CSS de <html>; lyrics.css las usa para mover la columna.
+  // Solo corre cuando algo cambia de tamaño o de estado, nunca por fotograma.
+  function measure() {
+    const pp = page();
+    const panel = boundPanel;
+    const cover = boundPlayer;
+    const av = panel && panel.querySelector('#av-id');
+    if (!pp || !panel || !cover || !info.isConnected) return;
+    const W = panel.offsetWidth;
+    const H = panel.offsetHeight;
+    const cw = cover.offsetWidth;
+    if (!W || !cw) return;
+    const top = av ? av.offsetTop : cover.offsetTop;
+    const bottom = info.offsetTop + info.offsetHeight;
+    const fit = Math.min(cw, W / 2 - 2 * GUTTER);
+    const narrow = fit < MIN_COVER || W / 2 - 40 < MIN_LYRICS;
+    setAttr(pp, 'data-md-lyrics-narrow', narrow ? '' : null);
+    setVar('--md-np-w', W);
+    if (!narrow) {
+      // Ancha: la columna (selector, carátula, título) se centra en la mitad izquierda y, si no
+      // cabe con su hueco, se encoge alrededor de su centro.
+      const s = fit / cw;
+      const yc = (top + bottom) / 2;
+      const dy = (e) => (e ? (1 - s) * (yc - (e.offsetTop + e.offsetHeight / 2)) : 0);
+      document.documentElement.style.setProperty('--md-lyr-s', String(Math.round(s * 1000) / 1000));
+      setVar('--md-lyr-tx', -W / 4);
+      setVar('--md-lyr-av-y', dy(av));
+      setVar('--md-lyr-cover-y', dy(cover));
+      setVar('--md-lyr-info-y', dy(info));
+      setVar('--md-lyr-top', yc - (s * (bottom - top)) / 2);
+      setVar('--md-lyr-h', s * (bottom - top));
+    } else {
+      // Estrecha: miniatura arriba a la izquierda, título y botón a su lado, letra debajo.
+      const infoW = W - 2 * EDGE - THUMB - THUMB_GAP;
+      document.documentElement.style.setProperty('--md-lyr-thumb-s', String(Math.round((THUMB / cw) * 1000) / 1000));
+      setVar('--md-lyr-thumb-x', EDGE + THUMB / 2 - (cover.offsetLeft + cw / 2));
+      setVar('--md-lyr-thumb-y', EDGE + THUMB / 2 - (cover.offsetTop + cover.offsetHeight / 2));
+      setVar('--md-lyr-ninfo-w', infoW);
+      setVar('--md-lyr-ninfo-x', EDGE + THUMB + THUMB_GAP - (W - infoW) / 2);
+      setVar('--md-lyr-ninfo-y', EDGE + THUMB / 2 - (info.offsetTop + info.offsetHeight / 2));
+      setVar('--md-lyr-top', EDGE + THUMB + 24);
+      setVar('--md-lyr-h', H - (EDGE + THUMB + 24) - EDGE);
     }
   }
 
@@ -118,7 +201,7 @@ window.__mdLyrics = (() => {
   }
 
   function bindVideo() {
-    const video = document.querySelector(`${PAGE} video, #movie_player video`) || document.querySelector('video');
+    const video = document.querySelector('#movie_player video') || document.querySelector('video');
     if (video === boundVideo) return;
     for (const off of cleanups.splice(0)) off();
     boundVideo = video;
@@ -129,20 +212,20 @@ window.__mdLyrics = (() => {
     on('playing', () => check('playing'));
   }
   function bindBar() {
-    const el = document.querySelector(`${BAR} .title`);
-    if (el === boundBarTitle) return;
+    const title = document.querySelector(`${BAR} .title`);
+    if (title === boundBarTitle) return;
     barObserver.disconnect();
-    boundBarTitle = el;
-    const bar = document.querySelector(BAR);
-    if (el) barObserver.observe(el, { childList: true, characterData: true, subtree: true });
-    const byline = bar && bar.querySelector('.byline');
-    if (byline) barObserver.observe(byline, { childList: true, characterData: true, subtree: true });
+    boundBarTitle = title;
+    const byline = document.querySelector(`${BAR} .byline`);
+    for (const e of [title, byline]) if (e) barObserver.observe(e, { childList: true, characterData: true, subtree: true });
   }
 
   function newTrack(videoId) {
     track = { videoId, title: track.title };
     requested = false;
-    hasLyrics = false;
+    loading = shown; // si la vista estaba abierta, se queda con líneas de espera
+    lyrics = null;
+    render();
     applyState();
   }
 
@@ -169,24 +252,60 @@ window.__mdLyrics = (() => {
     send({ type: 'request', track: { videoId, title: bar.title, artist: bar.artist, album: bar.album, duration: dur } });
   }
 
+  // ---------- Letra ----------
+  // Las líneas se crean una vez por canción.
+  function render() {
+    const nodes = [];
+    if (!lyrics) {
+      // Tres líneas tenues mientras llega la letra.
+      for (const w of [70, 52, 62]) {
+        const line = el('div', 'md-line is-placeholder');
+        const bar = el('span');
+        bar.style.width = `${w}%`;
+        line.append(bar);
+        nodes.push(line);
+      }
+    } else if (lyrics.kind === 'synced') {
+      for (const l of lyrics.lines) {
+        const line = el('div', l.gap ? 'md-line is-gap' : 'md-line', l.text);
+        line.dataset.t = String(l.t);
+        nodes.push(line);
+      }
+      nodes.push(el('div', 'md-lyrics-credit', str('lyrics.credit')));
+    } else {
+      for (const text of lyrics.lines) nodes.push(text ? el('div', 'md-line', text) : el('div', 'md-line is-break'));
+      if (lyrics.source) nodes.push(el('div', 'md-lyrics-credit', lyrics.source));
+    }
+    trackEl.replaceChildren(...nodes);
+    trackEl.style.transform = '';
+    area.scrollTop = 0;
+  }
+
   // ---------- Estado visible ----------
   function applyState() {
     const pp = page();
     if (!pp) return;
     const pl = document.querySelector(`${PAGE} #player`);
     const videoMode = !!pl && pl.getAttribute('playback-mode') !== 'ATV_PREFERRED';
-    const shown = wantOpen && hasLyrics && !videoMode;
+    const hasLyrics = !!lyrics;
+    const wasShown = shown;
+    shown = wantOpen && (hasLyrics || loading) && !videoMode;
+    if (shown && !wasShown) measure();
     setAttr(pp, 'data-md-video', videoMode ? '' : null);
     setAttr(pp, 'data-md-has-lyrics', hasLyrics ? '' : null);
+    setAttr(pp, 'data-md-lyrics-mode', lyrics ? lyrics.kind : null);
     setAttr(pp, 'data-md-lyrics', shown ? 'open' : null);
     setAttr(btn, 'aria-pressed', String(shown));
-    setAttr(btn, 'aria-label', t(shown ? 'lyrics.hide' : 'lyrics.show'));
-    setAttr(btn, 'title', t(shown ? 'lyrics.hide' : 'lyrics.show'));
+    setAttr(btn, 'aria-label', str(shown ? 'lyrics.hide' : 'lyrics.show'));
+    setAttr(btn, 'title', str(shown ? 'lyrics.hide' : 'lyrics.show'));
   }
 
   function receive(videoId, result) {
     if (videoId !== track.videoId || !result) return; // respuesta de una canción anterior
-    hasLyrics = result.kind === 'synced' || result.kind === 'plain';
+    const ok = (result.kind === 'synced' || result.kind === 'plain') && Array.isArray(result.lines) && result.lines.length > 0;
+    lyrics = ok ? { kind: result.kind, lines: result.lines, source: typeof result.source === 'string' ? result.source : '' } : null;
+    loading = false;
+    render();
     applyState();
   }
 
@@ -202,6 +321,10 @@ window.__mdLyrics = (() => {
         wantOpen = !!opts.open;
       }
       check('init');
+      if (lyrics && lyrics.kind === 'synced') {
+        const credit = trackEl.querySelector('.md-lyrics-credit');
+        if (credit) setText(credit, str('lyrics.credit'));
+      }
       applyState();
     },
     receive,
@@ -210,9 +333,11 @@ window.__mdLyrics = (() => {
       for (const off of cleanups.splice(0)) off();
       barObserver.disconnect();
       modeObserver.disconnect();
-      if (info) info.remove();
+      sizeObserver.disconnect();
+      info.remove();
+      area.remove();
       const pp = page();
-      if (pp) for (const a of ['data-md-lyrics', 'data-md-lyrics-mode', 'data-md-has-lyrics', 'data-md-video']) pp.removeAttribute(a);
+      if (pp) for (const a of ['data-md-lyrics', 'data-md-lyrics-mode', 'data-md-has-lyrics', 'data-md-video', 'data-md-lyrics-narrow']) pp.removeAttribute(a);
     },
   };
 })();

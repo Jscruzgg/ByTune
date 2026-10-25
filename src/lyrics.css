@@ -88,3 +88,123 @@ ytmusic-player-page #md-np-info .md-lyrics-btn[aria-pressed="true"] {
   background: #fff !important;
   color: #000 !important;
 }
+
+/* ---------- Disposición con la letra abierta ----------
+   lyrics-view.js mide el panel y la carátula cuando cambian de tamaño y deja el resultado en
+   variables de <html> (--md-np-w, --md-lyr-*). Solo se animan transformaciones y opacidad. */
+ytmusic-player-page #main-panel {
+  position: relative !important;
+}
+ytmusic-player-page:not([data-md-video]) #main-panel > #av-id,
+ytmusic-player-page:not([data-md-video]) #main-panel > #player,
+ytmusic-player-page:not([data-md-video]) #main-panel > #md-np-info {
+  transition: translate .6s cubic-bezier(.22,.8,.3,1), scale .6s cubic-bezier(.22,.8,.3,1), opacity .3s ease !important;
+}
+/* Ancha: la columna se centra en la mitad izquierda (y se encoge si no cabe con su hueco). */
+ytmusic-player-page[data-md-lyrics="open"]:not([data-md-lyrics-narrow]) #main-panel > #av-id {
+  translate: var(--md-lyr-tx) var(--md-lyr-av-y) !important;
+  scale: var(--md-lyr-s) !important;
+}
+ytmusic-player-page[data-md-lyrics="open"]:not([data-md-lyrics-narrow]) #main-panel > #player {
+  translate: var(--md-lyr-tx) var(--md-lyr-cover-y) !important;
+  scale: var(--md-lyr-s) !important;
+}
+ytmusic-player-page[data-md-lyrics="open"]:not([data-md-lyrics-narrow]) #main-panel > #md-np-info {
+  translate: var(--md-lyr-tx) var(--md-lyr-info-y) !important;
+  scale: var(--md-lyr-s) !important;
+}
+/* Estrecha: carátula en miniatura arriba a la izquierda, título y botón a su lado; el selector
+   Canción/Vídeo se aparta (vuelve al cerrar la letra). */
+ytmusic-player-page[data-md-lyrics="open"][data-md-lyrics-narrow] #main-panel > #av-id {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+ytmusic-player-page[data-md-lyrics="open"][data-md-lyrics-narrow] #main-panel > #player {
+  translate: var(--md-lyr-thumb-x) var(--md-lyr-thumb-y) !important;
+  scale: var(--md-lyr-thumb-s) !important;
+}
+ytmusic-player-page[data-md-lyrics="open"][data-md-lyrics-narrow] #main-panel > #md-np-info {
+  width: var(--md-lyr-ninfo-w) !important;
+  translate: var(--md-lyr-ninfo-x) var(--md-lyr-ninfo-y) !important;
+}
+
+/* Área de la letra: mitad derecha, mismo alto que la columna; aparece 0,2 s después desde la
+   derecha. Bordes de arriba y abajo difuminados con una máscara. */
+ytmusic-player-page #md-lyrics {
+  position: absolute !important;
+  z-index: 1 !important;
+  top: var(--md-lyr-top, 32px) !important;
+  height: var(--md-lyr-h, calc(100% - 64px)) !important;
+  left: 50% !important;
+  right: 40px !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  translate: 60px 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  -webkit-mask-image: linear-gradient(transparent 0, #000 10%, #000 82%, transparent 100%) !important;
+  mask-image: linear-gradient(transparent 0, #000 10%, #000 82%, transparent 100%) !important;
+  transition: opacity .45s ease, translate .6s cubic-bezier(.22,.8,.3,1), visibility 0s linear .6s !important;
+}
+ytmusic-player-page[data-md-lyrics="open"] #md-lyrics {
+  opacity: 1 !important;
+  translate: 0 0 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  transition: opacity .45s ease .2s, translate .6s cubic-bezier(.22,.8,.3,1), visibility 0s !important;
+}
+ytmusic-player-page[data-md-lyrics-narrow] #md-lyrics {
+  left: 32px !important;
+  right: 32px !important;
+}
+ytmusic-player-page #md-lyrics .md-lyrics-track {
+  padding: 0 5% 0 6px !important;
+  transition: transform .6s cubic-bezier(.22,.8,.3,1) !important;
+}
+/* Líneas: la activa en blanco y algo más grande, las siguientes tenues y las cantadas más. */
+ytmusic-player-page #md-lyrics .md-line {
+  margin: 0 !important;
+  padding: 12px 0 !important;
+  font-family: "YouTube Sans", Roboto, Arial, sans-serif !important;
+  font-size: 30px !important;
+  font-weight: 700 !important;
+  line-height: 40px !important;
+  color: #fff !important;
+  overflow-wrap: anywhere !important;
+  opacity: .3 !important;
+  transform-origin: left center !important;
+  transition: opacity .4s ease, scale .4s ease !important;
+}
+ytmusic-player-page[data-md-lyrics-narrow] #md-lyrics .md-line {
+  padding: 8px 0 !important;
+  font-size: 24px !important;
+  line-height: 32px !important;
+}
+ytmusic-player-page #md-lyrics .md-line.is-past { opacity: .18 !important; }
+ytmusic-player-page #md-lyrics .md-line.is-active { opacity: 1 !important; scale: 1.04 !important; }
+ytmusic-player-page #md-lyrics .md-line.is-gap { letter-spacing: 8px !important; }
+ytmusic-player-page[data-md-lyrics-mode="synced"] #md-lyrics .md-line { cursor: pointer !important; }
+/* Mientras llega la letra: tres barras tenues. */
+ytmusic-player-page #md-lyrics .md-line.is-placeholder { opacity: 1 !important; cursor: default !important; }
+ytmusic-player-page #md-lyrics .md-line.is-placeholder > span {
+  display: block !important;
+  height: 24px !important;
+  margin: 8px 0 !important;
+  border-radius: 8px !important;
+  background: rgba(255,255,255,.1) !important;
+}
+ytmusic-player-page #md-lyrics .md-lyrics-credit {
+  margin: 32px 0 0 !important;
+  padding: 0 0 48px !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  color: rgba(255,255,255,.5) !important;
+}
+/* Letra sin tiempos: toda en blanco, con su propio desplazamiento (sin barra visible). */
+ytmusic-player-page[data-md-lyrics-mode="plain"] #md-lyrics {
+  overflow-y: auto !important;
+  scrollbar-width: none !important;
+}
+ytmusic-player-page[data-md-lyrics-mode="plain"] #md-lyrics .md-lyrics-track { padding-top: 48px !important; }
+ytmusic-player-page[data-md-lyrics-mode="plain"] #md-lyrics .md-line { opacity: 1 !important; padding: 8px 0 !important; }
+ytmusic-player-page[data-md-lyrics-mode="plain"] #md-lyrics .md-line.is-break { height: 32px !important; padding: 0 !important; }
