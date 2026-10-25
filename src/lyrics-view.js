@@ -21,6 +21,7 @@ window.__mdLyrics = (() => {
   // Por debajo de estos anchos, carátula y letra no caben lado a lado: disposición estrecha.
   const MIN_COVER = 300;
   const MIN_LYRICS = 400; // ancho del área de letra (mitad derecha menos su margen de 40 px)
+  const LOAD_TIMEOUT = 15000; // espera máxima de la letra con la vista abierta (ms)
 
   let strings = {};
   let initialized = false;
@@ -40,6 +41,7 @@ window.__mdLyrics = (() => {
   let timer = 0;
   let offset = 0; // desplazamiento manual con la rueda (px)
   let wheelTimer = 0;
+  let loadTimer = 0; // tope de espera de la letra con la vista abierta
   let lastY = null;
   let lastBase = null; // posición de seguimiento de la línea activa la última vez
 
@@ -290,6 +292,16 @@ window.__mdLyrics = (() => {
     requested = false;
     loading = shown; // si la vista estaba abierta, se queda con líneas de espera
     lyrics = null;
+    // Si la letra no llega (no se pudo pedir o no hubo respuesta), a los 15 s se cierra la vista
+    // como si no hubiera letra; la elección guardada no cambia.
+    clearTimeout(loadTimer);
+    if (loading) {
+      loadTimer = setTimeout(() => {
+        if (track.videoId !== videoId || !loading) return;
+        loading = false;
+        applyState();
+      }, LOAD_TIMEOUT);
+    }
     render();
     applyState();
   }
@@ -437,8 +449,9 @@ window.__mdLyrics = (() => {
   }
 
   function receive(videoId, result) {
-    if (videoId !== track.videoId || !result) return; // respuesta de una canción anterior
-    const ok = (result.kind === 'synced' || result.kind === 'plain') && Array.isArray(result.lines) && result.lines.length > 0;
+    if (videoId !== track.videoId) return; // respuesta de una canción anterior
+    clearTimeout(loadTimer);
+    const ok = !!result && (result.kind === 'synced' || result.kind === 'plain') && Array.isArray(result.lines) && result.lines.length > 0;
     lyrics = ok ? { kind: result.kind, lines: result.lines, source: typeof result.source === 'string' ? result.source : '' } : null;
     loading = false;
     render();
@@ -471,6 +484,7 @@ window.__mdLyrics = (() => {
       document.removeEventListener('visibilitychange', sync);
       stopTimer();
       clearTimeout(wheelTimer);
+      clearTimeout(loadTimer);
       barObserver.disconnect();
       modeObserver.disconnect();
       pageObserver.disconnect();
