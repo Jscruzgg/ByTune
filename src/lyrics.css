@@ -13,6 +13,12 @@ ytmusic-player-page #player[playback-mode="ATV_PREFERRED"] {
   max-width: var(--md-np-art) !important;
   max-height: var(--md-np-art) !important;
 }
+/* Vídeo: YT lo hace 16:9 a todo el ancho; con el mismo alto máximo que la carátula caben
+   encima el selector Canción/Vídeo y debajo el título y el artista. Solo se limita el ancho:
+   el alto sigue saliendo de la proporción de YT. */
+ytmusic-player-page #player[playback-mode]:not([playback-mode="ATV_PREFERRED"]) {
+  max-width: calc(var(--md-np-art) * 16 / 9) !important;
+}
 
 /* Fila de título bajo la carátula: título y artista grandes (Apple Music). contain: su texto
    (sin saltos de línea) no ensancha el panel de YT; el ancho lo pone width. */
@@ -24,6 +30,10 @@ ytmusic-player-page #md-np-info {
   margin-top: 20px !important;
   box-sizing: border-box !important;
   contain: inline-size !important;
+}
+/* En modo vídeo, la fila arranca en el borde izquierdo del vídeo (más ancho que la carátula). */
+ytmusic-player-page[data-md-video] #md-np-info {
+  width: min(100%, calc(var(--md-np-art) * 16 / 9)) !important;
 }
 ytmusic-player-page #md-np-info .md-np-text {
   flex: 1 1 auto !important;
