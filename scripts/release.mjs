@@ -35,16 +35,16 @@ console.log('Compilando…');
 run('npm', ['run', 'dist'], { stdio: 'inherit' });
 
 const files = [
-  `dist/Music-Desktop-Setup-${version}.exe`,
-  `dist/Music-Desktop-Setup-${version}.exe.blockmap`,
+  `dist/ByTune-Setup-${version}.exe`,
+  `dist/ByTune-Setup-${version}.exe.blockmap`,
   'dist/latest.yml',
-  `dist/Music-Desktop-${version}-portable.exe`,
+  `dist/ByTune-${version}-portable.exe`,
 ].map((f) => join(root, f));
 for (const f of files) if (!existsSync(f)) fail(`Falta ${f}`);
 const latest = readFileSync(join(root, 'dist/latest.yml'), 'utf8');
 if (!latest.includes(`version: ${version}`)) fail('latest.yml no corresponde a esta versión.');
 
 console.log('Publicando…');
-run('gh', ['release', 'create', tag, ...files, '--repo', `${owner}/${repo}`, '--target', head, '--title', `Music Desktop ${version}`,
-  '--notes', `Music Desktop ${version}. Installed copies update themselves on launch; for a first install, download Music-Desktop-Setup-${version}.exe.`], { stdio: 'inherit' });
+run('gh', ['release', 'create', tag, ...files, '--repo', `${owner}/${repo}`, '--target', head, '--title', `ByTune ${version}`,
+  '--notes', `ByTune ${version}. Installed copies update themselves on launch; for a first install, download ByTune-Setup-${version}.exe.`], { stdio: 'inherit' });
 console.log(`\n✔ Publicada: https://github.com/${owner}/${repo}/releases/tag/${tag}`);

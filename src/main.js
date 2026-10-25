@@ -27,6 +27,12 @@ if (process.env.YTM_DEBUG_PORT) {
   app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 }
 
+// La app se llamaba "Music Desktop": sus datos (sesión iniciada, ajustes, caché) están en esa
+// carpeta. Si existe, se sigue usando para no perder nada; las instalaciones nuevas usan "ByTune".
+// Va antes del bloqueo de instancia única, que también vive en la carpeta de datos.
+const legacyUserData = path.join(app.getPath('appData'), 'Music Desktop');
+if (fs.existsSync(legacyUserData)) app.setPath('userData', legacyUserData);
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
   return;
@@ -174,7 +180,7 @@ function createWindow() {
       appIconPath: app.isPackaged ? process.execPath : iconPath,
       appIconIndex: 0,
       relaunchCommand: app.isPackaged ? `"${process.execPath}"` : `"${process.execPath}" "${app.getAppPath()}"`,
-      relaunchDisplayName: 'Music Desktop',
+      relaunchDisplayName: 'ByTune',
     });
   }
   if (settings.maximized) win.maximize();
@@ -469,7 +475,7 @@ function createQuickMenu() {
     maximizable: false,
     fullscreenable: false,
     show: false,
-    title: 'Music Desktop',
+    title: 'ByTune',
     icon,
     webPreferences: {
       preload: path.join(__dirname, 'quickmenu', 'preload.js'),
@@ -660,7 +666,7 @@ ipcMain.on('panels', (e, w) => {
 // La página pide la letra de la canción actual (preload.js reenvía 'lyrics:request'); se busca en
 // LRCLIB con la red de Electron y, si no hay sincronizada, en la propia página (pageApi 'lyrics').
 // LRCLIB pide identificar la app en el User-Agent.
-const LYRICS_UA = `Music Desktop/${app.getVersion()} (https://github.com/Jscruzgg/yt-music-dash)`;
+const LYRICS_UA = `ByTune/${app.getVersion()} (https://github.com/Jscruzgg/bytune)`;
 async function fetchJson(url, { signal } = {}) {
   const res = await net.fetch(url, { signal, headers: { 'User-Agent': LYRICS_UA } });
   return { status: res.status, body: res.status === 200 ? await res.json() : null };

@@ -1,4 +1,4 @@
-/* Music Desktop — tema que mezcla Spotify (paneles redondeados, tarjetas con hover),
+/* ByTune — tema que mezcla Spotify (paneles redondeados, tarjetas con hover),
    Apple Music (tipografía, carátulas redondeadas, barra flotante) y la estructura de YT Music.
    Regla de rendimiento: sin backdrop-filter, sin blur animado, transiciones solo en
    transform/opacity, y content-visibility para no pintar lo que no está en pantalla. */

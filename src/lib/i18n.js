@@ -12,7 +12,7 @@ const STRINGS = {
     'tray.quit': 'Salir',
 
     // Ajustes (también los usa la bandeja en sus casillas)
-    'set.theme': 'Tema Music Desktop',
+    'set.theme': 'Tema ByTune',
     'set.notify': 'Notificar cambio de canción',
     'set.closeToTray': 'Cerrar a la bandeja',
     'set.startWithWindows': 'Iniciar con Windows',
@@ -21,7 +21,7 @@ const STRINGS = {
     'set.shortcutHint': 'Pulsa la nueva combinación de teclas',
     'set.shortcutTaken': 'Otro programa ya usa ese atajo',
     'set.shortcutInvalid': 'Usa al menos Ctrl, Alt, Shift o Win más otra tecla',
-    'set.shortcutReserved': 'Music Desktop ya usa ese atajo para otra cosa',
+    'set.shortcutReserved': 'ByTune ya usa ese atajo para otra cosa',
     'set.works': 'Funciona',
     'set.focused': 'Con la app enfocada',
     'set.anywhere': 'En cualquier lugar',
@@ -35,7 +35,7 @@ const STRINGS = {
 
     // Actualizaciones
     'upd.title': 'Actualización lista',
-    'upd.body': 'Music Desktop {version} ya está descargada. Reinicia para instalarla; si no, se instalará al salir.',
+    'upd.body': 'ByTune {version} ya está descargada. Reinicia para instalarla; si no, se instalará al salir.',
     'upd.restart': 'Reiniciar ahora',
     'upd.later': 'Más tarde',
     'upd.tray': 'Reiniciar para actualizar a {version}',
@@ -77,7 +77,7 @@ const STRINGS = {
     'tray.quit': 'Quit',
 
     // Settings (the tray checkboxes reuse these too)
-    'set.theme': 'Music Desktop theme',
+    'set.theme': 'ByTune theme',
     'set.notify': 'Notify on song change',
     'set.closeToTray': 'Close to tray',
     'set.startWithWindows': 'Start with Windows',
@@ -86,7 +86,7 @@ const STRINGS = {
     'set.shortcutHint': 'Press the new key combination',
     'set.shortcutTaken': 'Another program already uses that shortcut',
     'set.shortcutInvalid': 'Use at least Ctrl, Alt, Shift or Win plus another key',
-    'set.shortcutReserved': 'Music Desktop already uses that shortcut for something else',
+    'set.shortcutReserved': 'ByTune already uses that shortcut for something else',
     'set.works': 'Works',
     'set.focused': 'When the app is focused',
     'set.anywhere': 'Anywhere',
@@ -100,7 +100,7 @@ const STRINGS = {
 
     // Updates
     'upd.title': 'Update ready',
-    'upd.body': 'Music Desktop {version} has been downloaded. Restart to install it; otherwise it installs when you quit.',
+    'upd.body': 'ByTune {version} has been downloaded. Restart to install it; otherwise it installs when you quit.',
     'upd.restart': 'Restart now',
     'upd.later': 'Later',
     'upd.tray': 'Restart to update to {version}',
