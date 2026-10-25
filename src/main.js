@@ -275,12 +275,11 @@ const thumbImg = (name) => nativeImage.createFromPath(path.join(__dirname, '..',
 const THUMB = process.platform === 'win32'
   ? { prev: thumbImg('prev'), play: thumbImg('play'), pause: thumbImg('pause'), next: thumbImg('next') }
   : null;
-// Al abrir por primera vez, 'show' llega antes de que Windows cree el botón de la barra de tareas
-// y los botones se pierden sin aviso. Tras una actualización es peor: el instalador abre la app y
-// rehace los accesos directos, y Windows vuelve a crear el botón segundos después, otra vez sin
-// botones. setThumbarButtons devuelve true igualmente, así que no se puede saber si siguen ahí:
-// se vuelven a poner tras mostrar la ventana (ver thumbarAfterShow), al darle el foco y con cada
-// canción nueva. Ponerlos es barato.
+// Electron solo da de alta los botones (ThumbBarAddButtons) la primera vez; después solo los
+// actualiza, y actualizar no sirve si ese alta llegó antes de que Windows creara el botón de la
+// barra de tareas (al abrir por primera vez, o cuando el instalador lo rehace tras una
+// actualización). win.hide() y setSkipTaskbar(false) hacen que Electron los vuelva a dar de alta:
+// thumbarAfterShow usa lo segundo en cada reintento.
 let thumbPlaying = null;
 let thumbTitle = null;
 let thumbOk = false;
@@ -303,6 +302,9 @@ let thumbTimers = [];
 function thumbarAfterShow() {
   for (const timer of thumbTimers) clearTimeout(timer);
   const attempt = (ms) => {
+    // Solo visible: setSkipTaskbar(false) añade la ventana a la barra de tareas aunque esté oculta.
+    if (!THUMB || !win || win.isDestroyed() || !win.isVisible()) return;
+    win.setSkipTaskbar(false);
     updateThumbar(true);
     if (process.env.YTM_DEBUG_PORT) console.log(`[thumbar] ${ms} ms tras mostrar: ${thumbOk ? 'puestos' : 'no aceptados'}`);
   };
