@@ -21,8 +21,8 @@ Every PR merged to `main` publishes a release automatically (`.github/workflows/
 Requirements: Windows 10/11 and [Node.js](https://nodejs.org) 20 or later.
 
 ```bash
-git clone https://github.com/Jscruzgg/bytune.git
-cd bytune
+git clone https://github.com/Jscruzgg/ByTune.git
+cd ByTune
 npm install
 npx --no install-electron --no
 npm run dist

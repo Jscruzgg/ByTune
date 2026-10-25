@@ -681,7 +681,7 @@ ipcMain.on('panels', (e, w) => {
 // La página pide la letra de la canción actual (preload.js reenvía 'lyrics:request'); se busca en
 // LRCLIB con la red de Electron y, si no hay sincronizada, en la propia página (pageApi 'lyrics').
 // LRCLIB pide identificar la app en el User-Agent.
-const LYRICS_UA = `ByTune/${app.getVersion()} (https://github.com/Jscruzgg/bytune)`;
+const LYRICS_UA = `ByTune/${app.getVersion()} (https://github.com/Jscruzgg/ByTune)`;
 async function fetchJson(url, { signal } = {}) {
   const res = await net.fetch(url, { signal, headers: { 'User-Agent': LYRICS_UA } });
   return { status: res.status, body: res.status === 200 ? await res.json() : null };
