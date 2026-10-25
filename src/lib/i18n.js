@@ -47,6 +47,8 @@ const STRINGS = {
     'lyrics.show': 'Mostrar letra',
     'lyrics.hide': 'Ocultar letra',
     'lyrics.credit': 'Letra de LRCLIB',
+    'np.fullscreen': 'Pantalla completa',
+    'np.exitFullscreen': 'Salir de pantalla completa',
 
     // Menú rápido
     'qm.placeholder': 'Buscar canciones o ir a una playlist…',
@@ -112,6 +114,8 @@ const STRINGS = {
     'lyrics.show': 'Show lyrics',
     'lyrics.hide': 'Hide lyrics',
     'lyrics.credit': 'Lyrics from LRCLIB',
+    'np.fullscreen': 'Full screen',
+    'np.exitFullscreen': 'Exit full screen',
 
     // Quick menu
     'qm.placeholder': 'Search songs or jump to a playlist…',

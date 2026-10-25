@@ -64,11 +64,12 @@ ytmusic-player-page #md-np-info .md-np-artist {
   color: #b3b3b3 !important;
 }
 
-/* Botón de letras: redondo de 44 px con un bocadillo; contorno si está cerrado, blanco relleno
-   si está abierto. Fijo en la esquina inferior derecha del panel principal (encima de la barra
-   de reproducción, a la izquierda de la cola): no se mueve al abrir o cerrar la letra. Oculto
-   hasta saber que la canción tiene letra, y en modo vídeo. */
-ytmusic-player-page #main-panel > .md-lyrics-btn {
+/* Botones de la esquina inferior derecha del panel principal (encima de la barra de reproducción,
+   a la izquierda de la cola), fijos: no se mueven al abrir o cerrar la letra. Redondos de 44 px;
+   contorno si están apagados, blancos rellenos si están activos. A la derecha, pantalla completa
+   (siempre); a su izquierda, letras (oculto hasta saber que la canción tiene letra, y en modo
+   vídeo). */
+ytmusic-player-page #main-panel > .md-np-btn {
   position: absolute !important;
   z-index: 2 !important;
   right: 24px !important;
@@ -88,20 +89,24 @@ ytmusic-player-page #main-panel > .md-lyrics-btn {
   background: transparent !important;
   color: #fff !important;
   cursor: pointer !important;
-  opacity: 0 !important;
+  transition: opacity .3s ease, visibility 0s linear .3s, translate .3s ease !important;
+}
+ytmusic-player-page #main-panel > .md-lyrics-btn {
+  right: 80px !important; /* 24 + 44 + 12 de hueco con el de pantalla completa */
+  opacity: 0;
   pointer-events: none !important;
   visibility: hidden !important; /* fuera del orden de tabulación mientras está oculto */
-  transition: opacity .3s ease, visibility 0s linear .3s !important;
 }
 ytmusic-player-page[data-md-has-lyrics]:not([data-md-video]) #main-panel > .md-lyrics-btn {
-  opacity: 1 !important;
+  opacity: 1;
   pointer-events: auto !important;
   visibility: visible !important;
-  transition: opacity .3s ease, visibility 0s !important;
+  transition: opacity .3s ease, visibility 0s, translate .3s ease !important;
 }
-ytmusic-player-page #main-panel > .md-lyrics-btn:hover { background: rgba(255,255,255,.1) !important; }
-ytmusic-player-page #main-panel > .md-lyrics-btn:focus-visible { outline: 2px solid #fff !important; outline-offset: 2px !important; }
-ytmusic-player-page #main-panel > .md-lyrics-btn[aria-pressed="true"] {
+ytmusic-player-page #main-panel > .md-np-btn:hover { background: rgba(255,255,255,.1) !important; }
+ytmusic-player-page #main-panel > .md-np-btn:focus-visible { outline: 2px solid #fff !important; outline-offset: 2px !important; }
+ytmusic-player-page #main-panel > .md-lyrics-btn[aria-pressed="true"],
+html[data-md-fullscreen] ytmusic-player-page #main-panel > .md-fs-btn {
   border-color: #fff !important;
   background: #fff !important;
   color: #000 !important;
@@ -115,6 +120,10 @@ ytmusic-player-page #main-panel > .md-lyrics-btn[aria-pressed="true"] {
    fotograma a fotograma. */
 ytmusic-player-page #main-panel {
   position: relative !important;
+  /* Siempre en columna (selector, carátula, título). YT lo pasa a fila cuando la canción no tiene
+     vídeo (sin selector Canción/Vídeo, ytmusic-player-page:not([has-av-switcher])): la carátula
+     quedaba a un lado y el título al otro. */
+  flex-direction: column !important;
 }
 /* La columna (carátula, selector y título) se pinta por encima de la letra: nunca la tapa. */
 ytmusic-player-page #main-panel > #av-id,
@@ -249,3 +258,46 @@ ytmusic-player-page[data-md-lyrics-mode="plain"] #md-lyrics .md-line.is-break { 
 /* La pestaña "Letra" del panel derecho sobra: la letra está ahora junto a la carátula. Es la
    segunda de las pestañas (A continuación, Letra, Comentarios, Relacionado). */
 ytmusic-player-page tp-yt-paper-tabs tp-yt-paper-tab:nth-of-type(2) { display: none !important; }
+
+/* Botones de YT sobre la carátula en Now Playing (reproductor en miniatura, pantalla completa…):
+   sobran, la pantalla completa va en la esquina. En el reproductor en miniatura siguen. */
+ytmusic-player-page[player-page-open] #player .top-row-buttons { display: none !important; }
+
+/* ---------- Pantalla completa (lyrics-view.js: html[data-md-fullscreen]) ----------
+   Solo el espacio de color de Now Playing: sin barra superior, barra lateral ni cola. La barra de
+   reproducción sale desde abajo al mover el ratón (html[data-md-controls]) y se va sola. */
+html[data-md-fullscreen] ytmusic-nav-bar,
+html[data-md-fullscreen] #nav-bar-background,
+html[data-md-fullscreen] #nav-bar-divider,
+html[data-md-fullscreen] tp-yt-app-drawer#guide,
+html[data-md-fullscreen] #mini-guide-background,
+html[data-md-fullscreen] ytmusic-player-page #side-panel {
+  display: none !important;
+}
+html[data-md-fullscreen] ytmusic-player-page {
+  top: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  /* Carátula más grande: ya no hay barras arriba ni abajo (solo selector, título y márgenes). */
+  --md-np-art: min(calc(100vh - 300px), calc(100vw - 96px));
+}
+html[data-md-fullscreen] ytmusic-player-bar[slot="player-bar"],
+html[data-md-fullscreen] #player-bar-background {
+  translate: 0 100%;
+  opacity: 0;
+  transition: translate .3s ease, opacity .3s ease !important;
+}
+html[data-md-fullscreen][data-md-controls] ytmusic-player-bar[slot="player-bar"],
+html[data-md-fullscreen][data-md-controls] #player-bar-background {
+  translate: 0 0;
+  opacity: 1;
+}
+/* Con la barra a la vista, los botones de la esquina suben para no quedar debajo. */
+html[data-md-fullscreen][data-md-controls] ytmusic-player-page #main-panel > .md-np-btn {
+  translate: 0 calc(-1 * var(--ytmusic-player-bar-height, 72px));
+}
+/* Sin mover el ratón, tampoco se ve el puntero. */
+html[data-md-fullscreen]:not([data-md-controls]),
+html[data-md-fullscreen]:not([data-md-controls]) * { cursor: none !important; }
