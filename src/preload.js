@@ -514,13 +514,6 @@ function read() {
     last = key;
     ipcRenderer.send('track', info);
   }
-  // Título y artista grandes bajo la carátula en Now Playing (theme.css los pinta con attr()).
-  // Se comprueba en cada pasada porque el panel puede crearse después del cambio de canción.
-  const panel = document.querySelector('ytmusic-player-page #main-panel');
-  if (panel && panel.getAttribute('data-md-title') !== info.title) {
-    panel.setAttribute('data-md-title', info.title);
-    panel.setAttribute('data-md-artist', info.artist);
-  }
   // YT pone las miniaturas a 60 px; en pantallas con escalado se ven borrosas. Las URL de
   // Google aceptan otro tamaño en el sufijo =wNN-hNN: la de la barra a 240 px y las de la cola
   // (que el tema muestra a 40 px) a 120. Las ya cambiadas dejan de coincidir con el selector.

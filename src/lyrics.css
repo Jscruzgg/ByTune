@@ -1,1 +1,90 @@
-/* Panel de letras en Now Playing (lyrics-view.js). Se inyecta siempre, con o sin tema. */
+/* Letras en Now Playing (lyrics-view.js). Se inyecta siempre, con o sin tema, y en cualquier
+   documento (también en las páginas de inicio de sesión): todo va bajo ytmusic-player-page. */
+
+/* Carátula: tope de tamaño para que quepan título y artista debajo (solo en modo canción;
+   el vídeo conserva el tamaño de YT Music). --md-np-reserve es el alto que queda para el resto
+   (barras, selector Canción/Vídeo, título): sin tema YT deja más hueco; el tema pone el suyo.
+   Sin especificidad (:where) para que el tema pueda afinar --md-np-art en ventanas anchas
+   aunque esta hoja se inyecte después. */
+:where(ytmusic-player-page) {
+  --md-np-art: calc(100vh - var(--md-np-reserve, 430px));
+}
+ytmusic-player-page #player[playback-mode="ATV_PREFERRED"] {
+  max-width: var(--md-np-art) !important;
+  max-height: var(--md-np-art) !important;
+}
+
+/* Fila de título bajo la carátula: título y artista grandes (Apple Music) y el botón de letras
+   alineado con el borde derecho de la carátula. */
+ytmusic-player-page #md-np-info {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  flex: none !important;
+  width: min(100%, var(--md-np-art)) !important;
+  margin-top: 20px !important;
+  box-sizing: border-box !important;
+}
+ytmusic-player-page #md-np-info .md-np-text {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+ytmusic-player-page #md-np-info .md-np-title,
+ytmusic-player-page #md-np-info .md-np-artist {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+ytmusic-player-page #md-np-info .md-np-title {
+  font-family: "YouTube Sans", Roboto, Arial, sans-serif !important;
+  font-size: 26px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em !important;
+  /* Alto de línea con hueco para los trazos descendentes (g, p, y): overflow: hidden (para los
+     puntos suspensivos) los recortaba con 1.2. */
+  line-height: 1.35 !important;
+  padding-bottom: 2px !important;
+  color: #fff !important;
+}
+ytmusic-player-page #md-np-info .md-np-artist {
+  margin-top: 4px !important;
+  font-size: 17px !important;
+  font-weight: 500 !important;
+  line-height: 1.3 !important;
+  color: #b3b3b3 !important;
+}
+
+/* Botón de letras: redondo de 44 px con un bocadillo; contorno si está cerrado, blanco relleno
+   si está abierto. Oculto (sin ocupar otro sitio) hasta saber que la canción tiene letra. */
+ytmusic-player-page #md-np-info .md-lyrics-btn {
+  /* Sin esto Chromium pinta el botón nativo claro de Windows (no ve los fondos de una hoja de usuario). */
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  flex: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 44px !important;
+  height: 44px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1px solid rgba(255,255,255,.35) !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  color: #fff !important;
+  cursor: pointer !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity .3s ease !important;
+}
+ytmusic-player-page[data-md-has-lyrics]:not([data-md-video]) #md-np-info .md-lyrics-btn {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+ytmusic-player-page #md-np-info .md-lyrics-btn:hover { background: rgba(255,255,255,.1) !important; }
+ytmusic-player-page #md-np-info .md-lyrics-btn:focus-visible { outline: 2px solid #fff !important; outline-offset: 2px !important; }
+ytmusic-player-page #md-np-info .md-lyrics-btn[aria-pressed="true"] {
+  border-color: #fff !important;
+  background: #fff !important;
+  color: #000 !important;
+}
