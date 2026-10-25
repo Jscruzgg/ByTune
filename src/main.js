@@ -220,6 +220,10 @@ function createWindow() {
     saveSettings();
     if (!quitting && settings.closeToTray) { e.preventDefault(); win.hide(); }
   });
+  // Mientras suena algo, YT Music pone un aviso de "¿salir de la página?" (beforeunload). Electron
+  // no lo muestra: bloquea en silencio el cierre, y "Salir" de la bandeja no hacía nada hasta pausar.
+  // Aquí no hay nada que perder al salir o recargar, así que el aviso se ignora siempre.
+  win.webContents.on('will-prevent-unload', (e) => e.preventDefault());
   // El menú rápido oculto también cuenta como ventana: sin cerrarlo, la app no saldría al cerrar esta.
   win.on('closed', () => { win = null; if (qmWin) qmWin.destroy(); });
 }
