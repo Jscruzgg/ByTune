@@ -12,7 +12,7 @@ Desktop client (Electron) for YouTube Music: opens music.youtube.com in its own 
 
 ## Updates
 
-The installed app checks GitHub Releases for a new version every time it opens. If there is one, it downloads it in the background and asks whether to restart to install it; if you choose "Later", it installs when you quit (you can also do it from the tray icon). The portable version does not update itself. The log is at `%APPDATA%\ByTune\updater.log` (`%APPDATA%\Music Desktop\updater.log` for copies installed before the app was renamed: they keep their data folder).
+The installed app checks GitHub Releases for a new version every time it opens. If there is one, it updates before the app window opens, like Discord: a small "Updating" notice shows while it downloads, the new version installs silently over the current one (same folder, shortcuts and taskbar pin, no setup wizard, no questions) and then opens. Offline, or if anything fails, the current version opens and it retries on the next launch. The portable version does not update itself. The log is at `%APPDATA%\ByTune\updater.log` (`%APPDATA%\Music Desktop\updater.log` for copies installed before the app was renamed: they keep their data folder).
 
 Every PR merged to `main` publishes a release automatically (`.github/workflows/release.yml`): if the PR didn't bump `version` in `package.json`, the workflow bumps the patch and commits it to `main`. To publish by hand instead: bump `version`, commit and push, then run `npm run release` (requires `gh` signed in). The script checks that tests pass, that there are no unpushed changes and that the version does not exist yet, then builds and publishes the installer, its `.blockmap` and `latest.yml`.
 
