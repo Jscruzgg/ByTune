@@ -47,6 +47,7 @@ const STRINGS = {
     'lyrics.show': 'Mostrar letra',
     'lyrics.hide': 'Ocultar letra',
     'lyrics.credit': 'Letra de LRCLIB',
+    'lyrics.none': 'No hay letra para mostrar aquí :(',
     'np.fullscreen': 'Pantalla completa',
     'np.exitFullscreen': 'Salir de pantalla completa',
 
@@ -114,6 +115,7 @@ const STRINGS = {
     'lyrics.show': 'Show lyrics',
     'lyrics.hide': 'Hide lyrics',
     'lyrics.credit': 'Lyrics from LRCLIB',
+    'lyrics.none': 'No lyrics to show here :(',
     'np.fullscreen': 'Full screen',
     'np.exitFullscreen': 'Exit full screen',
 

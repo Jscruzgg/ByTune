@@ -8,6 +8,12 @@ ytmusic-nav-bar {
   padding-right: var(--md-wco-space) !important;
   box-sizing: border-box !important;
 }
+/* Con la búsqueda abierta, la barra deja de arrastrar la ventana: Windows se queda los clics de
+   una zona de arrastre y la página no se enteraba, así que la búsqueda no se cerraba al pulsar
+   la barra. Al salir de la búsqueda vuelve a arrastrar. */
+ytmusic-nav-bar:focus-within {
+  -webkit-app-region: no-drag;
+}
 /* Botón "atrás" (lo crea preload.js): círculo oscuro con flecha, justo a la derecha de la zona
    del logo (240 px), como en Spotify. */
 ytmusic-nav-bar .md-back {

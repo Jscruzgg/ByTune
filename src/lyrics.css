@@ -66,9 +66,8 @@ ytmusic-player-page #md-np-info .md-np-artist {
 
 /* Botones de la esquina inferior derecha del panel principal (encima de la barra de reproducción,
    a la izquierda de la cola), fijos: no se mueven al abrir o cerrar la letra. Redondos de 44 px;
-   contorno si están apagados, blancos rellenos si están activos. A la derecha, pantalla completa
-   (siempre); a su izquierda, letras (oculto hasta saber que la canción tiene letra, y en modo
-   vídeo). */
+   contorno si están apagados, blancos rellenos si están activos. A la derecha, pantalla completa;
+   a su izquierda, letras. Los dos siempre a la vista, salvo letras en modo vídeo. */
 ytmusic-player-page #main-panel > .md-np-btn {
   position: absolute !important;
   z-index: 2 !important;
@@ -97,7 +96,7 @@ ytmusic-player-page #main-panel > .md-lyrics-btn {
   pointer-events: none !important;
   visibility: hidden !important; /* fuera del orden de tabulación mientras está oculto */
 }
-ytmusic-player-page[data-md-has-lyrics]:not([data-md-video]) #main-panel > .md-lyrics-btn {
+ytmusic-player-page:not([data-md-video]) #main-panel > .md-lyrics-btn {
   opacity: 1;
   pointer-events: auto !important;
   visibility: visible !important;
@@ -252,6 +251,9 @@ ytmusic-player-page[data-md-lyrics-mode="plain"] #md-lyrics {
   scrollbar-width: none !important;
 }
 ytmusic-player-page[data-md-lyrics-mode="plain"] #md-lyrics .md-lyrics-track { padding-top: 48px !important; }
+/* Sin letra en ninguna fuente: un aviso tenue arriba del área. */
+ytmusic-player-page[data-md-lyrics-mode="none"] #md-lyrics .md-lyrics-track { padding-top: 48px !important; }
+ytmusic-player-page #md-lyrics .md-line.md-lyrics-empty { opacity: .6; cursor: default !important; }
 ytmusic-player-page[data-md-lyrics-mode="plain"] #md-lyrics .md-line { opacity: 1; padding: 8px 0 !important; }
 ytmusic-player-page[data-md-lyrics-mode="plain"] #md-lyrics .md-line.is-break { height: 32px !important; padding: 0 !important; }
 
@@ -259,9 +261,10 @@ ytmusic-player-page[data-md-lyrics-mode="plain"] #md-lyrics .md-line.is-break { 
    segunda de las pestañas (A continuación, Letra, Comentarios, Relacionado). */
 ytmusic-player-page tp-yt-paper-tabs tp-yt-paper-tab:nth-of-type(2) { display: none !important; }
 
-/* Botones de YT sobre la carátula en Now Playing (reproductor en miniatura, pantalla completa…):
-   sobran, la pantalla completa va en la esquina. En el reproductor en miniatura siguen. */
-ytmusic-player-page[player-page-open] #player .top-row-buttons { display: none !important; }
+/* Capa de YT sobre la carátula en Now Playing: al pasar el ratón la oscurece y muestra botones
+   (reproductor en miniatura, pantalla completa…). Sobra entera: la pantalla completa va en la
+   esquina. En el reproductor en miniatura sigue. */
+ytmusic-player-page[player-page-open] #player .song-media-controls { display: none !important; }
 
 /* ---------- Pantalla completa (lyrics-view.js: html[data-md-fullscreen]) ----------
    Solo el espacio de color de Now Playing: sin barra superior, barra lateral ni cola. La barra de
