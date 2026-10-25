@@ -101,13 +101,15 @@ const applyLyricsCss = () => inject('lyrics', readCss('lyrics.css'));
 
 // Panel de letras dentro de la página (mundo principal, sin acceso a Node): los tiempos
 // (lib/lyrics-timing.js) y la vista (lyrics-view.js), leídos en cada carga como el CSS.
-// Van dentro de un bloque { } para que sus const no choquen si se vuelven a ejecutar.
+// Van dentro de un bloque { } para que sus const no choquen si se vuelven a ejecutar, y el
+// script acaba en true: si su último valor fuera window.__mdLyrics (con funciones), no se podría
+// devolver a main y executeJavaScript fallaría.
 // Después se llama a init con el estado guardado y los textos; init se repite al cambiar de idioma.
 function injectLyricsView() {
   if (!win || !onYouTubeMusic()) return Promise.resolve();
   const read = (...parts) => fs.readFileSync(path.join(__dirname, ...parts), 'utf8');
   let src;
-  try { src = '{\n' + read('lib', 'lyrics-timing.js') + '\n' + read('lyrics-view.js') + '\n}'; } catch { return Promise.resolve(); }
+  try { src = '{\n' + read('lib', 'lyrics-timing.js') + '\n' + read('lyrics-view.js') + '\n}\ntrue'; } catch { return Promise.resolve(); }
   return win.webContents.executeJavaScript(src, true).then(initLyrics).catch(() => {});
 }
 function initLyrics() {
