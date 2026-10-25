@@ -336,7 +336,7 @@ function changeSwitch(key, value) {
 // Lo que ve el menú del engranaje (IPC 'settings:get' / 'settings:set' / 'settings:changed').
 function settingsView() {
   const view = Object.fromEntries(Object.entries(SWITCHES).map(([k, s]) => [k, s.get()]));
-  return { ...view, quickMenu: { ...settings.quickMenu }, display: { shortcut: displayAccelerator(settings.quickMenu.accelerator) } };
+  return { ...view, version: app.getVersion(), quickMenu: { ...settings.quickMenu }, display: { shortcut: displayAccelerator(settings.quickMenu.accelerator) } };
 }
 // Avisa a la página de un cambio hecho desde la bandeja (si el menú está abierto, se redibuja).
 function notifySettings() {
@@ -846,34 +846,44 @@ function showUpdateSplash(version) {
   splash.once('ready-to-show', () => splash.show());
   return splash;
 }
-// true si se está instalando una versión nueva: la app se cierra sola y el instalador abre la nueva.
-async function updateBeforeLaunch() {
-  if (!app.isPackaged || process.env.PORTABLE_EXECUTABLE_DIR) return false;
-  let updater;
-  try { updater = require('electron-updater').autoUpdater; } catch { return false; }
+let updater; // electron-updater ya configurado; null si no se puede cargar
+function getUpdater() {
+  if (updater !== undefined) return updater;
+  try { updater = require('electron-updater').autoUpdater; } catch { return (updater = null); }
   const log = (level) => (m) => updateLog(level, String(m));
   updater.logger = { info: log('info'), warn: log('warn'), error: log('error'), debug: () => {} };
   updater.autoDownload = false;
   updater.autoInstallOnAppQuit = false;
   updater.on('error', (e) => updateLog('error', (e && e.message) || e));
+  return updater;
+}
+// 'installing' (la app se cierra sola y el instalador abre la nueva), 'latest', 'unsupported' o 'error'.
+let updateCheck = null; // la comprobación en curso: dos clics seguidos no descargan dos veces
+function checkAndInstall() {
+  return (updateCheck ??= runUpdate().finally(() => { updateCheck = null; }));
+}
+async function runUpdate() {
+  if (!app.isPackaged || process.env.PORTABLE_EXECUTABLE_DIR || !getUpdater()) return 'unsupported';
   let splash = null;
   try {
     const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('update check timed out')), UPDATE_CHECK_TIMEOUT));
     const result = await Promise.race([updater.checkForUpdates(), timeout]);
-    if (!result || !result.isUpdateAvailable) return false;
+    if (!result || !result.isUpdateAvailable) return 'latest';
     splash = showUpdateSplash(result.updateInfo.version);
     await updater.downloadUpdate();
     // /S: sin asistente, sobre la instalación actual. --force-run: abre la versión nueva al acabar.
     if (!updater.install(true, true)) throw new Error('installer did not start');
     quitting = true;
     app.quit();
-    return true;
+    return 'installing';
   } catch (e) {
-    updateLog('warn', `opening current version: ${(e && e.message) || e}`);
+    updateLog('warn', `keeping current version: ${(e && e.message) || e}`);
     if (splash) splash.destroy();
-    return false;
+    return 'error';
   }
 }
+// Botón "Buscar actualizaciones" del pie de los ajustes: mismo flujo que al arrancar.
+ipcMain.handle('update:check', (e) => (fromMainPage(e) ? checkAndInstall() : null));
 
 app.on('before-quit', () => { quitting = true; saveSettings(); });
 app.on('will-quit', () => globalShortcut.unregisterAll());
@@ -883,7 +893,7 @@ app.whenReady().then(async () => {
   // directo (copia de desarrollo) Windows mostraría el icono de electron.exe, el átomo.
   if (app.isPackaged) app.setAppUserModelId('local.youtube-music-client');
   nativeTheme.themeSource = 'dark'; // menús, barras de scroll y diálogos oscuros
-  if (await updateBeforeLaunch()) return;
+  if (await checkAndInstall() === 'installing') return;
   // Se registra aquí y no antes: abrir la app otra vez durante la descarga no debe abrir esta versión.
   app.on('second-instance', showWindow);
   createWindow();

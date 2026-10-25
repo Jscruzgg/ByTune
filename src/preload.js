@@ -99,6 +99,8 @@ let expanded = false; // sub-bloque del menú rápido desplegado
 let recordingKey = false; // grabando un atajo nuevo
 let shortcutError = ''; // 'taken' | 'invalid' | 'reserved' del último intento
 const SHORTCUT_ERRORS = { taken: 'set.shortcutTaken', invalid: 'set.shortcutInvalid', reserved: 'set.shortcutReserved' };
+let updateStatus = ''; // estado del botón de actualizaciones del pie
+const UPDATE_LABELS = { '': 'upd.check', checking: 'upd.checking', installing: 'upd.checking', latest: 'upd.latest', unsupported: 'upd.unsupported', error: 'upd.error' };
 
 function labelGear() {
   const text = txt('set.title');
@@ -201,6 +203,15 @@ function renderSettings() {
     sw.setAttribute('aria-checked', String(!!state[key]));
     nodes.push(sw);
   }
+  nodes.push(el('div', 'md-set-sep'));
+  const foot = el('div', 'md-set-foot');
+  const check = el('button', 'md-set-btn', txt(UPDATE_LABELS[updateStatus]));
+  check.type = 'button';
+  check.dataset.key = 'update';
+  check.disabled = updateStatus === 'checking' || updateStatus === 'installing';
+  check.addEventListener('click', checkUpdates);
+  foot.append(el('span', 'md-set-ver', `ByTune ${state.version}`), check);
+  nodes.push(foot);
   panel.replaceChildren(...nodes);
   panel.setAttribute('aria-label', txt('set.title'));
   if (focused) panel.querySelector(`[data-key="${focused}"]`)?.focus();
@@ -212,6 +223,16 @@ function changeSettings(patch) {
     else if (res) { state = res; shortcutError = ''; }
     renderSettings();
   }).catch(() => {});
+}
+
+// main responde 'latest' | 'unsupported' | 'error' | 'installing' (y entonces la app se cierra).
+function checkUpdates() {
+  updateStatus = 'checking';
+  renderSettings();
+  ipcRenderer.invoke('update:check').catch(() => 'error').then((res) => {
+    updateStatus = res in UPDATE_LABELS ? res : 'error';
+    renderSettings();
+  });
 }
 
 function startRecording() {
@@ -245,6 +266,7 @@ async function openSettings() {
   state = res;
   expanded = false;
   shortcutError = '';
+  if (updateStatus !== 'checking') updateStatus = '';
   panel = el('div', 'md-settings');
   panel.setAttribute('role', 'dialog');
   renderSettings();
