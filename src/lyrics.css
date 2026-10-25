@@ -80,11 +80,14 @@ ytmusic-player-page #main-panel > .md-lyrics-btn {
   cursor: pointer !important;
   opacity: 0 !important;
   pointer-events: none !important;
-  transition: opacity .3s ease !important;
+  visibility: hidden !important; /* fuera del orden de tabulación mientras está oculto */
+  transition: opacity .3s ease, visibility 0s linear .3s !important;
 }
 ytmusic-player-page[data-md-has-lyrics]:not([data-md-video]) #main-panel > .md-lyrics-btn {
   opacity: 1 !important;
   pointer-events: auto !important;
+  visibility: visible !important;
+  transition: opacity .3s ease, visibility 0s !important;
 }
 ytmusic-player-page #main-panel > .md-lyrics-btn:hover { background: rgba(255,255,255,.1) !important; }
 ytmusic-player-page #main-panel > .md-lyrics-btn:focus-visible { outline: 2px solid #fff !important; outline-offset: 2px !important; }
@@ -155,7 +158,7 @@ ytmusic-player-page[data-md-lyrics="open"] #md-lyrics {
   translate: 0 0 !important;
   visibility: visible !important;
   pointer-events: auto !important;
-  transition: opacity .45s ease .2s, translate .6s cubic-bezier(.22,.8,.3,1), visibility 0s !important;
+  transition: opacity .45s ease .2s, translate .6s cubic-bezier(.22,.8,.3,1) .2s, visibility 0s !important;
 }
 ytmusic-player-page[data-md-lyrics-narrow] #md-lyrics {
   left: 32px !important;

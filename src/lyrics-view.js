@@ -41,6 +41,7 @@ window.__mdLyrics = (() => {
   let offset = 0; // desplazamiento manual con la rueda (px)
   let wheelTimer = 0;
   let lastY = null;
+  let lastBase = null; // posición de seguimiento de la línea activa la última vez
 
   // Elementos propios y lo que se observa.
   let info = null; // #md-np-info
@@ -60,6 +61,13 @@ window.__mdLyrics = (() => {
   const pageObserver = new MutationObserver(() => sync());
   let boundPage = null;
   const sizeObserver = new ResizeObserver(() => measure());
+  let observedSizes = [];
+  // Si al empezar YT aún no ha creado la barra o el <video>, se espera a que aparezcan (y este
+  // observador se apaga en cuanto los dos están enlazados).
+  const startObserver = new MutationObserver(() => {
+    if (document.querySelector(`${BAR} .title`) && document.querySelector('video') && document.querySelector(`${PAGE} #main-panel`)) check('init');
+  });
+  let waiting = false;
   const vars = {}; // variables CSS escritas en <html> (para no repetir escrituras)
 
   function send(msg) {
@@ -125,7 +133,9 @@ window.__mdLyrics = (() => {
       if (!line || !lyrics || lyrics.kind !== 'synced' || line.dataset.t === undefined) return;
       const s = Number(line.dataset.t);
       const p = player();
-      offset = 0;
+      offset = 0; // tras saltar, vuelve a seguir la línea al momento
+      clearTimeout(wheelTimer);
+      area.classList.remove('is-manual');
       if (p && p.seekTo) p.seekTo(s, true);
       else if (boundVideo) boundVideo.currentTime = s;
     });
@@ -162,12 +172,14 @@ window.__mdLyrics = (() => {
       boundPlayer = pl;
       if (pl) modeObserver.observe(pl, { attributes: true, attributeFilter: ['playback-mode'] });
     }
-    if (panel !== boundPanel) {
+    // Se observan los cuatro aunque aparezcan en momentos distintos (YT crea la carátula y el
+    // selector después del panel).
+    boundPanel = panel;
+    const sized = panel ? [panel, pl, panel.querySelector('#av-id'), info] : [];
+    if (sized.length !== observedSizes.length || sized.some((e, i) => e !== observedSizes[i])) {
       sizeObserver.disconnect();
-      boundPanel = panel;
-      if (panel) {
-        for (const e of [panel, pl, panel.querySelector('#av-id'), info]) if (e) sizeObserver.observe(e);
-      }
+      observedSizes = sized;
+      for (const e of sized) if (e) sizeObserver.observe(e);
     }
   }
 
@@ -287,6 +299,14 @@ window.__mdLyrics = (() => {
     ensureDom();
     bindVideo();
     bindBar();
+    const ready = !!boundVideo && !!boundBarTitle && !!info.parentElement;
+    if (ready && waiting) {
+      waiting = false;
+      startObserver.disconnect();
+    } else if (!ready && !waiting) {
+      waiting = true;
+      startObserver.observe(document.documentElement, { childList: true, subtree: true });
+    }
     const bar = barInfo();
     setText(titleEl, bar.title);
     setText(artistEl, bar.artist);
@@ -335,6 +355,7 @@ window.__mdLyrics = (() => {
     active = -2;
     offset = 0;
     lastY = null;
+    lastBase = null;
     trackEl.style.transform = '';
     area.scrollTop = 0;
   }
@@ -368,6 +389,9 @@ window.__mdLyrics = (() => {
     if (!line) return;
     const anchor = area.clientHeight * 0.3;
     const base = anchor - line.offsetTop;
+    // Mientras se mueve a mano, el seguimiento se para: si cambia la línea, la letra no se mueve.
+    if (area.classList.contains('is-manual') && lastBase !== null) offset += base - lastBase;
+    lastBase = base;
     const y = Math.max(anchor - trackEl.offsetHeight, Math.min(anchor, base - offset));
     offset = base - y;
     const value = Math.round(y);
@@ -450,6 +474,7 @@ window.__mdLyrics = (() => {
       barObserver.disconnect();
       modeObserver.disconnect();
       pageObserver.disconnect();
+      startObserver.disconnect();
       sizeObserver.disconnect();
       info.remove();
       area.remove();
