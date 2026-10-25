@@ -109,44 +109,61 @@ ytmusic-player-page #main-panel > .md-lyrics-btn[aria-pressed="true"] {
 
 /* ---------- Disposición con la letra abierta ----------
    lyrics-view.js mide el panel y la carátula cuando cambian de tamaño y deja el resultado en
-   variables de <html> (--md-np-w, --md-lyr-*). Solo se animan transformaciones y opacidad. */
+   variables de <html> (--md-np-w, --md-lyr-*). Solo se animan transformaciones y opacidad.
+   Las propiedades animadas (translate, scale, opacity) van SIN !important: Chromium no lleva a
+   la GPU la animación de una propiedad declarada !important y la calcula en el hilo principal
+   fotograma a fotograma. */
 ytmusic-player-page #main-panel {
   position: relative !important;
 }
+/* La columna (carátula, selector y título) se pinta por encima de la letra: nunca la tapa. */
+ytmusic-player-page #main-panel > #av-id,
+ytmusic-player-page #main-panel > #player,
+ytmusic-player-page #main-panel > #md-np-info {
+  position: relative !important;
+  z-index: 2 !important;
+}
+/* Al cerrar, la columna espera a que la letra se haya ido (0,2 s); al abrir sale enseguida. */
 ytmusic-player-page:not([data-md-video]) #main-panel > #av-id,
 ytmusic-player-page:not([data-md-video]) #main-panel > #player,
 ytmusic-player-page:not([data-md-video]) #main-panel > #md-np-info {
+  transition: translate .6s cubic-bezier(.22,.8,.3,1) .2s, scale .6s cubic-bezier(.22,.8,.3,1) .2s, opacity .3s ease .2s !important;
+}
+ytmusic-player-page[data-md-lyrics="open"]:not([data-md-video]) #main-panel > #av-id,
+ytmusic-player-page[data-md-lyrics="open"]:not([data-md-video]) #main-panel > #player,
+ytmusic-player-page[data-md-lyrics="open"]:not([data-md-video]) #main-panel > #md-np-info {
   transition: translate .6s cubic-bezier(.22,.8,.3,1), scale .6s cubic-bezier(.22,.8,.3,1), opacity .3s ease !important;
 }
 /* Ancha: la columna se centra en la mitad izquierda (y se encoge si no cabe con su hueco). */
 ytmusic-player-page[data-md-lyrics="open"]:not([data-md-lyrics-narrow]) #main-panel > #av-id {
-  translate: var(--md-lyr-tx) var(--md-lyr-av-y) !important;
-  scale: var(--md-lyr-s) !important;
+  translate: var(--md-lyr-tx) var(--md-lyr-av-y);
+  scale: var(--md-lyr-s);
 }
 ytmusic-player-page[data-md-lyrics="open"]:not([data-md-lyrics-narrow]) #main-panel > #player {
-  translate: var(--md-lyr-tx) var(--md-lyr-cover-y) !important;
-  scale: var(--md-lyr-s) !important;
+  translate: var(--md-lyr-tx) var(--md-lyr-cover-y);
+  scale: var(--md-lyr-s);
 }
 ytmusic-player-page[data-md-lyrics="open"]:not([data-md-lyrics-narrow]) #main-panel > #md-np-info {
-  translate: var(--md-lyr-tx) var(--md-lyr-info-y) !important;
-  scale: var(--md-lyr-s) !important;
+  translate: var(--md-lyr-tx) var(--md-lyr-info-y);
+  scale: var(--md-lyr-s);
 }
 /* Estrecha: carátula en miniatura arriba a la izquierda, título y artista a su lado; el selector
    Canción/Vídeo se aparta (vuelve al cerrar la letra). */
 ytmusic-player-page[data-md-lyrics="open"][data-md-lyrics-narrow] #main-panel > #av-id {
-  opacity: 0 !important;
+  opacity: 0;
   pointer-events: none !important;
 }
 ytmusic-player-page[data-md-lyrics="open"][data-md-lyrics-narrow] #main-panel > #player {
-  translate: var(--md-lyr-thumb-x) var(--md-lyr-thumb-y) !important;
-  scale: var(--md-lyr-thumb-s) !important;
+  translate: var(--md-lyr-thumb-x) var(--md-lyr-thumb-y);
+  scale: var(--md-lyr-thumb-s);
 }
 ytmusic-player-page[data-md-lyrics="open"][data-md-lyrics-narrow] #main-panel > #md-np-info {
-  translate: var(--md-lyr-ninfo-x) var(--md-lyr-ninfo-y) !important;
+  translate: var(--md-lyr-ninfo-x) var(--md-lyr-ninfo-y);
 }
 
 /* Área de la letra: mitad derecha, mismo alto que la columna; aparece 0,2 s después desde la
-   derecha. Bordes de arriba y abajo difuminados con una máscara. */
+   derecha y, al cerrar, se va rápido (0,2 s) antes de que vuelva la carátula. Bordes de arriba
+   y abajo difuminados con una máscara. */
 ytmusic-player-page #md-lyrics {
   position: absolute !important;
   z-index: 1 !important;
@@ -155,17 +172,17 @@ ytmusic-player-page #md-lyrics {
   left: 50% !important;
   right: 40px !important;
   overflow: hidden !important;
-  opacity: 0 !important;
-  translate: 60px 0 !important;
+  opacity: 0;
+  translate: 60px 0;
   visibility: hidden !important;
   pointer-events: none !important;
   -webkit-mask-image: linear-gradient(transparent 0, #000 10%, #000 82%, transparent 100%) !important;
   mask-image: linear-gradient(transparent 0, #000 10%, #000 82%, transparent 100%) !important;
-  transition: opacity .45s ease, translate .6s cubic-bezier(.22,.8,.3,1), visibility 0s linear .6s !important;
+  transition: opacity .2s ease, translate .2s ease, visibility 0s linear .2s !important;
 }
 ytmusic-player-page[data-md-lyrics="open"] #md-lyrics {
-  opacity: 1 !important;
-  translate: 0 0 !important;
+  opacity: 1;
+  translate: 0 0;
   visibility: visible !important;
   pointer-events: auto !important;
   transition: opacity .45s ease .2s, translate .6s cubic-bezier(.22,.8,.3,1) .2s, visibility 0s !important;
@@ -191,7 +208,7 @@ ytmusic-player-page #md-lyrics .md-line {
   line-height: 40px !important;
   color: #fff !important;
   overflow-wrap: anywhere !important;
-  opacity: .3 !important;
+  opacity: .3;
   transform-origin: left center !important;
   transition: opacity .4s ease, scale .4s ease !important;
 }
@@ -200,12 +217,12 @@ ytmusic-player-page[data-md-lyrics-narrow] #md-lyrics .md-line {
   font-size: 24px !important;
   line-height: 32px !important;
 }
-ytmusic-player-page #md-lyrics .md-line.is-past { opacity: .18 !important; }
-ytmusic-player-page #md-lyrics .md-line.is-active { opacity: 1 !important; scale: 1.04 !important; }
+ytmusic-player-page #md-lyrics .md-line.is-past { opacity: .18; }
+ytmusic-player-page #md-lyrics .md-line.is-active { opacity: 1; scale: 1.04; }
 ytmusic-player-page #md-lyrics .md-line.is-gap { letter-spacing: 8px !important; }
 ytmusic-player-page[data-md-lyrics-mode="synced"] #md-lyrics .md-line { cursor: pointer !important; }
 /* Mientras llega la letra: tres barras tenues. */
-ytmusic-player-page #md-lyrics .md-line.is-placeholder { opacity: 1 !important; cursor: default !important; }
+ytmusic-player-page #md-lyrics .md-line.is-placeholder { opacity: 1; cursor: default !important; }
 ytmusic-player-page #md-lyrics .md-line.is-placeholder > span {
   display: block !important;
   height: 24px !important;
@@ -226,7 +243,7 @@ ytmusic-player-page[data-md-lyrics-mode="plain"] #md-lyrics {
   scrollbar-width: none !important;
 }
 ytmusic-player-page[data-md-lyrics-mode="plain"] #md-lyrics .md-lyrics-track { padding-top: 48px !important; }
-ytmusic-player-page[data-md-lyrics-mode="plain"] #md-lyrics .md-line { opacity: 1 !important; padding: 8px 0 !important; }
+ytmusic-player-page[data-md-lyrics-mode="plain"] #md-lyrics .md-line { opacity: 1; padding: 8px 0 !important; }
 ytmusic-player-page[data-md-lyrics-mode="plain"] #md-lyrics .md-line.is-break { height: 32px !important; padding: 0 !important; }
 
 /* La pestaña "Letra" del panel derecho sobra: la letra está ahora junto a la carátula. Es la
