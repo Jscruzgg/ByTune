@@ -1,10 +1,11 @@
-const { app, BrowserWindow, Tray, Menu, Notification, dialog, globalShortcut, ipcMain, nativeImage, nativeTheme, screen, shell } = require('electron');
+const { app, BrowserWindow, Tray, Menu, Notification, dialog, globalShortcut, ipcMain, nativeImage, nativeTheme, net, screen, shell } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { pickLang, t, STRINGS } = require('./lib/i18n');
 const { filterLibrary, pushRecent, recentItems, idFromUrl } = require('./lib/library');
 const { matches, fromKeyEvent, validateAccelerator, displayAccelerator } = require('./lib/shortcut');
 const { createCache } = require('./lib/cache');
+const { createLyricsSource } = require('./lib/lyrics-source');
 
 const HOME = 'https://music.youtube.com/';
 // Dominios que se abren dentro de la app (YouTube Music y el inicio de sesión de Google).
@@ -36,6 +37,7 @@ const defaults = {
   bounds: { width: 1280, height: 820 }, maximized: false, notifications: true, closeToTray: true, theme: true, covers: {},
   lang: null, library: [], recent: [], suggested: [],
   panels: {}, // ancho elegido de la barra lateral y de la cola: { left?: px, right?: px }
+  lyricsOpen: false, // panel de letras abierto en Now Playing
   quickMenu: { accelerator: 'CommandOrControl+Shift+Space', reach: 'focused', fromOtherApps: 'float', shiftEnter: 'queue' },
 };
 let settings = { ...defaults };
@@ -66,7 +68,12 @@ let track = { title: '', artist: '', playing: false };
 // Cuando la página informa del suyo (IPC 'lang') ese manda y se guarda.
 let lang = pickLang(settings.lang || app.getLocale());
 const stringsFor = (code) => STRINGS[code];
-const sendStrings = (wc) => { if (wc && !wc.isDestroyed()) wc.send('strings', { lang, strings: stringsFor(lang) }); };
+// A la ventana principal también le llegan a las letras (lyrics-view.js), que viven en la página.
+const sendStrings = (wc) => {
+  if (!wc || wc.isDestroyed()) return;
+  wc.send('strings', { lang, strings: stringsFor(lang) });
+  if (win && wc === win.webContents) initLyrics();
+};
 
 // Tema propio (src/theme.css), inyectado como hoja de estilos de usuario: sin JS en la página.
 // chrome.css (barra superior arrastrable) va siempre, con o sin tema.
@@ -76,7 +83,7 @@ const sendStrings = (wc) => { if (wc && !wc.isDestroyed()) wc.send('strings', { 
 // Las inyecciones van en cola (una tras otra) y se recuerdan todas las claves: si dos cargas
 // llegan seguidas, ninguna clave se pierde y no se acumulan hojas viejas.
 const readCss = (name) => fs.readFileSync(path.join(__dirname, name), 'utf8');
-const injected = { theme: [], chrome: [] };
+const injected = { theme: [], chrome: [], lyrics: [] };
 let injectQueue = Promise.resolve();
 function inject(kind, css) {
   injectQueue = injectQueue.then(async () => {
@@ -89,6 +96,27 @@ function inject(kind, css) {
 }
 const applyTheme = () => inject('theme', settings.theme ? readCss('theme.css') : null);
 const applyChrome = () => inject('chrome', readCss('chrome.css'));
+// lyrics.css (panel de letras) también va siempre, con o sin tema.
+const applyLyricsCss = () => inject('lyrics', readCss('lyrics.css'));
+
+// Panel de letras dentro de la página (mundo principal, sin acceso a Node): los tiempos
+// (lib/lyrics-timing.js) y la vista (lyrics-view.js), leídos en cada carga como el CSS.
+// Van dentro de un bloque { } para que sus const no choquen si se vuelven a ejecutar, y el
+// script acaba en true: si su último valor fuera window.__mdLyrics (con funciones), no se podría
+// devolver a main y executeJavaScript fallaría.
+// Después se llama a init con el estado guardado y los textos; init se repite al cambiar de idioma.
+function injectLyricsView() {
+  if (!win || !onYouTubeMusic()) return Promise.resolve();
+  const read = (...parts) => fs.readFileSync(path.join(__dirname, ...parts), 'utf8');
+  let src;
+  try { src = '{\n' + read('lib', 'lyrics-timing.js') + '\n' + read('lyrics-view.js') + '\n}\ntrue'; } catch { return Promise.resolve(); }
+  return win.webContents.executeJavaScript(src, true).then(initLyrics).catch(() => {});
+}
+function initLyrics() {
+  if (!win || win.isDestroyed() || !onYouTubeMusic()) return;
+  const opts = { open: !!settings.lyricsOpen, strings: stringsFor(lang) };
+  win.webContents.executeJavaScript(`window.__mdLyrics && window.__mdLyrics.init(${JSON.stringify(opts)})`, true).catch(() => {});
+}
 
 function isInternal(url) {
   try { return INTERNAL_HOSTS.some((re) => re.test(new URL(url).hostname)); } catch { return false; }
@@ -127,6 +155,7 @@ function createWindow() {
     setRecording(false); // una recarga a mitad de grabación no deja los atajos globales apagados
     applyChrome();
     applyTheme();
+    applyLyricsCss().then(injectLyricsView);
     sendStrings(win.webContents);
     win.webContents.send('panels', settings.panels);
     // Portadas de la barra lateral: primero las guardadas (al instante) y luego las frescas.
@@ -329,7 +358,7 @@ function createTray() {
 // Se ejecuta una vez por documento (dom-ready pone pageApiReady a null). pageApi(call, ...args)
 // llama a window.__md[call] y nunca rechaza: ante cualquier fallo resuelve { error }.
 const pageApiJs = fs.readFileSync(path.join(__dirname, 'page-api.js'), 'utf8');
-const PAGE_API_CALLS = new Set(['library', 'searchSongs', 'suggestions', 'play', 'queue', 'open']);
+const PAGE_API_CALLS = new Set(['library', 'searchSongs', 'suggestions', 'play', 'queue', 'open', 'lyrics']);
 const PAGE_API_TIMEOUT = 20000;
 let pageApiReady = null;
 function onYouTubeMusic() {
@@ -620,6 +649,42 @@ ipcMain.on('panels', (e, w) => {
     if (Number.isFinite(w[side])) next[side] = Math.round(Math.min(max, Math.max(min, w[side])));
   }
   settings.panels = next;
+  saveSettings();
+});
+
+// --- Letras (lyrics-view.js en la página, src/lib/lyrics-source.js aquí) ---
+// La página pide la letra de la canción actual (preload.js reenvía 'lyrics:request'); se busca en
+// LRCLIB con la red de Electron y, si no hay sincronizada, en la propia página (pageApi 'lyrics').
+// LRCLIB pide identificar la app en el User-Agent.
+const LYRICS_UA = `Music Desktop/${app.getVersion()} (https://github.com/Jscruzgg/yt-music-dash)`;
+async function fetchJson(url, { signal } = {}) {
+  const res = await net.fetch(url, { signal, headers: { 'User-Agent': LYRICS_UA } });
+  return { status: res.status, body: res.status === 200 ? await res.json() : null };
+}
+const lyricsSource = createLyricsSource({ fetchJson, pageLyrics: (videoId) => pageApi('lyrics', videoId) });
+// Texto recibido de la página: solo cadenas, recortadas a 300 caracteres.
+const lyricsText = (v) => (typeof v === 'string' ? v.slice(0, 300) : '');
+ipcMain.on('lyrics:request', async (e, t) => {
+  if (!fromMainPage(e) || !onYouTubeMusic() || !t || typeof t !== 'object') return;
+  if (typeof t.videoId !== 'string' || !/^[\w-]{6,20}$/.test(t.videoId)) return;
+  const req = {
+    videoId: t.videoId,
+    title: lyricsText(t.title),
+    artist: lyricsText(t.artist),
+    album: lyricsText(t.album),
+    duration: typeof t.duration === 'number' && Number.isFinite(t.duration) ? t.duration : null,
+  };
+  let result;
+  try { result = await lyricsSource.get(req); } catch { result = { kind: 'none' }; }
+  // Mientras se buscaba, la ventana pudo cerrarse o salir de YouTube Music.
+  if (!win || win.isDestroyed() || !onYouTubeMusic()) return;
+  win.webContents.executeJavaScript(`window.__mdLyrics && window.__mdLyrics.receive(${JSON.stringify(req.videoId)}, ${JSON.stringify(result)})`, true).catch(() => {});
+});
+// Panel de letras abierto o cerrado: se recuerda para la próxima vez.
+ipcMain.on('lyrics:open', (e, open) => {
+  if (!fromMainPage(e) || !onYouTubeMusic() || typeof open !== 'boolean') return;
+  if (settings.lyricsOpen === open) return;
+  settings.lyricsOpen = open;
   saveSettings();
 });
 

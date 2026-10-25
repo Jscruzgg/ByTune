@@ -9,6 +9,8 @@
 //   play(videoId)             -> { ok: true }              como pulsar la canción en la búsqueda de YT
 //   queue(videoId, 'end'|'next') -> { ok: true }          "Añadir a la cola" / "Reproducir a continuación"
 //   open(browseId)            -> { ok: true }              abre el álbum o la playlist sin recargar
+//   lyrics(videoId)           -> { lines: string[], source } | { none: true }  letra en texto plano de YT (sirve sin sesión);
+//                                 las líneas vacías separan estrofas
 // LibraryItem: { id: browseId ('VL…' playlist, 'MPRE…' álbum), type: 'playlist'|'album', title, artist?, cover,
 //   playlistId? (solo álbumes: el 'OLAK5uy_…' de su página /playlist?list=…) }
 // Song: { videoId, title, artist, duration, cover }
@@ -20,25 +22,26 @@
   const MAX_PAGES = 10;
 
   // Petición a la API interna con la autorización que usa la propia web:
-  // SAPISIDHASH = SHA-1 de "hora SAPISID origen". Sin sesión iniciada lanza 'sin sesión'.
+  // SAPISIDHASH = SHA-1 de "hora SAPISID origen". Sin sesión iniciada lanza 'sin sesión',
+  // salvo con { auth: 'optional' }: entonces se envía sin Authorization ni X-Goog-AuthUser.
   const cookie = (name) => (document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)')) || [])[1];
-  const api = async (path, body) => {
+  const api = async (path, body, { auth = 'required' } = {}) => {
     const cfg = window.ytcfg;
     if (!cfg || !cfg.get) throw new Error('sin ytcfg');
     const sapisid = cookie('SAPISID') || cookie('__Secure-3PAPISID');
-    if (!sapisid) throw new Error('sin sesión');
-    const ts = Math.floor(Date.now() / 1000);
-    const digest = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(`${ts} ${sapisid} ${location.origin}`));
-    const hash = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+    if (!sapisid && auth !== 'optional') throw new Error('sin sesión');
+    const headers = { 'Content-Type': 'application/json', 'X-Origin': location.origin };
+    if (sapisid) {
+      const ts = Math.floor(Date.now() / 1000);
+      const digest = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(`${ts} ${sapisid} ${location.origin}`));
+      const hash = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+      headers.Authorization = `SAPISIDHASH ${ts}_${hash}`;
+      headers['X-Goog-AuthUser'] = String(cfg.get('SESSION_INDEX') || 0);
+    }
     const res = await fetch(`/youtubei/v1/${path}?prettyPrint=false&key=${cfg.get('INNERTUBE_API_KEY')}`, {
       method: 'POST',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `SAPISIDHASH ${ts}_${hash}`,
-        'X-Goog-AuthUser': String(cfg.get('SESSION_INDEX') || 0),
-        'X-Origin': location.origin,
-      },
+      headers,
       body: JSON.stringify({ context: cfg.get('INNERTUBE_CONTEXT'), ...body }),
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -238,6 +241,25 @@
     return { ok: true };
   };
 
+  // Letra en texto plano de YT: la pestaña "Letra" del reproductor (browseId 'MPLYt…', sale de `next`)
+  // lleva un musicDescriptionShelfRenderer con la letra y el crédito ("Fuente: …"). Sin pestaña o
+  // sin letra -> { none: true }. No necesita sesión.
+  const lyrics = async (videoId) => {
+    checkVideoId(videoId);
+    let browseId = null;
+    walk(await api('next', { videoId }, { auth: 'optional' }), (o) => {
+      const id = o.browseEndpoint && o.browseEndpoint.browseId;
+      if (!browseId && typeof id === 'string' && id.startsWith('MPLYt')) browseId = id;
+    });
+    if (!browseId) return { none: true };
+    let shelf = null;
+    walk(await api('browse', { browseId }, { auth: 'optional' }), (o) => { if (!shelf && o.musicDescriptionShelfRenderer) shelf = o.musicDescriptionShelfRenderer; });
+    const body = shelf && text(shelf.description);
+    if (!body || !body.trim()) return { none: true };
+    // Las líneas vacías se conservan: son los saltos de estrofa.
+    return { lines: body.split('\n'), source: text(shelf.footer).trim() };
+  };
+
   window.__md = {
     browse,
     library: safe(library),
@@ -246,6 +268,7 @@
     play: safe(play),
     queue: safe(queue),
     open: safe(open),
+    lyrics: safe(lyrics),
   };
   return true;
 })()

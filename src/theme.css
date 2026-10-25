@@ -904,48 +904,10 @@ ytmusic-player-page::after {
   pointer-events: none;
 }
 
-/* Carátula: tope de tamaño para que quepan título y artista debajo (solo en modo canción;
-   el vídeo conserva el tamaño de YT Music). */
-ytmusic-player-page {
-  --md-np-art: calc(100vh - 360px);
-}
-ytmusic-player-page #player[playback-mode="ATV_PREFERRED"] {
-  max-width: var(--md-np-art) !important;
-  max-height: var(--md-np-art) !important;
-}
-/* Título y artista grandes (Apple Music). preload.js pone los data-md-* en #main-panel. */
-ytmusic-player-page #main-panel::after,
-ytmusic-player-page #main-panel::before {
-  order: 10;
-  display: block;
-  width: min(100%, var(--md-np-art));
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  pointer-events: none;
-}
-ytmusic-player-page #main-panel::after {
-  content: attr(data-md-title);
-  font-family: var(--md-font-display);
-  margin-top: 20px;
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  /* Alto de línea con hueco para los trazos descendentes (g, p, y): overflow: hidden (para los
-     puntos suspensivos) los recortaba con 1.2. */
-  line-height: 1.35;
-  padding-bottom: 2px;
-  color: var(--md-text);
-}
-ytmusic-player-page #main-panel::before {
-  content: attr(data-md-artist);
-  order: 11;
-  margin-top: 4px;
-  font-size: 17px;
-  font-weight: 500;
-  line-height: 1.3;
-  color: var(--md-text-2);
-}
+/* Tamaño de la carátula (--md-np-art) y fila de título y artista bajo ella: en lyrics.css, que se
+   inyecta siempre (con o sin tema). Aquí, el alto que se reserva para el resto con el tema, y
+   --md-np-art afinado en ventanas anchas (más abajo). */
+ytmusic-player-page { --md-np-reserve: 360px; }
 /* Selector Canción/Vídeo: si no hay vídeo YT lo deja desactivado; se oculta sin mover la carátula. */
 ytmusic-player-page ytmusic-av-toggle[toggle-disabled] { visibility: hidden !important; }
 ytmusic-player-page > .content {

@@ -43,6 +43,11 @@ const STRINGS = {
     // Botón atrás
     'nav.back': 'Atrás',
 
+    // Letras
+    'lyrics.show': 'Mostrar letra',
+    'lyrics.hide': 'Ocultar letra',
+    'lyrics.credit': 'Letra de LRCLIB',
+
     // Menú rápido
     'qm.placeholder': 'Buscar canciones o ir a una playlist…',
     'qm.recent': 'Recientes',
@@ -102,6 +107,11 @@ const STRINGS = {
 
     // Back button
     'nav.back': 'Back',
+
+    // Lyrics
+    'lyrics.show': 'Show lyrics',
+    'lyrics.hide': 'Hide lyrics',
+    'lyrics.credit': 'Lyrics from LRCLIB',
 
     // Quick menu
     'qm.placeholder': 'Search songs or jump to a playlist…',
