@@ -304,3 +304,21 @@ html[data-md-fullscreen][data-md-controls] ytmusic-player-page #main-panel > .md
 /* Sin mover el ratón, tampoco se ve el puntero. */
 html[data-md-fullscreen]:not([data-md-controls]),
 html[data-md-fullscreen]:not([data-md-controls]) * { cursor: none !important; }
+
+/* ---------- Cola: reordenar arrastrando (queue-reorder.js) ----------
+   La canción arrastrada queda por encima y algo resaltada; las demás se apartan con una
+   transición corta. Mientras dura, nada se selecciona como texto. */
+ytmusic-player-queue ytmusic-player-queue-item, ytmusic-player-queue ytmusic-player-queue-item * { cursor: pointer !important; }
+html[data-md-q-dragging] ytmusic-player-queue ytmusic-player-queue-item {
+  transition: transform .18s ease !important;
+}
+html[data-md-q-dragging] ytmusic-player-queue ytmusic-player-queue-item.md-q-drag {
+  position: relative !important;
+  z-index: 3 !important;
+  transition: none !important;
+  background: rgba(255,255,255,.12) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,.45) !important;
+  border-radius: 8px !important;
+}
+html[data-md-q-dragging],
+html[data-md-q-dragging] * { cursor: pointer !important; user-select: none !important; }

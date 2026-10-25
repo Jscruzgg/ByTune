@@ -109,7 +109,8 @@ const applyChrome = () => inject('chrome', readCss('chrome.css'));
 const applyLyricsCss = () => inject('lyrics', readCss('lyrics.css'));
 
 // Panel de letras dentro de la página (mundo principal, sin acceso a Node): los tiempos
-// (lib/lyrics-timing.js) y la vista (lyrics-view.js), leídos en cada carga como el CSS.
+// (lib/lyrics-timing.js) y la vista (lyrics-view.js), leídos en cada carga como el CSS. En el mismo
+// envío va queue-reorder.js (arrastrar canciones de la cola), en su propio bloque.
 // Van dentro de un bloque { } para que sus const no choquen si se vuelven a ejecutar, y el
 // script acaba en true: si su último valor fuera window.__mdLyrics (con funciones), no se podría
 // devolver a main y executeJavaScript fallaría.
@@ -118,7 +119,7 @@ function injectLyricsView() {
   if (!win || !onYouTubeMusic()) return Promise.resolve();
   const read = (...parts) => fs.readFileSync(path.join(__dirname, ...parts), 'utf8');
   let src;
-  try { src = '{\n' + read('lib', 'lyrics-timing.js') + '\n' + read('lyrics-view.js') + '\n}\ntrue'; } catch { return Promise.resolve(); }
+  try { src = '{\n' + read('lib', 'lyrics-timing.js') + '\n' + read('lyrics-view.js') + '\n}\n{\n' + read('queue-reorder.js') + '\n}\ntrue'; } catch { return Promise.resolve(); }
   return win.webContents.executeJavaScript(src, true).then(initLyrics).catch(() => {});
 }
 function initLyrics() {
