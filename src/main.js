@@ -27,6 +27,15 @@ if (process.env.YTM_DEBUG_PORT) {
   app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 }
 
+// La app se llamaba "Music Desktop": sus datos (sesión iniciada, ajustes, caché) están en esa
+// carpeta. Si existe, se sigue usando para no perder nada; las instalaciones nuevas usan "ByTune".
+// Va antes del bloqueo de instancia única, que también vive en la carpeta de datos.
+const legacyUserData = path.join(app.getPath('appData'), 'Music Desktop');
+if (fs.existsSync(legacyUserData)) app.setPath('userData', legacyUserData);
+// Solo desarrollo: YTM_USER_DATA=<carpeta> usa un perfil aparte, para probar sin cerrar la app
+// instalada (que tiene el bloqueo de instancia única en la carpeta normal).
+if (process.env.YTM_USER_DATA) app.setPath('userData', process.env.YTM_USER_DATA);
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
   return;
@@ -100,7 +109,8 @@ const applyChrome = () => inject('chrome', readCss('chrome.css'));
 const applyLyricsCss = () => inject('lyrics', readCss('lyrics.css'));
 
 // Panel de letras dentro de la página (mundo principal, sin acceso a Node): los tiempos
-// (lib/lyrics-timing.js) y la vista (lyrics-view.js), leídos en cada carga como el CSS.
+// (lib/lyrics-timing.js) y la vista (lyrics-view.js), leídos en cada carga como el CSS. En el mismo
+// envío va queue-reorder.js (arrastrar canciones de la cola), en su propio bloque.
 // Van dentro de un bloque { } para que sus const no choquen si se vuelven a ejecutar, y el
 // script acaba en true: si su último valor fuera window.__mdLyrics (con funciones), no se podría
 // devolver a main y executeJavaScript fallaría.
@@ -109,13 +119,19 @@ function injectLyricsView() {
   if (!win || !onYouTubeMusic()) return Promise.resolve();
   const read = (...parts) => fs.readFileSync(path.join(__dirname, ...parts), 'utf8');
   let src;
-  try { src = '{\n' + read('lib', 'lyrics-timing.js') + '\n' + read('lyrics-view.js') + '\n}\ntrue'; } catch { return Promise.resolve(); }
+  try { src = '{\n' + read('lib', 'lyrics-timing.js') + '\n' + read('lyrics-view.js') + '\n}\n{\n' + read('queue-reorder.js') + '\n}\ntrue'; } catch { return Promise.resolve(); }
   return win.webContents.executeJavaScript(src, true).then(initLyrics).catch(() => {});
 }
 function initLyrics() {
   if (!win || win.isDestroyed() || !onYouTubeMusic()) return;
-  const opts = { open: !!settings.lyricsOpen, strings: stringsFor(lang) };
+  const opts = { open: !!settings.lyricsOpen, fullscreen: win.isFullScreen(), strings: stringsFor(lang) };
   win.webContents.executeJavaScript(`window.__mdLyrics && window.__mdLyrics.init(${JSON.stringify(opts)})`, true).catch(() => {});
+}
+// Pantalla completa de Now Playing: la pide la página (botón de la esquina) y se le avisa al
+// entrar o salir, también si sale con Esc (before-input-event).
+function notifyFullscreen() {
+  if (!win || win.isDestroyed() || !onYouTubeMusic()) return;
+  win.webContents.executeJavaScript(`window.__mdLyrics && window.__mdLyrics.setFullscreen(${win.isFullScreen()})`, true).catch(() => {});
 }
 
 function isInternal(url) {
@@ -174,7 +190,7 @@ function createWindow() {
       appIconPath: app.isPackaged ? process.execPath : iconPath,
       appIconIndex: 0,
       relaunchCommand: app.isPackaged ? `"${process.execPath}"` : `"${process.execPath}" "${app.getAppPath()}"`,
-      relaunchDisplayName: 'Music Desktop',
+      relaunchDisplayName: 'ByTune',
     });
   }
   if (settings.maximized) win.maximize();
@@ -200,6 +216,7 @@ function createWindow() {
     const wc = win.webContents;
     if (matches(input, settings.quickMenu.accelerator)) { e.preventDefault(); if (!input.isAutoRepeat && !qmShortcutIsGlobal()) toggleQuickMenu(false); }
     else if (input.key === 'F5') { wc.reload(); e.preventDefault(); }
+    else if (input.key === 'Escape' && win.isFullScreen()) { win.setFullScreen(false); e.preventDefault(); }
     else if (input.alt && input.key === 'ArrowLeft' && wc.navigationHistory.canGoBack()) { wc.navigationHistory.goBack(); e.preventDefault(); }
     else if (input.alt && input.key === 'ArrowRight' && wc.navigationHistory.canGoForward()) { wc.navigationHistory.goForward(); e.preventDefault(); }
     else if (input.control && (input.key === '=' || input.key === '+')) { wc.setZoomLevel(wc.getZoomLevel() + 0.5); e.preventDefault(); }
@@ -208,11 +225,15 @@ function createWindow() {
   });
 
   const rememberBounds = () => {
+    // En pantalla completa no se guarda nada: al salir vuelve el tamaño de antes.
+    if (win.isFullScreen()) return;
     if (!win.isMaximized() && !win.isMinimized()) settings.bounds = win.getBounds();
     settings.maximized = win.isMaximized();
   };
   win.on('resize', rememberBounds);
   win.on('move', rememberBounds);
+  win.on('enter-full-screen', notifyFullscreen);
+  win.on('leave-full-screen', notifyFullscreen);
   // Si la ventana pierde el foco a mitad de grabación, los atajos globales vuelven al momento.
   win.on('blur', () => setRecording(false));
 
@@ -469,7 +490,7 @@ function createQuickMenu() {
     maximizable: false,
     fullscreenable: false,
     show: false,
-    title: 'Music Desktop',
+    title: 'ByTune',
     icon,
     webPreferences: {
       preload: path.join(__dirname, 'quickmenu', 'preload.js'),
@@ -660,7 +681,7 @@ ipcMain.on('panels', (e, w) => {
 // La página pide la letra de la canción actual (preload.js reenvía 'lyrics:request'); se busca en
 // LRCLIB con la red de Electron y, si no hay sincronizada, en la propia página (pageApi 'lyrics').
 // LRCLIB pide identificar la app en el User-Agent.
-const LYRICS_UA = `Music Desktop/${app.getVersion()} (https://github.com/Jscruzgg/yt-music-dash)`;
+const LYRICS_UA = `ByTune/${app.getVersion()} (https://github.com/Jscruzgg/ByTune)`;
 async function fetchJson(url, { signal } = {}) {
   const res = await net.fetch(url, { signal, headers: { 'User-Agent': LYRICS_UA } });
   return { status: res.status, body: res.status === 200 ? await res.json() : null };
@@ -685,6 +706,10 @@ ipcMain.on('lyrics:request', async (e, t) => {
   win.webContents.executeJavaScript(`window.__mdLyrics && window.__mdLyrics.receive(${JSON.stringify(req.videoId)}, ${JSON.stringify(result)})`, true).catch(() => {});
 });
 // Panel de letras abierto o cerrado: se recuerda para la próxima vez.
+ipcMain.on('np:fullscreen', (e, on) => {
+  if (!fromMainPage(e) || !onYouTubeMusic() || typeof on !== 'boolean') return;
+  if (win.isFullScreen() !== on) win.setFullScreen(on);
+});
 ipcMain.on('lyrics:open', (e, open) => {
   if (!fromMainPage(e) || !onYouTubeMusic() || typeof open !== 'boolean') return;
   if (settings.lyricsOpen === open) return;

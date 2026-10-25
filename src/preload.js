@@ -324,7 +324,8 @@ function applyCovers() {
 
 // Puente de las letras: lyrics-view.js corre en la página (sin ipcRenderer). Deja el mensaje
 // en <html data-md-lyrics-msg> y lanza el evento 'md-lyrics'; aquí se lee, se borra y solo se
-// reenvía a main.js lo esperado: pedir la letra de una canción o recordar el panel abierto.
+// reenvía a main.js lo esperado: pedir la letra de una canción, recordar el panel abierto o
+// poner la ventana a pantalla completa.
 document.addEventListener('md-lyrics', () => {
   const root = document.documentElement;
   const raw = root.dataset.mdLyricsMsg;
@@ -334,6 +335,7 @@ document.addEventListener('md-lyrics', () => {
   if (!msg || typeof msg !== 'object') return;
   if (msg.type === 'request' && msg.track && typeof msg.track === 'object') ipcRenderer.send('lyrics:request', msg.track);
   else if (msg.type === 'open' && typeof msg.open === 'boolean') ipcRenderer.send('lyrics:open', msg.open);
+  else if (msg.type === 'fullscreen' && typeof msg.on === 'boolean') ipcRenderer.send('np:fullscreen', msg.on);
 });
 
 // Ancho de los paneles laterales, ajustable arrastrando su borde (como Spotify). Solo cambia una

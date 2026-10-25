@@ -1,18 +1,18 @@
-# Music Desktop
+# ByTune
 
 Desktop client (Electron) for YouTube Music: opens music.youtube.com in its own window, signed in with your account.
 
 ## Install (Windows)
 
 1. Go to **Releases** on GitHub and download the latest version:
-   - `Music-Desktop-Setup-x.y.z.exe`: installer (shortcuts and uninstaller; updates itself).
-   - `Music-Desktop-x.y.z-portable.exe`: portable, no install needed (does not update itself).
+   - `ByTune-Setup-x.y.z.exe`: installer (shortcuts and uninstaller; updates itself).
+   - `ByTune-x.y.z-portable.exe`: portable, no install needed (does not update itself).
 2. Run it. The app is not code-signed, so Windows SmartScreen may warn: *More info → Run anyway*.
 3. Sign in with your Google account inside the app (the session is remembered between restarts).
 
 ## Updates
 
-The installed app checks GitHub Releases for a new version every time it opens. If there is one, it downloads it in the background and asks whether to restart to install it; if you choose "Later", it installs when you quit (you can also do it from the tray icon). The portable version does not update itself. The log is at `%APPDATA%\Music Desktop\updater.log`.
+The installed app checks GitHub Releases for a new version every time it opens. If there is one, it downloads it in the background and asks whether to restart to install it; if you choose "Later", it installs when you quit (you can also do it from the tray icon). The portable version does not update itself. The log is at `%APPDATA%\ByTune\updater.log` (`%APPDATA%\Music Desktop\updater.log` for copies installed before the app was renamed: they keep their data folder).
 
 Every PR merged to `main` publishes a release automatically (`.github/workflows/release.yml`): if the PR didn't bump `version` in `package.json`, the workflow bumps the patch and commits it to `main`. To publish by hand instead: bump `version`, commit and push, then run `npm run release` (requires `gh` signed in). The script checks that tests pass, that there are no unpushed changes and that the version does not exist yet, then builds and publishes the installer, its `.blockmap` and `latest.yml`.
 
@@ -21,8 +21,8 @@ Every PR merged to `main` publishes a release automatically (`.github/workflows/
 Requirements: Windows 10/11 and [Node.js](https://nodejs.org) 20 or later.
 
 ```bash
-git clone https://github.com/Jscruzgg/yt-music-dash.git
-cd yt-music-dash
+git clone https://github.com/Jscruzgg/ByTune.git
+cd ByTune
 npm install
 npx --no install-electron --no
 npm run dist
@@ -34,7 +34,7 @@ npm run dist
 
 ## Interface
 
-- `src/theme.css`: custom theme (Spotify-style grays on buttons and chips; player bar with the song on the left, controls in the center and times on both sides of the progress bar; Apple Music-style "Now Playing" with a blurred cover and large title). Page backgrounds (home, cover-based gradients on albums and playlists) stay as in YT Music. Toggle it from the tray: *Music Desktop theme*.
+- `src/theme.css`: custom theme (Spotify-style grays on buttons and chips; player bar with the song on the left, controls in the center and times on both sides of the progress bar; Apple Music-style "Now Playing" with a blurred cover and large title). Page backgrounds (home, cover-based gradients on albums and playlists) stay as in YT Music. Toggle it from the tray: *ByTune theme*.
 - `src/chrome.css`: removes the Windows title bar; the app's top bar drags the window. Always applied.
 - CSS only, no extra JS in the page where possible: no `backdrop-filter`, transitions only on `transform`/`opacity`, `content-visibility` for off-screen content, and the background blur is done on a 64×64 px image scaled on the GPU.
 - Playlist covers in the sidebar (like Spotify): `src/covers.js` runs in the page with your session, fetches your library's playlists and returns each cover; they are saved so they show instantly on the next launch and refreshed every 15 minutes.

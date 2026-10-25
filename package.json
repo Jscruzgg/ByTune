@@ -1,6 +1,6 @@
 {
-  "name": "youtube-music-client",
-  "productName": "Music Desktop",
+  "name": "bytune",
+  "productName": "ByTune",
   "version": "1.0.8",
   "description": "Desktop client for YouTube Music",
   "main": "src/main.js",
@@ -14,7 +14,7 @@
   },
   "build": {
     "appId": "local.youtube-music-client",
-    "productName": "Music Desktop",
+    "productName": "ByTune",
     "directories": {
       "output": "dist"
     },
@@ -34,16 +34,16 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "artifactName": "Music-Desktop-Setup-${version}.${ext}"
+      "artifactName": "ByTune-Setup-${version}.${ext}"
     },
     "portable": {
-      "artifactName": "Music-Desktop-${version}-portable.${ext}"
+      "artifactName": "ByTune-${version}-portable.${ext}"
     },
     "publish": [
       {
         "provider": "github",
         "owner": "Jscruzgg",
-        "repo": "yt-music-dash"
+        "repo": "ByTune"
       }
     ]
   },

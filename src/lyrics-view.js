@@ -21,7 +21,8 @@ window.__mdLyrics = (() => {
   // Por debajo de estos anchos, carátula y letra no caben lado a lado: disposición estrecha.
   const MIN_COVER = 300;
   const MIN_LYRICS = 400; // ancho del área de letra (mitad derecha menos su margen de 40 px)
-  const LOAD_TIMEOUT = 15000; // espera máxima de la letra con la vista abierta (ms)
+  const FORCE_AFTER = 6000; // sin haber podido pedir la letra, a los 6 s se pide con lo que haya
+  const LOAD_TIMEOUT = 15000; // y, ya pedida, a los 15 s sin respuesta se da por no encontrada
 
   let strings = {};
   let initialized = false;
@@ -31,7 +32,9 @@ window.__mdLyrics = (() => {
   let track = { videoId: '', title: '' }; // title: el de la barra cuando se pidió la letra
   let requested = false;
   let lyrics = null; // { kind: 'synced' | 'plain', lines, source } de la canción actual
-  let loading = false; // vista abierta esperando la letra de una canción nueva
+  // Estado de la letra de la canción actual: 'loading' (pedida o por pedir), 'ready' (hay letra)
+  // o 'none' (ninguna de las dos fuentes tiene, o no hubo respuesta).
+  let status = 'loading';
   let shown = false;
 
   // Sincronía (solo letra con tiempos): un único setTimeout hasta la siguiente línea.
@@ -50,6 +53,9 @@ window.__mdLyrics = (() => {
   let titleEl = null;
   let artistEl = null;
   let btn = null;
+  let fsBtn = null; // pantalla completa, a la derecha del de letras
+  let fsPaths = null; // <path> del icono de pantalla completa (cambia al entrar y salir)
+  let controlsTimer = 0; // esconde la barra de reproducción en pantalla completa
   let area = null; // #md-lyrics
   let trackEl = null; // contenedor de las líneas (se desplaza con translateY)
   let boundVideo = null;
@@ -60,7 +66,7 @@ window.__mdLyrics = (() => {
   const barObserver = new MutationObserver(() => check('bar'));
   const modeObserver = new MutationObserver(() => applyState());
   // Now Playing abierto o cerrado (atributo player-page-open): sin él no corre ningún temporizador.
-  const pageObserver = new MutationObserver(() => sync());
+  const pageObserver = new MutationObserver(() => onPageChange());
   let boundPage = null;
   const sizeObserver = new ResizeObserver(() => measure());
   let observedSizes = [];
@@ -101,10 +107,14 @@ window.__mdLyrics = (() => {
   }
 
   // ---------- Elementos propios ----------
-  function svgIcon() {
+  // Iconos de trazo (24×24). LYRICS_ICON: bocadillo; FS_ON / FS_OFF: entrar / salir de pantalla completa.
+  const LYRICS_ICON = ['M4 5h16v11H9l-5 4z', 'M8 9h8', 'M8 12.5h5'];
+  const FS_ON = ['M4 9V4h5', 'M15 4h5v5', 'M20 15v5h-5', 'M9 20H4v-5'];
+  const FS_OFF = ['M9 4v5H4', 'M20 9h-5V4', 'M15 20v-5h5', 'M4 15h5v5'];
+  function svgIcon(paths) {
     const svg = document.createElementNS(SVG_NS, 'svg');
     for (const [k, v] of Object.entries({ width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' })) svg.setAttribute(k, String(v));
-    for (const d of ['M4 5h16v11H9l-5 4z', 'M8 9h8', 'M8 12.5h5']) {
+    for (const d of paths) {
       const p = document.createElementNS(SVG_NS, 'path');
       p.setAttribute('d', d);
       svg.append(p);
@@ -118,14 +128,20 @@ window.__mdLyrics = (() => {
     titleEl = el('div', 'md-np-title');
     artistEl = el('div', 'md-np-artist');
     text.append(titleEl, artistEl);
-    btn = el('button', 'md-lyrics-btn');
+    btn = el('button', 'md-np-btn md-lyrics-btn');
     btn.type = 'button';
-    btn.append(svgIcon());
+    btn.append(svgIcon(LYRICS_ICON));
     btn.addEventListener('click', () => {
       wantOpen = !wantOpen;
       send({ type: 'open', open: wantOpen });
       applyState();
     });
+    fsBtn = el('button', 'md-np-btn md-fs-btn');
+    fsBtn.type = 'button';
+    const fsSvg = svgIcon(FS_ON);
+    fsPaths = [...fsSvg.querySelectorAll('path')];
+    fsBtn.append(fsSvg);
+    fsBtn.addEventListener('click', () => send({ type: 'fullscreen', on: !fullscreen }));
     info.append(text);
     area = el('div');
     area.id = 'md-lyrics';
@@ -170,6 +186,7 @@ window.__mdLyrics = (() => {
     if (panel && area.parentElement !== panel) panel.insertBefore(area, info);
     // El botón va fijo en la esquina inferior derecha del panel (no se mueve con la carátula).
     if (panel && btn.parentElement !== panel) panel.insertBefore(btn, info);
+    if (panel && fsBtn.parentElement !== panel) panel.insertBefore(fsBtn, info);
     const pl = document.querySelector(`${PAGE} #player`);
     if (pl !== boundPlayer) {
       modeObserver.disconnect();
@@ -232,6 +249,8 @@ window.__mdLyrics = (() => {
       setVar('--md-lyr-thumb-x', EDGE + THUMB / 2 - (cover.offsetLeft + cw / 2));
       setVar('--md-lyr-thumb-y', EDGE + THUMB / 2 - (cover.offsetTop + cover.offsetHeight / 2));
       setVar('--md-lyr-ninfo-x', infoX - (W - infoW) / 2);
+      // El texto no pasa del borde del panel (si no, un título largo se mete en la cola).
+      setVar('--md-lyr-ninfo-w', Math.max(0, W - infoX - EDGE));
       setVar('--md-lyr-ninfo-y', EDGE + THUMB / 2 - (info.offsetTop + info.offsetHeight / 2));
       setVar('--md-lyr-top', EDGE + THUMB + 24);
       setVar('--md-lyr-h', Math.min(H - EDGE, maxBottom) - (EDGE + THUMB + 24));
@@ -292,18 +311,22 @@ window.__mdLyrics = (() => {
   function newTrack(videoId) {
     track = { videoId, title: track.title };
     requested = false;
-    loading = shown; // si la vista estaba abierta, se queda con líneas de espera
+    status = 'loading';
     lyrics = null;
-    // Si la letra no llega (no se pudo pedir o no hubo respuesta), a los 15 s se cierra la vista
-    // como si no hubiera letra; la elección guardada no cambia.
+    // Red de seguridad: si a los FORCE_AFTER aún no se pudo pedir la letra, se pide con lo que
+    // haya; si a los LOAD_TIMEOUT no hubo respuesta, se muestra que no hay letra.
     clearTimeout(loadTimer);
-    if (loading) {
-      loadTimer = setTimeout(() => {
-        if (track.videoId !== videoId || !loading) return;
-        loading = false;
-        applyState();
-      }, LOAD_TIMEOUT);
-    }
+    loadTimer = setTimeout(() => {
+      if (track.videoId !== videoId || status !== 'loading') return;
+      if (!requested) check('force');
+      loadTimer = setTimeout(() => giveUp(videoId), LOAD_TIMEOUT - FORCE_AFTER);
+    }, FORCE_AFTER);
+    render();
+    applyState();
+  }
+  function giveUp(videoId) {
+    if (track.videoId !== videoId || status !== 'loading') return;
+    status = 'none';
     render();
     applyState();
   }
@@ -329,11 +352,13 @@ window.__mdLyrics = (() => {
     const videoId = data && data.video_id;
     if (!videoId) return;
     if (videoId !== track.videoId) newTrack(videoId);
-    if (requested || !barReady(bar, data)) return;
-    // La duración no se lee al cambiar la barra (el <video> aún puede tener el medio anterior).
-    // Si sonando sigue sin duración (p. ej. un directo), se pide sin ella.
-    const dur = source === 'bar' ? null : duration(boundVideo);
-    if (dur === null && source !== 'playing') return;
+    if (requested || (!barReady(bar, data) && source !== 'force')) return;
+    // duration() solo da la del medio de esta canción (el <video> puede tener aún el anterior).
+    // Sin ella se espera a otro evento, salvo que ya esté sonando (p. ej. un directo, o si los
+    // eventos del <video> llegaron antes de que la barra cambiara) o venza la espera ('force').
+    const dur = duration(boundVideo);
+    const sounding = !!boundVideo && !boundVideo.paused && boundVideo.currentTime > 0.5;
+    if (dur === null && source !== 'playing' && source !== 'force' && !sounding) return;
     requested = true;
     track.title = bar.title;
     send({ type: 'request', track: { videoId, title: bar.title, artist: bar.artist, album: bar.album, duration: dur } });
@@ -343,7 +368,9 @@ window.__mdLyrics = (() => {
   // Las líneas se crean una vez por canción.
   function render() {
     const nodes = [];
-    if (!lyrics) {
+    if (status === 'none') {
+      nodes.push(el('div', 'md-line md-lyrics-empty', str('lyrics.none')));
+    } else if (!lyrics) {
       // Tres líneas tenues mientras llega la letra.
       for (const w of [70, 52, 62]) {
         const line = el('div', 'md-line is-placeholder');
@@ -435,11 +462,12 @@ window.__mdLyrics = (() => {
     const videoMode = !!pl && pl.getAttribute('playback-mode') !== 'ATV_PREFERRED';
     const hasLyrics = !!lyrics;
     const wasShown = shown;
-    shown = wantOpen && (hasLyrics || loading) && !videoMode;
+    // El botón siempre funciona (salvo en modo vídeo): sin letra, la vista dice que no la hay.
+    shown = wantOpen && !videoMode;
     if (shown && !wasShown) measure();
     setAttr(pp, 'data-md-video', videoMode ? '' : null);
     setAttr(pp, 'data-md-has-lyrics', hasLyrics ? '' : null);
-    setAttr(pp, 'data-md-lyrics-mode', lyrics ? lyrics.kind : null);
+    setAttr(pp, 'data-md-lyrics-mode', lyrics ? lyrics.kind : status === 'none' ? 'none' : null);
     setAttr(pp, 'data-md-lyrics', shown ? 'open' : null);
     setAttr(btn, 'aria-pressed', String(shown));
     setAttr(btn, 'aria-label', str(shown ? 'lyrics.hide' : 'lyrics.show'));
@@ -457,13 +485,55 @@ window.__mdLyrics = (() => {
     clearTimeout(loadTimer);
     const ok = !!result && (result.kind === 'synced' || result.kind === 'plain') && Array.isArray(result.lines) && result.lines.length > 0;
     lyrics = ok ? { kind: result.kind, lines: result.lines, source: typeof result.source === 'string' ? result.source : '' } : null;
-    loading = false;
+    status = ok ? 'ready' : 'none';
     render();
     applyState();
   }
 
+  // ---------- Pantalla completa ----------
+  // La ventana la pone a pantalla completa main.js (no la API del documento: con ella YT cambia a
+  // su propio diseño de pantalla completa) y avisa con setFullscreen; Esc también sale (main.js).
+  // lyrics.css deja solo el espacio de color de Now Playing. La barra de reproducción aparece al
+  // mover el ratón y se esconde a los CONTROLS_MS sin moverlo (salvo con el puntero encima).
+  const CONTROLS_MS = 3000;
+  const html = document.documentElement;
+  let fullscreen = false;
+  function hideControlsLater() {
+    clearTimeout(controlsTimer);
+    controlsTimer = setTimeout(() => setAttr(html, 'data-md-controls', null), CONTROLS_MS);
+  }
+  function setFullscreen(on) {
+    fullscreen = !!on;
+    const fs = fullscreen;
+    setAttr(html, 'data-md-fullscreen', fs ? '' : null);
+    FS_ON.forEach((d, i) => fsPaths[i].setAttribute('d', fs ? FS_OFF[i] : d));
+    const label = str(fs ? 'np.exitFullscreen' : 'np.fullscreen');
+    setAttr(fsBtn, 'aria-label', label);
+    setAttr(fsBtn, 'title', label);
+    if (fs) {
+      setAttr(html, 'data-md-controls', '');
+      hideControlsLater();
+    } else {
+      clearTimeout(controlsTimer);
+      setAttr(html, 'data-md-controls', null);
+    }
+  }
+  function onPointerMove(e) {
+    if (!fullscreen) return;
+    setAttr(html, 'data-md-controls', '');
+    if (e.target instanceof Element && e.target.closest(BAR)) clearTimeout(controlsTimer);
+    else hideControlsLater();
+  }
+  // Al cerrar Now Playing, se sale de la pantalla completa (fuera de él no hay nada que mostrar).
+  function onPageChange() {
+    const pp = page();
+    if (fullscreen && pp && !pp.hasAttribute('player-page-open')) send({ type: 'fullscreen', on: false });
+    sync();
+  }
+
   build();
   document.addEventListener('visibilitychange', sync);
+  document.addEventListener('pointermove', onPointerMove, { passive: true });
 
   return {
     // Se llama al cargar y cada vez que llegan los textos (cambio de idioma): no duplica nada.
@@ -475,6 +545,7 @@ window.__mdLyrics = (() => {
         wantOpen = !!opts.open;
       }
       check('init');
+      setFullscreen(opts.fullscreen); // estado de la ventana y textos del botón
       if (lyrics && lyrics.kind === 'synced') {
         const credit = trackEl.querySelector('.md-lyrics-credit');
         if (credit) setText(credit, str('lyrics.credit'));
@@ -482,10 +553,13 @@ window.__mdLyrics = (() => {
       applyState();
     },
     receive,
+    setFullscreen,
     // Quita todo lo de esta versión (si el script se vuelve a ejecutar en el mismo documento).
     destroy() {
       for (const off of cleanups.splice(0)) off();
       document.removeEventListener('visibilitychange', sync);
+      document.removeEventListener('pointermove', onPointerMove);
+      clearTimeout(controlsTimer);
       stopTimer();
       clearTimeout(wheelTimer);
       clearTimeout(loadTimer);
@@ -497,8 +571,11 @@ window.__mdLyrics = (() => {
       info.remove();
       area.remove();
       btn.remove();
+      fsBtn.remove();
       const pp = page();
       if (pp) for (const a of ['data-md-lyrics', 'data-md-lyrics-mode', 'data-md-has-lyrics', 'data-md-video', 'data-md-lyrics-narrow']) pp.removeAttribute(a);
+      html.removeAttribute('data-md-controls');
+      html.removeAttribute('data-md-fullscreen');
     },
   };
 })();
