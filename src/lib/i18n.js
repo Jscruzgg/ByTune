@@ -51,6 +51,8 @@ const STRINGS = {
     'lyrics.none': 'No hay letra para mostrar aquí :(',
     'np.fullscreen': 'Pantalla completa',
     'np.exitFullscreen': 'Salir de pantalla completa',
+    'np.toVideo': 'Cambiar a vídeo',
+    'np.toSong': 'Cambiar a canción',
 
     // Menú rápido
     'qm.placeholder': 'Buscar canciones o ir a una playlist…',
@@ -120,6 +122,8 @@ const STRINGS = {
     'lyrics.none': 'No lyrics to show here :(',
     'np.fullscreen': 'Full screen',
     'np.exitFullscreen': 'Exit full screen',
+    'np.toVideo': 'Switch to video',
+    'np.toSong': 'Switch to song',
 
     // Quick menu
     'qm.placeholder': 'Search songs or jump to a playlist…',

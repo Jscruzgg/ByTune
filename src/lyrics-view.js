@@ -55,6 +55,7 @@ window.__mdLyrics = (() => {
   let btn = null;
   let fsBtn = null; // pantalla completa, a la derecha del de letras
   let fsPaths = null; // <path> del icono de pantalla completa (cambia al entrar y salir)
+  let avBtn = null; // Canción/Vídeo, a la izquierda del de letras: pulsa el selector de YT (oculto)
   let controlsTimer = 0; // esconde la barra de reproducción en pantalla completa
   let area = null; // #md-lyrics
   let trackEl = null; // contenedor de las líneas (se desplaza con translateY)
@@ -107,8 +108,11 @@ window.__mdLyrics = (() => {
   }
 
   // ---------- Elementos propios ----------
-  // Iconos de trazo (24×24). LYRICS_ICON: bocadillo; FS_ON / FS_OFF: entrar / salir de pantalla completa.
+  // Iconos de trazo (24×24). LYRICS_ICON: bocadillo; FS_ON / FS_OFF: entrar / salir de pantalla completa;
+  // VIDEO_ICON / SONG_ICON: pantalla con play / auriculares (el modo al que se cambia).
   const LYRICS_ICON = ['M4 5h16v11H9l-5 4z', 'M8 9h8', 'M8 12.5h5'];
+  const VIDEO_ICON = ['M3 6h18v12H3z', 'M10 9.5v5l4-2.5z'];
+  const SONG_ICON = ['M4 18v-5a8 8 0 0 1 16 0v5', 'M4 15h3v5H4z', 'M17 15h3v5h-3z'];
   const FS_ON = ['M4 9V4h5', 'M15 4h5v5', 'M20 15v5h-5', 'M9 20H4v-5'];
   const FS_OFF = ['M9 4v5H4', 'M20 9h-5V4', 'M15 20v-5h5', 'M4 15h5v5'];
   function svgIcon(paths) {
@@ -142,6 +146,18 @@ window.__mdLyrics = (() => {
     fsPaths = [...fsSvg.querySelectorAll('path')];
     fsBtn.append(fsSvg);
     fsBtn.addEventListener('click', () => send({ type: 'fullscreen', on: !fullscreen }));
+    avBtn = el('button', 'md-np-btn md-av-btn');
+    avBtn.type = 'button';
+    const toVideo = svgIcon(VIDEO_ICON);
+    toVideo.classList.add('md-av-video');
+    const toSong = svgIcon(SONG_ICON);
+    toSong.classList.add('md-av-song');
+    avBtn.append(toVideo, toSong);
+    avBtn.addEventListener('click', () => {
+      const pp = page();
+      const target = pp && pp.querySelector(`#av-id .${pp.hasAttribute('data-md-video') ? 'song' : 'video'}-button`);
+      if (target) target.click();
+    });
     info.append(text);
     area = el('div');
     area.id = 'md-lyrics';
@@ -187,16 +203,17 @@ window.__mdLyrics = (() => {
     // El botón va fijo en la esquina inferior derecha del panel (no se mueve con la carátula).
     if (panel && btn.parentElement !== panel) panel.insertBefore(btn, info);
     if (panel && fsBtn.parentElement !== panel) panel.insertBefore(fsBtn, info);
+    if (panel && avBtn.parentElement !== panel) panel.insertBefore(avBtn, info);
     const pl = document.querySelector(`${PAGE} #player`);
     if (pl !== boundPlayer) {
       modeObserver.disconnect();
       boundPlayer = pl;
       if (pl) modeObserver.observe(pl, { attributes: true, attributeFilter: ['playback-mode'] });
     }
-    // Se observan los cuatro aunque aparezcan en momentos distintos (YT crea la carátula y el
-    // selector después del panel).
+    // Se observan los tres aunque aparezcan en momentos distintos (YT crea la carátula después
+    // del panel).
     boundPanel = panel;
-    const sized = panel ? [panel, pl, panel.querySelector('#av-id'), info] : [];
+    const sized = panel ? [panel, pl, info] : [];
     if (sized.length !== observedSizes.length || sized.some((e, i) => e !== observedSizes[i])) {
       sizeObserver.disconnect();
       observedSizes = sized;
@@ -212,13 +229,12 @@ window.__mdLyrics = (() => {
     const pp = page();
     const panel = boundPanel;
     const cover = boundPlayer;
-    const av = panel && panel.querySelector('#av-id');
     if (!pp || !panel || !cover || !info.isConnected) return;
     const W = panel.offsetWidth;
     const H = panel.offsetHeight;
     const cw = cover.offsetWidth;
     if (!W || !cw) return;
-    const top = av ? av.offsetTop : cover.offsetTop;
+    const top = cover.offsetTop;
     const bottom = info.offsetTop + info.offsetHeight;
     const fit = Math.min(cw, W / 2 - 2 * GUTTER);
     // La letra termina por encima del botón (fijo en la esquina inferior derecha).
@@ -227,14 +243,13 @@ window.__mdLyrics = (() => {
     setAttr(pp, 'data-md-lyrics-narrow', narrow ? '' : null);
     setVar('--md-np-w', W);
     if (!narrow) {
-      // Ancha: la columna (selector, carátula, título) se centra en la mitad izquierda y, si no
-      // cabe con su hueco, se encoge alrededor de su centro.
+      // Ancha: la columna (carátula y título) se centra en la mitad izquierda y, si no cabe con
+      // su hueco, se encoge alrededor de su centro.
       const s = fit / cw;
       const yc = (top + bottom) / 2;
-      const dy = (e) => (e ? (1 - s) * (yc - (e.offsetTop + e.offsetHeight / 2)) : 0);
+      const dy = (e) => (1 - s) * (yc - (e.offsetTop + e.offsetHeight / 2));
       setNum('--md-lyr-s', s);
       setVar('--md-lyr-tx', -W / 4);
-      setVar('--md-lyr-av-y', dy(av));
       setVar('--md-lyr-cover-y', dy(cover));
       setVar('--md-lyr-info-y', dy(info));
       const lyrTop = yc - (s * (bottom - top)) / 2;
@@ -469,9 +484,12 @@ window.__mdLyrics = (() => {
     setAttr(pp, 'data-md-has-lyrics', hasLyrics ? '' : null);
     setAttr(pp, 'data-md-lyrics-mode', lyrics ? lyrics.kind : status === 'none' ? 'none' : null);
     setAttr(pp, 'data-md-lyrics', shown ? 'open' : null);
+    btn.disabled = videoMode; // sigue en su sitio: el resto de botones no se mueve
     setAttr(btn, 'aria-pressed', String(shown));
     setAttr(btn, 'aria-label', str(shown ? 'lyrics.hide' : 'lyrics.show'));
     setAttr(btn, 'title', str(shown ? 'lyrics.hide' : 'lyrics.show'));
+    setAttr(avBtn, 'aria-label', str(videoMode ? 'np.toSong' : 'np.toVideo'));
+    setAttr(avBtn, 'title', str(videoMode ? 'np.toSong' : 'np.toVideo'));
     if (!shown) {
       offset = 0;
       clearTimeout(wheelTimer);
@@ -493,14 +511,21 @@ window.__mdLyrics = (() => {
   // ---------- Pantalla completa ----------
   // La ventana la pone a pantalla completa main.js (no la API del documento: con ella YT cambia a
   // su propio diseño de pantalla completa) y avisa con setFullscreen; Esc también sale (main.js).
-  // lyrics.css deja solo el espacio de color de Now Playing. La barra de reproducción aparece al
-  // mover el ratón y se esconde a los CONTROLS_MS sin moverlo (salvo con el puntero encima).
+  // lyrics.css deja solo el espacio de color de Now Playing. La barra de reproducción aparece con
+  // el puntero cerca del borde de abajo y la superior cerca del de arriba; el puntero, al moverlo.
+  // Todo se esconde a los CONTROLS_MS sin moverlo (salvo con el puntero sobre una barra o un menú).
   const CONTROLS_MS = 3000;
+  const EDGE_PX = 150; // distancia al borde a la que aparece cada barra
+  const NAV = 'ytmusic-nav-bar, tp-yt-app-drawer#guide, #mini-guide'; // barra superior y menú lateral
+  const POPUP = 'ytmusic-popup-container, tp-yt-iron-dropdown'; // menús abiertos desde las barras
   const html = document.documentElement;
   let fullscreen = false;
+  function hideControls() {
+    for (const a of ['data-md-pointer', 'data-md-controls', 'data-md-topbar']) setAttr(html, a, null);
+  }
   function hideControlsLater() {
     clearTimeout(controlsTimer);
-    controlsTimer = setTimeout(() => setAttr(html, 'data-md-controls', null), CONTROLS_MS);
+    controlsTimer = setTimeout(hideControls, CONTROLS_MS);
   }
   function setFullscreen(on) {
     fullscreen = !!on;
@@ -510,18 +535,19 @@ window.__mdLyrics = (() => {
     const label = str(fs ? 'np.exitFullscreen' : 'np.fullscreen');
     setAttr(fsBtn, 'aria-label', label);
     setAttr(fsBtn, 'title', label);
-    if (fs) {
-      setAttr(html, 'data-md-controls', '');
-      hideControlsLater();
-    } else {
-      clearTimeout(controlsTimer);
-      setAttr(html, 'data-md-controls', null);
-    }
+    clearTimeout(controlsTimer);
+    hideControls();
   }
   function onPointerMove(e) {
     if (!fullscreen) return;
-    setAttr(html, 'data-md-controls', '');
-    if (e.target instanceof Element && e.target.closest(BAR)) clearTimeout(controlsTimer);
+    const t = e.target instanceof Element ? e.target : null;
+    // Dentro de un menú (que puede quedar lejos del borde), las barras se quedan como están.
+    if (!(t && t.closest(POPUP))) {
+      setAttr(html, 'data-md-controls', e.clientY > innerHeight - EDGE_PX || (t && t.closest(BAR)) ? '' : null);
+      setAttr(html, 'data-md-topbar', e.clientY < EDGE_PX || (t && t.closest(NAV)) ? '' : null);
+    }
+    setAttr(html, 'data-md-pointer', '');
+    if (t && t.closest(`${BAR}, ${NAV}, ${POPUP}`)) clearTimeout(controlsTimer);
     else hideControlsLater();
   }
   // Al cerrar Now Playing, se sale de la pantalla completa (fuera de él no hay nada que mostrar).
@@ -572,9 +598,10 @@ window.__mdLyrics = (() => {
       area.remove();
       btn.remove();
       fsBtn.remove();
+      avBtn.remove();
       const pp = page();
       if (pp) for (const a of ['data-md-lyrics', 'data-md-lyrics-mode', 'data-md-has-lyrics', 'data-md-video', 'data-md-lyrics-narrow']) pp.removeAttribute(a);
-      html.removeAttribute('data-md-controls');
+      hideControls();
       html.removeAttribute('data-md-fullscreen');
     },
   };
