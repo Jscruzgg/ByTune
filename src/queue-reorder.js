@@ -3,14 +3,17 @@
 // .queue): sus canciones ("A continuación") se mueven con la acción MOVE_ITEM, como hace el propio
 // YT, y las de reproducción automática se reordenan con REPLACE_AUTOMIX_ITEMS. Cada canción se
 // mueve dentro de su lista. Se pulsa una canción por su texto, se arrastra y, al soltarla, se le
-// pide a YT el cambio; la siguiente canción sale ya en el nuevo orden. La miniatura sigue
-// reproduciendo con un clic. Durante el arrastre solo se mueven transformaciones.
+// pide a YT el cambio; la siguiente canción sale ya en el nuevo orden. Un clic sin arrastrar en
+// cualquier parte de la fila la reproduce (YT solo lo hace desde la miniatura). Durante el
+// arrastre solo se mueven transformaciones.
 // Límite: YT además avisa a sus servidores de la cola (no hay forma de pedirlo desde aquí), así que
 // si YT vuelve a cargar la cola de sus servidores, puede recuperar el orden anterior.
 if (window.__mdQueueReorder && window.__mdQueueReorder.destroy) window.__mdQueueReorder.destroy();
 window.__mdQueueReorder = (() => {
   const ITEM = 'ytmusic-player-queue-item';
   const THRESHOLD = 6; // px de movimiento para que un clic pase a ser arrastre
+  // Menú "⋮", botones y la miniatura (su clic reproduce la canción) quedan como en YT.
+  const CONTROLS = 'ytmusic-menu-renderer, yt-icon-button, button, a, .left-items';
   const html = document.documentElement;
   let drag = null; // { store, automix, items, from, to, startY, el, started, rects, h }
   let swallowClick = false; // el clic que llega al soltar tras arrastrar no debe reproducir
@@ -19,8 +22,7 @@ window.__mdQueueReorder = (() => {
     if (e.button !== 0 || !(e.target instanceof Element)) return;
     const el = e.target.closest(ITEM);
     if (!el) return;
-    // Menú "⋮", botones y la miniatura (su clic reproduce la canción) quedan como en YT.
-    if (e.target.closest('ytmusic-menu-renderer, yt-icon-button, button, a, .left-items')) return;
+    if (e.target.closest(CONTROLS)) return;
     const q = el.closest('ytmusic-player-queue');
     const store = q && q.queue && q.queue.store;
     const state = store && store.getState && store.getState().queue;
@@ -107,10 +109,20 @@ window.__mdQueueReorder = (() => {
   const onPointerUp = () => end(true);
   const onPointerCancel = () => end(false);
   function onClick(e) {
-    if (!swallowClick) return;
-    swallowClick = false;
-    e.stopPropagation();
-    e.preventDefault();
+    if (swallowClick) {
+      swallowClick = false;
+      e.stopPropagation();
+      e.preventDefault();
+      return;
+    }
+    // Clic en la fila (no en sus controles): se pulsa su botón de reproducir, que está en la
+    // miniatura. La canción actual no: ese botón la pausaría.
+    if (!(e.target instanceof Element) || e.target.closest(CONTROLS)) return;
+    const el = e.target.closest(ITEM);
+    const state = el && el.getAttribute('play-button-state');
+    if (!el || state === 'playing' || state === 'paused') return;
+    const play = el.querySelector('ytmusic-play-button-renderer');
+    if (play) play.click();
   }
   function onKeyDown(e) { if (e.key === 'Escape' && drag && drag.started) end(false); }
 
