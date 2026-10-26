@@ -378,6 +378,13 @@ html[data-md-fs-pending] :is(ytmusic-player-bar[slot="player-bar"], #player-bar-
 }
 /* Los paneles ya no reservan sitio. La letra empieza bajo la barra superior: al aparecer no la tapa. */
 html[data-md-fullscreen] ytmusic-player-page > .content { padding: 0 !important; }
+/* Con el menú lateral o la cola a la vista, todo Now Playing (carátula, letra, botones) se encoge
+   hacia el hueco libre, al ritmo del panel (lyrics-view.js: fitContent). */
+html[data-md-fullscreen] ytmusic-player-page #main-panel {
+  translate: var(--md-fs-x, 0) 0;
+  scale: var(--md-fs-s, 1);
+  transition: translate var(--md-dur) var(--md-ease), scale var(--md-dur) var(--md-ease) !important;
+}
 html[data-md-fullscreen] ytmusic-player-page #main-panel {
   padding-top: calc(var(--ytmusic-nav-bar-height, 64px) + 16px) !important;
 }

@@ -612,6 +612,17 @@ window.__mdLyrics = (() => {
   let fullscreen = false;
   function hideControls() {
     for (const a of ['data-md-pointer', 'data-md-controls', 'data-md-topbar', 'data-md-guide', 'data-md-side']) setAttr(html, a, null);
+    fitContent();
+  }
+  // Con el menú lateral o la cola a la vista, la carátula y la letra se encogen hacia el hueco que
+  // dejan (lyrics.css: --md-fs-s, --md-fs-x), a la vez que entra el panel: nunca quedan debajo.
+  // Las barras de arriba y abajo no las tapan.
+  function fitContent() {
+    const w = (on, sel) => { const e = on && document.querySelector(sel); return e ? e.offsetWidth : 0; };
+    const l = w(html.hasAttribute('data-md-guide'), '#guide-wrapper');
+    const r = w(html.hasAttribute('data-md-side'), SIDE);
+    setNum('--md-fs-s', (innerWidth - l - r) / innerWidth);
+    setVar('--md-fs-x', (l - r) / 2);
   }
   function hideControlsLater() {
     clearTimeout(controlsTimer);
@@ -665,6 +676,7 @@ window.__mdLyrics = (() => {
       setAttr(html, 'data-md-guide', guide ? '' : null);
       // La barra superior sale sola desde arriba, y también con el menú lateral y con la cola.
       setAttr(html, 'data-md-topbar', top || guide || side ? '' : null);
+      fitContent();
     }
     setAttr(html, 'data-md-pointer', '');
     if (t && t.closest(`${BAR}, ${NAV}, ${GUIDE}, ${SIDE}, ${POPUP}`)) clearTimeout(controlsTimer);

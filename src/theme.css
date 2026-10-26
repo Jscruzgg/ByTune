@@ -123,15 +123,12 @@ html {
 
   /* Plegada (72 px): el mismo panel que desplegada, estrechado, en vez de la columna aparte de YT
      (#mini-guide), que ponía el texto bajo los iconos: al desplegar, todo lo de debajo subía de
-     golpe. Así cada fila se queda a su altura y los textos se desvanecen (el movimiento, abajo). */
+     golpe. Así cada fila se queda a su altura y solo se ocultan los textos (el movimiento, abajo). */
   ytmusic-app[guide-collapsed] :is(#mini-guide, #mini-guide-background) { display: none !important; }
   tp-yt-app-drawer#guide { visibility: visible !important; }
   tp-yt-app-drawer#guide #contentContainer {
     transform: none !important;
     overflow: hidden !important;
-  }
-  tp-yt-app-drawer#guide ytmusic-guide-entry-renderer :is(.title-column, #play-button) {
-    transition: opacity .2s ease !important;
   }
   tp-yt-app-drawer#guide ytmusic-guide-entry-renderer .title-column {
     min-width: 0 !important;
@@ -143,31 +140,22 @@ html {
     opacity: 0 !important;
     pointer-events: none !important;
   }
-  /* Portadas centradas en los 72 px (los iconos de arriba ya lo están). */
-  tp-yt-app-drawer#guide ytmusic-guide-entry-renderer[data-md-id] tp-yt-paper-item {
-    transition: padding var(--md-dur) var(--md-ease) !important;
-  }
-  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-entry-renderer[data-md-id] tp-yt-paper-item {
-    padding-left: 8px !important;
-    padding-right: 8px !important;
-  }
+  /* Portadas centradas en los 72 px y en el mismo eje que los iconos de arriba, plegada o no: así
+     no se mueven al desplegar. */
+  tp-yt-app-drawer#guide ytmusic-guide-entry-renderer[data-md-id] tp-yt-paper-item { padding-left: 8px !important; }
+  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-entry-renderer[data-md-id] tp-yt-paper-item { padding-right: 8px !important; }
   ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide #items { scrollbar-width: none !important; }
-  /* "Nueva lista": la píldora se encoge hasta un botón redondo con su +. */
-  tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons {
-    transition: padding var(--md-dur) var(--md-ease) !important;
-  }
+  /* "Nueva lista": la píldora se encoge hasta un botón redondo con su +, que se queda en su sitio
+     (a la izquierda de la píldora, no centrado). Mismo alto que la píldora (36 px): un círculo más
+     alto empujaría lo de debajo. */
+  tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons { padding-left: 14px !important; }
   tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button {
     overflow: hidden !important;
-    transition: width var(--md-dur) var(--md-ease), padding var(--md-dur) var(--md-ease), background-color .15s linear !important;
+    justify-content: flex-start !important;
+    padding-left: 6px !important;
   }
-  tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button .ytSpecButtonShapeNextButtonTextContent {
-    max-width: 160px;
-    overflow: hidden !important;
-    white-space: nowrap !important;
-    transition: max-width var(--md-dur) var(--md-ease), opacity .2s ease !important;
-  }
-  /* Mismo alto que la píldora (36 px): un círculo más alto empujaría lo de debajo. */
-  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons { padding-left: 14px !important; }
+  tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button .ytSpecButtonShapeNextIcon { margin-left: 0 !important; }
+  tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button .ytSpecButtonShapeNextButtonTextContent { white-space: nowrap !important; }
   ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons :is(yt-button-renderer, yt-button-shape) {
     width: auto !important;
   }
@@ -176,17 +164,16 @@ html {
     padding: 0 6px !important;
   }
   ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button .ytSpecButtonShapeNextIcon { margin: 0 !important; }
-  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button .ytSpecButtonShapeNextButtonTextContent {
-    max-width: 0;
-    opacity: 0;
-  }
+  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button .ytSpecButtonShapeNextButtonTextContent { display: none !important; }
 }
 /* Plegar y desplegar con una transición de vista (preload.js): el ancho cambia de una vez y el
-   panel se abre o se cierra recortado, sin estirarse; el contenido se desliza aparte. La franja de
-   arriba queda bajo la barra superior: recortada, no la tapa mientras dura. */
+   panel se abre o se cierra recortado, sin estirarse ni fundidos; el contenido se desliza aparte.
+   Al desplegar, el panel nuevo ya está entero y el recorte lo va descubriendo; al plegar, el riel
+   queda encima y lo de antes se recorta a su derecha. La franja de arriba queda bajo la barra
+   superior: recortada, no la tapa mientras dura. */
 html:active-view-transition-type(md-guide) #guide-wrapper { view-transition-name: md-guide; }
 ::view-transition-group(md-guide) { clip-path: inset(var(--ytmusic-nav-bar-height, 64px) 0 0 0); }
-::view-transition-old(md-guide), ::view-transition-new(md-guide) { width: auto; }
+::view-transition-old(md-guide), ::view-transition-new(md-guide) { width: auto; animation: none; mix-blend-mode: normal; }
 
 /* Tiradores para ajustar el ancho (los crea preload.js): franja de 8 px sobre el borde del
    panel, entre la barra superior y la del reproductor. Una línea fina aparece al pasar el
