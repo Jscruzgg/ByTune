@@ -151,6 +151,11 @@ ytmusic-player-page[data-md-lyrics="open"]:not([data-md-video]) #main-panel > #p
 ytmusic-player-page[data-md-lyrics="open"]:not([data-md-video]) #main-panel > #md-np-info {
   transition: translate .6s cubic-bezier(.22,.8,.3,1), scale .6s cubic-bezier(.22,.8,.3,1), opacity .3s ease !important;
 }
+/* Al cambiar de tamaño el panel, sin transición (lyrics-view.js: data-md-snap). El atributo va
+   repetido para pasar por encima de las reglas de arriba. */
+ytmusic-player-page[data-md-snap][data-md-snap][data-md-snap] #main-panel > :is(#player, #md-np-info) {
+  transition: none !important;
+}
 /* Ancha: la columna se centra en la mitad izquierda (y se encoge si no cabe con su hueco). */
 ytmusic-player-page[data-md-lyrics="open"]:not([data-md-lyrics-narrow]) #main-panel > #player {
   translate: var(--md-lyr-tx) var(--md-lyr-cover-y);

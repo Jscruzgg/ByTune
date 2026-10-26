@@ -73,7 +73,15 @@ window.__mdLyrics = (() => {
   // Now Playing abierto o cerrado (atributo player-page-open): sin él no corre ningún temporizador.
   const pageObserver = new MutationObserver(() => onPageChange());
   let boundPage = null;
-  const sizeObserver = new ResizeObserver(() => measure());
+  // Si cambia el tamaño (menú lateral, ventana), la columna va directa a su nuevo sitio
+  // (data-md-snap quita la transición dos fotogramas): con ella se deslizaba desde la posición
+  // vieja, cortada por la izquierda.
+  const sizeObserver = new ResizeObserver(() => {
+    const pp = page();
+    if (pp) pp.setAttribute('data-md-snap', '');
+    measure();
+    requestAnimationFrame(() => requestAnimationFrame(() => { if (pp) pp.removeAttribute('data-md-snap'); }));
+  });
   let observedSizes = [];
   // Si al empezar YT aún no ha creado la barra o el <video>, se espera a que aparezcan (y este
   // observador se apaga en cuanto los dos están enlazados).
@@ -650,7 +658,7 @@ window.__mdLyrics = (() => {
       fsBtn.remove();
       avBtn.remove();
       const pp = page();
-      if (pp) for (const a of ['data-md-lyrics', 'data-md-lyrics-mode', 'data-md-has-lyrics', 'data-md-video', 'data-md-lyrics-narrow']) pp.removeAttribute(a);
+      if (pp) for (const a of ['data-md-lyrics', 'data-md-lyrics-mode', 'data-md-has-lyrics', 'data-md-video', 'data-md-lyrics-narrow', 'data-md-snap']) pp.removeAttribute(a);
       hideControls();
       html.removeAttribute('data-md-fullscreen');
     },
