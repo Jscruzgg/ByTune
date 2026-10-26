@@ -36,6 +36,10 @@ window.__mdLyrics = (() => {
   // o 'none' (ninguna de las dos fuentes tiene, o no hubo respuesta).
   let status = 'loading';
   let shown = false;
+  let videoMode = false; // modo vídeo de Now Playing (data-md-video)
+  const NONE_MS = 2000; // lo que puede durar el playback-mode NONE de un cambio de canción
+  let noneSince = 0;
+  let noneTimer = 0;
 
   // Sincronía (solo letra con tiempos): un único setTimeout hasta la siguiente línea.
   let times = []; // inicio de cada línea, en segundos
@@ -402,6 +406,7 @@ window.__mdLyrics = (() => {
       }
       nodes.push(el('div', 'md-lyrics-credit', str('lyrics.credit')));
     } else {
+      nodes.push(el('div', 'md-lyrics-note', str('lyrics.unsynced')));
       for (const text of lyrics.lines) nodes.push(text ? el('div', 'md-line', text) : el('div', 'md-line is-break'));
       // La de YouTube trae su propio texto de fuente; la de LRCLIB lleva el crédito traducido.
       const source = lyrics.source === 'LRCLIB' ? str('lyrics.credit') : lyrics.source;
@@ -474,7 +479,20 @@ window.__mdLyrics = (() => {
     const pp = page();
     if (!pp) return;
     const pl = document.querySelector(`${PAGE} #player`);
-    const videoMode = !!pl && pl.getAttribute('playback-mode') !== 'ATV_PREFERRED';
+    const mode = pl && pl.getAttribute('playback-mode');
+    // Al cambiar de canción YT pasa casi un segundo por NONE: se queda el modo que había, sin saltos.
+    // Si sigue en NONE pasado NONE_MS no era el cambio (p. ej. dos canciones pedidas muy seguidas):
+    // YT enseña entonces el vídeo, y aquí también.
+    if (mode === 'NONE') {
+      if (!noneSince) {
+        noneSince = Date.now();
+        noneTimer = setTimeout(applyState, NONE_MS);
+      } else if (Date.now() - noneSince >= NONE_MS) videoMode = true;
+    } else {
+      noneSince = 0;
+      clearTimeout(noneTimer);
+      if (mode) videoMode = mode !== 'ATV_PREFERRED';
+    }
     const hasLyrics = !!lyrics;
     const wasShown = shown;
     // El botón siempre funciona (salvo en modo vídeo): sin letra, la vista dice que no la hay.
@@ -541,13 +559,26 @@ window.__mdLyrics = (() => {
     clearTimeout(controlsTimer);
     hideControls();
   }
+  const CORNER_PAD = 32; // margen alrededor de los botones de la esquina
+  function nearCornerButtons(e) {
+    let l = Infinity, tp = Infinity, r = -Infinity, b = -Infinity;
+    for (const x of [avBtn, btn, fsBtn]) {
+      const rc = x.getBoundingClientRect();
+      if (!rc.width) continue; // Canción/Vídeo oculto (canción sin vídeo)
+      l = Math.min(l, rc.left); tp = Math.min(tp, rc.top); r = Math.max(r, rc.right); b = Math.max(b, rc.bottom);
+    }
+    return e.clientX >= l - CORNER_PAD && e.clientX <= r + CORNER_PAD && e.clientY >= tp - CORNER_PAD && e.clientY <= b + CORNER_PAD;
+  }
   function onPointerMove(e) {
     if (!fullscreen) return;
     const t = e.target instanceof Element ? e.target : null;
     // Dentro de un menú (que puede quedar lejos del borde), las barras se quedan como están.
     if (!(t && t.closest(POPUP))) {
-      setAttr(html, 'data-md-controls', e.clientY > innerHeight - EDGE_PX || (t && t.closest(BAR)) ? '' : null);
-      setAttr(html, 'data-md-topbar', e.clientY < EDGE_PX || (t && t.closest(NAV)) ? '' : null);
+      // Junto a los botones de la esquina, la de abajo tampoco cambia: al salir los subiría justo
+      // cuando el puntero va a pulsarlos.
+      if (!nearCornerButtons(e)) setAttr(html, 'data-md-controls', e.clientY > innerHeight - EDGE_PX || (t && t.closest(BAR)) ? '' : null);
+      // La superior (y con ella el menú lateral) también desde el borde izquierdo, a cualquier altura.
+      setAttr(html, 'data-md-topbar', e.clientY < EDGE_PX || e.clientX < EDGE_PX || (t && t.closest(NAV)) ? '' : null);
       setAttr(html, 'data-md-side', e.clientX >= innerWidth - SIDE_PX || (t && t.closest(SIDE)) ? '' : null);
     }
     setAttr(html, 'data-md-pointer', '');
@@ -580,6 +611,8 @@ window.__mdLyrics = (() => {
         const credit = trackEl.querySelector('.md-lyrics-credit');
         if (credit) setText(credit, str('lyrics.credit'));
       }
+      const note = trackEl.querySelector('.md-lyrics-note');
+      if (note) setText(note, str('lyrics.unsynced'));
       applyState();
     },
     receive,
@@ -590,6 +623,7 @@ window.__mdLyrics = (() => {
       document.removeEventListener('visibilitychange', sync);
       document.removeEventListener('pointermove', onPointerMove);
       clearTimeout(controlsTimer);
+      clearTimeout(noneTimer);
       stopTimer();
       clearTimeout(wheelTimer);
       clearTimeout(loadTimer);

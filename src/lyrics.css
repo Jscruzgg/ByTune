@@ -9,14 +9,20 @@
 :where(ytmusic-player-page) {
   --md-np-art: calc(100vh - var(--md-np-reserve, 430px));
 }
-ytmusic-player-page #player[playback-mode="ATV_PREFERRED"] {
+/* Por data-md-video y no por el playback-mode de YT: al cambiar de canción pasa casi un segundo
+   por NONE, con un recuadro negro 16:9 mientras carga, y la carátula saltaba al formato del vídeo
+   y vuelta. Aquí sigue cuadrada (lyrics-view.js mantiene el modo). */
+ytmusic-player-page:not([data-md-video]) #player {
   max-width: var(--md-np-art) !important;
   max-height: var(--md-np-art) !important;
+  aspect-ratio: 1 / 1 !important;
+  height: auto !important;
+  flex: none !important;
 }
 /* Vídeo: YT lo hace 16:9 a todo el ancho; con el mismo alto máximo que la carátula caben
    encima el selector Canción/Vídeo y debajo el título y el artista. Solo se limita el ancho:
    el alto sigue saliendo de la proporción de YT. */
-ytmusic-player-page #player[playback-mode]:not([playback-mode="ATV_PREFERRED"]) {
+ytmusic-player-page[data-md-video] #player {
   max-width: calc(var(--md-np-art) * 16 / 9) !important;
 }
 
@@ -71,7 +77,9 @@ ytmusic-player-page #md-np-info .md-np-artist {
    en modo vídeo, queda atenuado y desactivado; Canción/Vídeo no sale en canciones sin vídeo. */
 ytmusic-player-page #main-panel > .md-np-btn {
   position: absolute !important;
-  z-index: 2 !important;
+  /* Por encima de la columna (2): en modo vídeo la fila de título es tan ancha como el vídeo y
+     tapaba el botón Canción/Vídeo. */
+  z-index: 3 !important;
   right: 24px !important;
   bottom: 24px !important;
   /* Sin esto Chromium pinta el botón nativo claro de Windows (no ve los fondos de una hoja de usuario). */
@@ -247,6 +255,13 @@ ytmusic-player-page[data-md-lyrics-mode="plain"] #md-lyrics {
   scrollbar-width: none !important;
 }
 ytmusic-player-page[data-md-lyrics-mode="plain"] #md-lyrics .md-lyrics-track { padding-top: 48px !important; }
+/* Aviso arriba de la letra sin tiempos: no va a seguir la canción. */
+ytmusic-player-page #md-lyrics .md-lyrics-note {
+  margin: 0 0 16px !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  color: rgba(255,255,255,.5) !important;
+}
 /* Sin letra en ninguna fuente: un aviso tenue arriba del área. */
 ytmusic-player-page[data-md-lyrics-mode="none"] #md-lyrics .md-lyrics-track { padding-top: 48px !important; }
 ytmusic-player-page #md-lyrics .md-line.md-lyrics-empty { opacity: .6; cursor: default !important; }
@@ -319,12 +334,14 @@ html[data-md-fullscreen]:has(ytmusic-nav-bar :focus-visible) :is(ytmusic-nav-bar
   translate: 0 0;
   opacity: 1;
 }
-/* La cola: por encima de Now Playing, bajo la altura de la barra superior (que no tape sus
-   pestañas). La de reproducción sí la tapa por abajo al aparecer: la lista se desplaza. */
+/* La cola: por encima de Now Playing, de arriba abajo; su contenido empieza bajo la altura de la
+   barra superior (que no tape sus pestañas). La de reproducción sí la tapa por abajo al
+   aparecer: la lista se desplaza. */
 html[data-md-fullscreen] ytmusic-player-page #side-panel {
   position: fixed !important;
   z-index: 3 !important;
-  top: var(--ytmusic-nav-bar-height, 64px) !important;
+  top: 0 !important;
+  padding-top: calc(var(--ytmusic-nav-bar-height, 64px) + 8px) !important;
   right: 0 !important;
   bottom: 0 !important;
   width: var(--md-np-side, 400px) !important;
