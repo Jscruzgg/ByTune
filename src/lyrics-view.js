@@ -530,8 +530,8 @@ window.__mdLyrics = (() => {
   // La ventana la pone a pantalla completa main.js (no la API del documento: con ella YT cambia a
   // su propio diseño de pantalla completa) y avisa con setFullscreen; Esc también sale (main.js).
   // lyrics.css deja solo el espacio de color de Now Playing. La barra de reproducción aparece con
-  // el puntero cerca del borde de abajo; la superior con el menú lateral cerca del de arriba o del
-  // izquierdo, y con la cola pegado al derecho; el puntero, al moverlo. Todo se esconde a los
+  // el puntero cerca del borde de abajo; la superior sola cerca del de arriba, con el menú lateral
+  // cerca del izquierdo y con la cola pegado al derecho; el puntero, al moverlo. Todo se esconde a los
   // CONTROLS_MS sin moverlo (salvo con el puntero sobre una barra, un panel o un menú).
   const CONTROLS_MS = 3000;
   const EDGE_PX = 150; // distancia al borde a la que aparece cada barra
@@ -578,8 +578,9 @@ window.__mdLyrics = (() => {
     const t = e.target instanceof Element ? e.target : null;
     // Dentro de un menú (que puede quedar lejos del borde), las barras se quedan como están.
     if (!(t && t.closest(POPUP))) {
-      // Menú lateral: desde arriba o desde el borde izquierdo (a cualquier altura).
-      const guide = e.clientY < EDGE_PX || e.clientX < EDGE_PX || !!(t && t.closest(`${NAV}, ${GUIDE}`));
+      // Menú lateral: solo desde el borde izquierdo (a cualquier altura).
+      const guide = e.clientX < EDGE_PX || !!(t && t.closest(GUIDE));
+      const top = e.clientY < EDGE_PX || !!(t && t.closest(NAV));
       let side = html.hasAttribute('data-md-side');
       // En la esquina de los botones, ni la barra de abajo ni la cola cambian: saldrían (y la de
       // abajo los subiría) justo cuando el puntero va a pulsarlos.
@@ -589,8 +590,8 @@ window.__mdLyrics = (() => {
         setAttr(html, 'data-md-side', side ? '' : null);
       }
       setAttr(html, 'data-md-guide', guide ? '' : null);
-      // La barra superior sale con el menú lateral y con la cola (esta sin el menú).
-      setAttr(html, 'data-md-topbar', guide || side ? '' : null);
+      // La barra superior sale sola desde arriba, y también con el menú lateral y con la cola.
+      setAttr(html, 'data-md-topbar', top || guide || side ? '' : null);
     }
     setAttr(html, 'data-md-pointer', '');
     if (t && t.closest(`${BAR}, ${NAV}, ${GUIDE}, ${SIDE}, ${POPUP}`)) clearTimeout(controlsTimer);

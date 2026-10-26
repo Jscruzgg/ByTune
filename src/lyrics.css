@@ -279,9 +279,9 @@ ytmusic-player-page[player-page-open] #player .song-media-controls { display: no
 
 /* ---------- Pantalla completa (lyrics-view.js: html[data-md-fullscreen]) ----------
    Solo el espacio de color de Now Playing. La barra de reproducción sale desde abajo con el
-   puntero cerca del borde (html[data-md-controls]); la superior (html[data-md-topbar]) desde
-   arriba o la izquierda con el menú lateral (html[data-md-guide]), y desde la derecha con la cola
-   (html[data-md-side]); se van solas. */
+   puntero cerca del borde (html[data-md-controls]); la superior (html[data-md-topbar]) sola desde
+   arriba, desde la izquierda con el menú lateral (html[data-md-guide]) y desde la derecha con la
+   cola (html[data-md-side]); se van solas. */
 html[data-md-fullscreen] #nav-bar-divider { display: none !important; }
 /* La página de detrás (inicio, búsqueda…) seguía desplazándose con la rueda, con su barra de
    desplazamiento a la vista, aunque no se ve. */
