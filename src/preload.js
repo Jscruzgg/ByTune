@@ -445,6 +445,39 @@ function updateResizers() {
   if (queueOpen !== root.hasAttribute('data-md-queue-open')) root.toggleAttribute('data-md-queue-open', queueOpen);
 }
 
+// Plegar o desplegar la barra lateral: YT cambia --ytmusic-guide-width y todo lo que depende de
+// ella (ancho del contenido, buscador…) se recoloca de una vez. Animar esa variable recalculaba los
+// estilos de toda la página en cada fotograma (a tirones, sobre todo en Now Playing). Aquí el
+// cambio va dentro de una transición de vista: el panel se recorta (theme.css), la carátula y la
+// letra viajan (lyrics.css) y el contenido se desliza desde donde estaba, con translate (en la GPU). Misma duración y curva que --md-dur y --md-ease (lyrics.css).
+const MOTION = { duration: 350, easing: 'cubic-bezier(.2, 0, 0, 1)' };
+const guideWidth = () => { const g = document.querySelector('#guide-wrapper'); return g ? g.getBoundingClientRect().width : 0; };
+let guidePassthrough = false;
+document.addEventListener('click', (e) => {
+  const btn = !guidePassthrough && e.target instanceof Element && e.target.closest('ytmusic-nav-bar #guide-button');
+  const app = document.querySelector('ytmusic-app');
+  // En ventanas estrechas YT usa su columna aparte (#mini-guide) y el menú flotante: se deja igual.
+  if (!btn || !app || !document.startViewTransition || window.innerWidth < 936 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  e.stopImmediatePropagation();
+  // Las páginas siguen a la barra por dentro (márgenes): su contenedor no se mueve, se desliza
+  // lo que cambió la barra. El buscador y el botón atrás no se mueven (theme.css).
+  const content = document.querySelector('ytmusic-app-layout > #content');
+  const width = guideWidth();
+  const was = app.hasAttribute('guide-collapsed');
+  document.startViewTransition({
+    types: ['md-guide', was ? 'md-guide-open' : 'md-guide-close'],
+    update: async () => {
+      guidePassthrough = true;
+      btn.click();
+      guidePassthrough = false;
+      // YT puede cambiar el atributo en la tarea siguiente.
+      for (let i = 0; i < 10 && app.hasAttribute('guide-collapsed') === was; i++) await new Promise((r) => setTimeout(r, 16));
+      const dx = width - guideWidth();
+      if (content && dx) content.animate([{ translate: `${dx}px 0` }, { translate: '0 0' }], MOTION);
+    },
+  });
+}, true);
+
 // Espacio que ocupan los iconos de la derecha de la barra superior (transmitir, ajustes, avatar)
 // más los botones de ventana, en --md-nav-right: theme.css coloca el buscador para no pisarlos.
 // Se mide al cambiar el tamaño de la ventana o esos iconos (y en cada pasada de read()); solo se

@@ -98,29 +98,87 @@ html {
   }
   /* El contenido de la barra trae anchos fijos en cada capa (240, 224, 200, 192 px…): con la
      barra más ancha quedaba una franja negra vacía. Aquí todo llena el ancho del panel. */
-  ytmusic-app:not([guide-collapsed]) ytmusic-guide-renderer,
-  ytmusic-app:not([guide-collapsed]) ytmusic-guide-renderer #sections,
-  ytmusic-app:not([guide-collapsed]) ytmusic-guide-section-renderer {
+  tp-yt-app-drawer#guide ytmusic-guide-renderer,
+  tp-yt-app-drawer#guide ytmusic-guide-renderer #sections,
+  tp-yt-app-drawer#guide ytmusic-guide-section-renderer {
     width: 100% !important;
   }
-  ytmusic-app:not([guide-collapsed]) ytmusic-guide-section-renderer #items,
-  ytmusic-app:not([guide-collapsed]) ytmusic-guide-section-renderer #buttons,
-  ytmusic-app:not([guide-collapsed]) ytmusic-guide-section-renderer #divider,
-  ytmusic-app:not([guide-collapsed]) ytmusic-guide-entry-renderer tp-yt-paper-item {
+  tp-yt-app-drawer#guide ytmusic-guide-section-renderer #items,
+  tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons,
+  tp-yt-app-drawer#guide ytmusic-guide-section-renderer #divider,
+  tp-yt-app-drawer#guide ytmusic-guide-entry-renderer tp-yt-paper-item {
     width: auto !important;
   }
   /* Las filas al 100 %: #items las coloca con flex y, a ancho automático, se encogían a su
      contenido y se ponían de dos en dos. */
-  ytmusic-app:not([guide-collapsed]) ytmusic-guide-entry-renderer {
+  tp-yt-app-drawer#guide ytmusic-guide-entry-renderer {
     width: 100% !important;
     box-sizing: border-box !important;
   }
-  ytmusic-app:not([guide-collapsed]) ytmusic-guide-section-renderer #buttons yt-button-renderer,
-  ytmusic-app:not([guide-collapsed]) ytmusic-guide-section-renderer #buttons yt-button-shape,
-  ytmusic-app:not([guide-collapsed]) ytmusic-guide-section-renderer #buttons button {
+  tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons yt-button-renderer,
+  tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons yt-button-shape,
+  tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button {
     width: 100% !important;
   }
+
+  /* Plegada (72 px): el mismo panel que desplegada, estrechado, en vez de la columna aparte de YT
+     (#mini-guide), que ponía el texto bajo los iconos: al desplegar, todo lo de debajo subía de
+     golpe. Así cada fila se queda a su altura y solo se ocultan los textos (el movimiento, abajo). */
+  ytmusic-app[guide-collapsed] :is(#mini-guide, #mini-guide-background) { display: none !important; }
+  tp-yt-app-drawer#guide { visibility: visible !important; }
+  tp-yt-app-drawer#guide #contentContainer {
+    transform: none !important;
+    overflow: hidden !important;
+  }
+  tp-yt-app-drawer#guide ytmusic-guide-entry-renderer .title-column {
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+  /* En la fila estrecha, el icono no se encoge (se quedaba a 0 px). */
+  tp-yt-app-drawer#guide ytmusic-guide-entry-renderer .guide-icon { flex: none !important; }
+  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-entry-renderer :is(.title-column, #play-button) {
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+  /* Portadas centradas en los 72 px y en el mismo eje que los iconos de arriba, plegada o no: así
+     no se mueven al desplegar. */
+  tp-yt-app-drawer#guide ytmusic-guide-entry-renderer[data-md-id] tp-yt-paper-item { padding-left: 8px !important; }
+  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-entry-renderer[data-md-id] tp-yt-paper-item { padding-right: 8px !important; }
+  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide #items { scrollbar-width: none !important; }
+  /* "Nueva lista": la píldora se encoge hasta un botón redondo con su +, que se queda en su sitio
+     (a la izquierda de la píldora, no centrado). Mismo alto que la píldora (36 px): un círculo más
+     alto empujaría lo de debajo. */
+  tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons { padding-left: 14px !important; }
+  tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button {
+    overflow: hidden !important;
+    justify-content: flex-start !important;
+    padding-left: 6px !important;
+  }
+  tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button .ytSpecButtonShapeNextIcon { margin-left: 0 !important; }
+  tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button .ytSpecButtonShapeNextButtonTextContent { white-space: nowrap !important; }
+  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons :is(yt-button-renderer, yt-button-shape) {
+    width: auto !important;
+  }
+  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button {
+    width: 36px !important;
+    padding: 0 6px !important;
+  }
+  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button .ytSpecButtonShapeNextIcon { margin: 0 !important; }
+  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button .ytSpecButtonShapeNextButtonTextContent { display: none !important; }
 }
+/* El logo, fuera de la columna de la barra lateral plegada (72 px; empezaba en 68). También
+   desplegada, para que no se mueva al plegar. */
+ytmusic-nav-bar .left-content ytmusic-logo { margin-left: 16px !important; }
+/* Plegar y desplegar con una transición de vista (preload.js): el ancho cambia de una vez y el
+   panel se abre o se cierra recortado, sin estirarse ni fundidos; el contenido se desliza aparte.
+   Al desplegar, el panel nuevo ya está entero y el recorte lo va descubriendo; al plegar, el panel
+   de antes queda encima hasta el final y se recorta (con el riel encima asomaba su borde sobre el
+   panel que se iba). La franja de arriba queda bajo la barra superior: recortada, no la tapa
+   mientras dura. */
+html:active-view-transition-type(md-guide) #guide-wrapper { view-transition-name: md-guide; }
+::view-transition-group(md-guide) { clip-path: inset(var(--ytmusic-nav-bar-height, 64px) 0 0 0); }
+::view-transition-old(md-guide), ::view-transition-new(md-guide) { width: auto; animation: none; mix-blend-mode: normal; }
+:root:active-view-transition-type(md-guide-close)::view-transition-old(md-guide) { z-index: 1; }
 
 /* Tiradores para ajustar el ancho (los crea preload.js): franja de 8 px sobre el borde del
    panel, entre la barra superior y la del reproductor. Una línea fina aparece al pasar el
@@ -183,8 +241,59 @@ ytmusic-guide-entry-renderer[data-md-id] .title-column {
   min-width: 0 !important;
   flex: 1 1 auto !important;
 }
-/* Barra lateral plegada (72 px): sin sitio para portadas */
-ytmusic-app[guide-collapsed] ytmusic-guide-entry-renderer img.md-cover { display: none; }
+/* Barra lateral plegada (72 px, #mini-guide): YT solo deja Inicio, Explorar y Biblioteca. Aquí
+   vuelven las playlists, solo con su portada (como Spotify), en su propia columna con scroll, y
+   "Nueva lista" como botón redondo con su icono. El título sigue ahí para los lectores de pantalla. */
+#mini-guide #items { overflow-x: hidden !important; } /* 1 px de más hacía salir una barra horizontal */
+#mini-guide ytmusic-guide-section-renderer:not([is-primary]) {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+}
+#mini-guide ytmusic-guide-section-renderer:not([is-primary]) #buttons {
+  display: flex !important;
+  justify-content: center !important;
+  padding: 8px 0 !important;
+}
+#mini-guide ytmusic-guide-section-renderer #buttons button {
+  width: 40px !important;
+  min-width: 0 !important;
+  height: 40px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  justify-content: center !important;
+}
+#mini-guide ytmusic-guide-section-renderer #buttons button .ytSpecButtonShapeNextIcon { margin: 0 !important; }
+#mini-guide ytmusic-guide-section-renderer #buttons button .ytSpecButtonShapeNextButtonTextContent { display: none !important; }
+#mini-guide ytmusic-guide-section-renderer:not([is-primary]) #items {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  width: 72px !important;
+  height: auto !important;
+  overflow-y: auto !important;
+  scrollbar-width: none !important;
+}
+#mini-guide ytmusic-guide-entry-renderer[data-md-id] {
+  display: block !important;
+  width: 56px !important;
+  margin: 0 auto !important;
+}
+#mini-guide ytmusic-guide-entry-renderer[data-md-id] tp-yt-paper-item {
+  justify-content: center !important;
+  padding: 6px 0 !important;
+  min-height: 0 !important;
+}
+#mini-guide ytmusic-guide-entry-renderer[data-md-id] img.md-cover { display: block; }
+#mini-guide ytmusic-guide-entry-renderer[data-md-id] .title-column {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip-path: inset(50%) !important;
+}
+#mini-guide ytmusic-guide-entry-renderer[data-md-id] #play-button { display: none !important; }
 
 /* Botón "Nueva lista" */
 ytmusic-guide-section-renderer yt-button-renderer button,
@@ -1635,7 +1744,7 @@ ytmusic-two-column-browse-results-renderer ytmusic-shelf-renderer ytmusic-respon
     --md-np-side: var(--md-right-w, clamp(340px, 28vw, 440px));
     /* Alto útil = ventana − barra superior (64) − barra inferior (92) − márgenes (64) −
        selector Canción/Vídeo con su hueco (~110) − título y artista (~90) */
-    --md-np-art: min(calc(100vh - 430px), calc(100vw - var(--ytmusic-guide-width, 0px) - var(--md-np-side) - 96px));
+    --md-np-art: min(calc(var(--md-vh, 100vh) - 430px), calc(100vw - var(--ytmusic-guide-width, 0px) - var(--md-np-side) - 96px));
   }
   ytmusic-player-page #main-panel {
     flex: 1 1 auto !important;

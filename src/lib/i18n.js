@@ -49,8 +49,11 @@ const STRINGS = {
     'lyrics.hide': 'Ocultar letra',
     'lyrics.credit': 'Letra de LRCLIB',
     'lyrics.none': 'No hay letra para mostrar aquí :(',
+    'lyrics.unsynced': 'Esta letra no está sincronizada con la canción',
     'np.fullscreen': 'Pantalla completa',
     'np.exitFullscreen': 'Salir de pantalla completa',
+    'np.toVideo': 'Cambiar a vídeo',
+    'np.toSong': 'Cambiar a canción',
 
     // Menú rápido
     'qm.placeholder': 'Buscar canciones o ir a una playlist…',
@@ -118,8 +121,11 @@ const STRINGS = {
     'lyrics.hide': 'Hide lyrics',
     'lyrics.credit': 'Lyrics from LRCLIB',
     'lyrics.none': 'No lyrics to show here :(',
+    'lyrics.unsynced': "These lyrics aren't synced to the song",
     'np.fullscreen': 'Full screen',
     'np.exitFullscreen': 'Exit full screen',
+    'np.toVideo': 'Switch to video',
+    'np.toSong': 'Switch to song',
 
     // Quick menu
     'qm.placeholder': 'Search songs or jump to a playlist…',
