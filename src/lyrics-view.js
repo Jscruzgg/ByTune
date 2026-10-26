@@ -530,19 +530,20 @@ window.__mdLyrics = (() => {
   // La ventana la pone a pantalla completa main.js (no la API del documento: con ella YT cambia a
   // su propio diseño de pantalla completa) y avisa con setFullscreen; Esc también sale (main.js).
   // lyrics.css deja solo el espacio de color de Now Playing. La barra de reproducción aparece con
-  // el puntero cerca del borde de abajo, la superior (con la cola) cerca del de arriba y la cola
-  // también pegado al derecho; el puntero, al moverlo. Todo se esconde a los CONTROLS_MS sin
-  // moverlo (salvo con el puntero sobre una barra, la cola o un menú).
+  // el puntero cerca del borde de abajo; la superior con el menú lateral cerca del de arriba o del
+  // izquierdo, y con la cola pegado al derecho; el puntero, al moverlo. Todo se esconde a los
+  // CONTROLS_MS sin moverlo (salvo con el puntero sobre una barra, un panel o un menú).
   const CONTROLS_MS = 3000;
   const EDGE_PX = 150; // distancia al borde a la que aparece cada barra
   const SIDE_PX = 16; // la cola, solo pegado al borde: a 24 px están los botones de la esquina
   const NAV = 'ytmusic-nav-bar'; // barra superior
+  const GUIDE = 'tp-yt-app-drawer#guide, #mini-guide'; // menú lateral (abierto / plegado)
   const SIDE = `${PAGE} #side-panel`; // la cola
   const POPUP = 'ytmusic-popup-container, tp-yt-iron-dropdown'; // menús abiertos desde las barras
   const html = document.documentElement;
   let fullscreen = false;
   function hideControls() {
-    for (const a of ['data-md-pointer', 'data-md-controls', 'data-md-topbar', 'data-md-side']) setAttr(html, a, null);
+    for (const a of ['data-md-pointer', 'data-md-controls', 'data-md-topbar', 'data-md-guide', 'data-md-side']) setAttr(html, a, null);
   }
   function hideControlsLater() {
     clearTimeout(controlsTimer);
@@ -577,18 +578,22 @@ window.__mdLyrics = (() => {
     const t = e.target instanceof Element ? e.target : null;
     // Dentro de un menú (que puede quedar lejos del borde), las barras se quedan como están.
     if (!(t && t.closest(POPUP))) {
-      const top = e.clientY < EDGE_PX || !!(t && t.closest(NAV));
-      setAttr(html, 'data-md-topbar', top ? '' : null);
+      // Menú lateral: desde arriba o desde el borde izquierdo (a cualquier altura).
+      const guide = e.clientY < EDGE_PX || e.clientX < EDGE_PX || !!(t && t.closest(`${NAV}, ${GUIDE}`));
+      let side = html.hasAttribute('data-md-side');
       // En la esquina de los botones, ni la barra de abajo ni la cola cambian: saldrían (y la de
       // abajo los subiría) justo cuando el puntero va a pulsarlos.
       if (!inCorner(e)) {
         setAttr(html, 'data-md-controls', e.clientY > innerHeight - EDGE_PX || (t && t.closest(BAR)) ? '' : null);
-        // La cola sale con la barra superior o pegado al borde derecho.
-        setAttr(html, 'data-md-side', top || e.clientX >= innerWidth - SIDE_PX || (t && t.closest(SIDE)) ? '' : null);
+        side = e.clientX >= innerWidth - SIDE_PX || !!(t && t.closest(SIDE));
+        setAttr(html, 'data-md-side', side ? '' : null);
       }
+      setAttr(html, 'data-md-guide', guide ? '' : null);
+      // La barra superior sale con el menú lateral y con la cola (esta sin el menú).
+      setAttr(html, 'data-md-topbar', guide || side ? '' : null);
     }
     setAttr(html, 'data-md-pointer', '');
-    if (t && t.closest(`${BAR}, ${NAV}, ${SIDE}, ${POPUP}`)) clearTimeout(controlsTimer);
+    if (t && t.closest(`${BAR}, ${NAV}, ${GUIDE}, ${SIDE}, ${POPUP}`)) clearTimeout(controlsTimer);
     else hideControlsLater();
   }
   // Al cerrar Now Playing, se sale de la pantalla completa (fuera de él no hay nada que mostrar).

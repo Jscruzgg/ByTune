@@ -278,13 +278,11 @@ ytmusic-player-page tp-yt-paper-tabs tp-yt-paper-tab:nth-of-type(2) { display: n
 ytmusic-player-page[player-page-open] #player .song-media-controls { display: none !important; }
 
 /* ---------- Pantalla completa (lyrics-view.js: html[data-md-fullscreen]) ----------
-   Solo el espacio de color de Now Playing: sin menú lateral (ni su botón). La barra de
-   reproducción sale desde abajo con el puntero cerca del borde (html[data-md-controls]), la
-   superior desde arriba (html[data-md-topbar]) y la cola con ella o desde la derecha
+   Solo el espacio de color de Now Playing. La barra de reproducción sale desde abajo con el
+   puntero cerca del borde (html[data-md-controls]); la superior (html[data-md-topbar]) desde
+   arriba o la izquierda con el menú lateral (html[data-md-guide]), y desde la derecha con la cola
    (html[data-md-side]); se van solas. */
-html[data-md-fullscreen] :is(#nav-bar-divider, tp-yt-app-drawer#guide, #mini-guide, #mini-guide-background, ytmusic-nav-bar #guide-button) {
-  display: none !important;
-}
+html[data-md-fullscreen] #nav-bar-divider { display: none !important; }
 /* La página de detrás (inicio, búsqueda…) seguía desplazándose con la rueda, con su barra de
    desplazamiento a la vista, aunque no se ve. */
 html[data-md-fullscreen],
@@ -331,6 +329,15 @@ html[data-md-fullscreen] #nav-bar-background {
   translate: 0 -100%;
   opacity: 0;
   transition: translate .3s ease, opacity .3s ease !important;
+}
+html[data-md-fullscreen] :is(tp-yt-app-drawer#guide, #mini-guide, #mini-guide-background) {
+  translate: -100% 0;
+  opacity: 0;
+  transition: translate .3s ease, opacity .3s ease !important;
+}
+html[data-md-fullscreen][data-md-guide] :is(tp-yt-app-drawer#guide, #mini-guide, #mini-guide-background) {
+  translate: 0 0;
+  opacity: 1;
 }
 html[data-md-fullscreen][data-md-topbar] :is(ytmusic-nav-bar, #nav-bar-background),
 html[data-md-fullscreen]:has(ytmusic-nav-bar :focus-visible) :is(ytmusic-nav-bar, #nav-bar-background) {
