@@ -98,29 +98,96 @@ html {
   }
   /* El contenido de la barra trae anchos fijos en cada capa (240, 224, 200, 192 px…): con la
      barra más ancha quedaba una franja negra vacía. Aquí todo llena el ancho del panel. */
-  ytmusic-app:not([guide-collapsed]) ytmusic-guide-renderer,
-  ytmusic-app:not([guide-collapsed]) ytmusic-guide-renderer #sections,
-  ytmusic-app:not([guide-collapsed]) ytmusic-guide-section-renderer {
+  tp-yt-app-drawer#guide ytmusic-guide-renderer,
+  tp-yt-app-drawer#guide ytmusic-guide-renderer #sections,
+  tp-yt-app-drawer#guide ytmusic-guide-section-renderer {
     width: 100% !important;
   }
-  ytmusic-app:not([guide-collapsed]) ytmusic-guide-section-renderer #items,
-  ytmusic-app:not([guide-collapsed]) ytmusic-guide-section-renderer #buttons,
-  ytmusic-app:not([guide-collapsed]) ytmusic-guide-section-renderer #divider,
-  ytmusic-app:not([guide-collapsed]) ytmusic-guide-entry-renderer tp-yt-paper-item {
+  tp-yt-app-drawer#guide ytmusic-guide-section-renderer #items,
+  tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons,
+  tp-yt-app-drawer#guide ytmusic-guide-section-renderer #divider,
+  tp-yt-app-drawer#guide ytmusic-guide-entry-renderer tp-yt-paper-item {
     width: auto !important;
   }
   /* Las filas al 100 %: #items las coloca con flex y, a ancho automático, se encogían a su
      contenido y se ponían de dos en dos. */
-  ytmusic-app:not([guide-collapsed]) ytmusic-guide-entry-renderer {
+  tp-yt-app-drawer#guide ytmusic-guide-entry-renderer {
     width: 100% !important;
     box-sizing: border-box !important;
   }
-  ytmusic-app:not([guide-collapsed]) ytmusic-guide-section-renderer #buttons yt-button-renderer,
-  ytmusic-app:not([guide-collapsed]) ytmusic-guide-section-renderer #buttons yt-button-shape,
-  ytmusic-app:not([guide-collapsed]) ytmusic-guide-section-renderer #buttons button {
+  tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons yt-button-renderer,
+  tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons yt-button-shape,
+  tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button {
     width: 100% !important;
   }
+
+  /* Plegada (72 px): el mismo panel que desplegada, estrechado, en vez de la columna aparte de YT
+     (#mini-guide), que ponía el texto bajo los iconos: al desplegar, todo lo de debajo subía de
+     golpe. Así cada fila se queda a su altura, los textos se desvanecen y el ancho se anima
+     (--ytmusic-guide-width, registrada abajo con @property). */
+  ytmusic-app[guide-collapsed] :is(#mini-guide, #mini-guide-background) { display: none !important; }
+  tp-yt-app-drawer#guide { visibility: visible !important; }
+  tp-yt-app-drawer#guide #contentContainer {
+    transform: none !important;
+    overflow: hidden !important;
+  }
+  tp-yt-app-drawer#guide ytmusic-guide-entry-renderer :is(.title-column, #play-button) {
+    transition: opacity .2s ease !important;
+  }
+  tp-yt-app-drawer#guide ytmusic-guide-entry-renderer .title-column {
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+  /* En la fila estrecha, el icono no se encoge (se quedaba a 0 px). */
+  tp-yt-app-drawer#guide ytmusic-guide-entry-renderer .guide-icon { flex: none !important; }
+  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-entry-renderer :is(.title-column, #play-button) {
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+  /* Portadas centradas en los 72 px (los iconos de arriba ya lo están). */
+  tp-yt-app-drawer#guide ytmusic-guide-entry-renderer[data-md-id] tp-yt-paper-item {
+    transition: padding .25s cubic-bezier(.2, 0, 0, 1) !important;
+  }
+  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-entry-renderer[data-md-id] tp-yt-paper-item {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide #items { scrollbar-width: none !important; }
+  /* "Nueva lista": la píldora se encoge hasta un botón redondo con su +. */
+  tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons {
+    transition: padding .25s cubic-bezier(.2, 0, 0, 1) !important;
+  }
+  tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button {
+    overflow: hidden !important;
+    transition: width .25s cubic-bezier(.2, 0, 0, 1), padding .25s cubic-bezier(.2, 0, 0, 1), background-color .15s linear !important;
+  }
+  tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button .ytSpecButtonShapeNextButtonTextContent {
+    max-width: 160px;
+    overflow: hidden !important;
+    white-space: nowrap !important;
+    transition: max-width .25s cubic-bezier(.2, 0, 0, 1), opacity .2s ease !important;
+  }
+  /* Mismo alto que la píldora (36 px): un círculo más alto empujaría lo de debajo. */
+  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons { padding-left: 14px !important; }
+  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons :is(yt-button-renderer, yt-button-shape) {
+    width: auto !important;
+  }
+  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button {
+    width: 36px !important;
+    padding: 0 6px !important;
+  }
+  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button .ytSpecButtonShapeNextIcon { margin: 0 !important; }
+  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button .ytSpecButtonShapeNextButtonTextContent {
+    max-width: 0;
+    opacity: 0;
+  }
 }
+/* El ancho de la barra lateral se anima al plegar y desplegar: con la variable registrada como
+   longitud, el panel, la barra superior y el margen de cada página la siguen a la vez. Mientras
+   se arrastra su borde, sin animación (iría por detrás del ratón). */
+@property --ytmusic-guide-width { syntax: '<length>'; inherits: true; initial-value: 72px; }
+ytmusic-app { transition: --ytmusic-guide-width .25s cubic-bezier(.2, 0, 0, 1); }
+html.md-resizing ytmusic-app { transition: none !important; }
 
 /* Tiradores para ajustar el ancho (los crea preload.js): franja de 8 px sobre el borde del
    panel, entre la barra superior y la del reproductor. Una línea fina aparece al pasar el
