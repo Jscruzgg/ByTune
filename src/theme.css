@@ -183,8 +183,59 @@ ytmusic-guide-entry-renderer[data-md-id] .title-column {
   min-width: 0 !important;
   flex: 1 1 auto !important;
 }
-/* Barra lateral plegada (72 px): sin sitio para portadas */
-ytmusic-app[guide-collapsed] ytmusic-guide-entry-renderer img.md-cover { display: none; }
+/* Barra lateral plegada (72 px, #mini-guide): YT solo deja Inicio, Explorar y Biblioteca. Aquí
+   vuelven las playlists, solo con su portada (como Spotify), en su propia columna con scroll, y
+   "Nueva lista" como botón redondo con su icono. El título sigue ahí para los lectores de pantalla. */
+#mini-guide #items { overflow-x: hidden !important; } /* 1 px de más hacía salir una barra horizontal */
+#mini-guide ytmusic-guide-section-renderer:not([is-primary]) {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+}
+#mini-guide ytmusic-guide-section-renderer:not([is-primary]) #buttons {
+  display: flex !important;
+  justify-content: center !important;
+  padding: 8px 0 !important;
+}
+#mini-guide ytmusic-guide-section-renderer #buttons button {
+  width: 40px !important;
+  min-width: 0 !important;
+  height: 40px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  justify-content: center !important;
+}
+#mini-guide ytmusic-guide-section-renderer #buttons button .ytSpecButtonShapeNextIcon { margin: 0 !important; }
+#mini-guide ytmusic-guide-section-renderer #buttons button .ytSpecButtonShapeNextButtonTextContent { display: none !important; }
+#mini-guide ytmusic-guide-section-renderer:not([is-primary]) #items {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  width: 72px !important;
+  height: auto !important;
+  overflow-y: auto !important;
+  scrollbar-width: none !important;
+}
+#mini-guide ytmusic-guide-entry-renderer[data-md-id] {
+  display: block !important;
+  width: 56px !important;
+  margin: 0 auto !important;
+}
+#mini-guide ytmusic-guide-entry-renderer[data-md-id] tp-yt-paper-item {
+  justify-content: center !important;
+  padding: 6px 0 !important;
+  min-height: 0 !important;
+}
+#mini-guide ytmusic-guide-entry-renderer[data-md-id] img.md-cover { display: block; }
+#mini-guide ytmusic-guide-entry-renderer[data-md-id] .title-column {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip-path: inset(50%) !important;
+}
+#mini-guide ytmusic-guide-entry-renderer[data-md-id] #play-button { display: none !important; }
 
 /* Botón "Nueva lista" */
 ytmusic-guide-section-renderer yt-button-renderer button,
