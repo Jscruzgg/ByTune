@@ -7,8 +7,24 @@
    Sin especificidad (:where) para que el tema pueda afinar --md-np-art en ventanas anchas
    aunque esta hoja se inyecte después. */
 :where(ytmusic-player-page) {
-  --md-np-art: calc(100vh - var(--md-np-reserve, 430px));
+  --md-np-art: calc(var(--md-vh, 100vh) - var(--md-np-reserve, 430px));
 }
+/* Duración y curva de todo lo que se mueve a la vez (paneles, carátula, barra lateral): con las
+   mismas, nada va por delante ni por detrás. preload.js usa los mismos valores. */
+:root {
+  --md-dur: .35s;
+  --md-ease: cubic-bezier(.2, 0, 0, 1);
+}
+/* Al plegar la barra lateral, el contenido sale desde su sitio de antes (preload.js) y asoma por la
+   derecha: sin esto aparecía una barra de desplazamiento horizontal que movía la página. */
+ytmusic-app-layout { overflow-x: clip !important; }
+/* La barra de desplazamiento de la ventana es de la página de detrás: YT la quita al terminar de
+   abrir Now Playing y la devuelve al empezar a cerrarlo, y se pintaba encima de él mientras se
+   movía. Transparente mientras Now Playing está a la vista (y mientras baja, lyrics-view.js:
+   data-md-np-closing). Su hueco no mueve nada: Now Playing lo cubre (100vw, más abajo). La de la
+   ventana solo se alcanza con body::. */
+body:has(ytmusic-app-layout[player-page-open])::-webkit-scrollbar-thumb,
+html[data-md-np-closing] body::-webkit-scrollbar-thumb { background: transparent !important; }
 /* Por data-md-video y no por el playback-mode de YT: al cambiar de canción pasa casi un segundo
    por NONE, con un recuadro negro 16:9 mientras carga, y la carátula saltaba al formato del vídeo
    y vuelta. Aquí sigue cuadrada (lyrics-view.js mantiene el modo). */
@@ -97,7 +113,7 @@ ytmusic-player-page #main-panel > .md-np-btn {
   background: transparent !important;
   color: #fff !important;
   cursor: pointer !important;
-  transition: opacity .3s ease, visibility 0s linear .3s, translate .3s ease, background-color .15s linear, border-color .15s linear, color .15s linear !important;
+  transition: opacity .3s ease, visibility 0s linear .3s, translate var(--md-dur) var(--md-ease), background-color .15s linear, border-color .15s linear, color .15s linear !important;
 }
 ytmusic-player-page #main-panel > .md-lyrics-btn {
   right: 80px !important; /* 24 + 44 + 12 de hueco con el de pantalla completa */
@@ -306,7 +322,7 @@ ytmusic-player-page[player-page-open] #player .song-media-controls { display: no
     top: 0 !important;
     bottom: 0 !important;
     left: 0 !important;
-    width: 100% !important;
+    width: 100vw !important;
     height: 100% !important;
   }
   html ytmusic-player-page > .content {
@@ -320,7 +336,7 @@ ytmusic-player-page[player-page-open] #player .song-media-controls { display: no
     top: 0 !important;
     padding-top: calc(var(--ytmusic-nav-bar-height, 64px) + 8px) !important;
     padding-bottom: var(--ytmusic-player-bar-height, 72px) !important;
-    right: 0 !important;
+    right: calc(100% - 100vw) !important; /* hasta el borde, sobre el hueco de la barra de desplazamiento */
     bottom: 0 !important;
     width: var(--md-np-side, 400px) !important;
     height: auto !important;
@@ -343,11 +359,22 @@ html[data-md-fullscreen] body {
   overflow: hidden !important;
 }
 html[data-md-fullscreen] ytmusic-player-page {
+  /* Del alto de la pantalla, no de la ventana (lyrics-view.js: --md-screen-h): la ventana cambia
+     de tamaño un poco antes o después que el diseño, y así eso no mueve nada. */
+  height: var(--md-screen-h, 100%) !important;
   /* Carátula más grande: ya no hay barras fijas arriba ni abajo. Quedan el selector Canción/Vídeo
      (~110 px), el título y el artista (~85), los márgenes, el hueco de la barra de controles
      cuando aparece (~92) y el de la barra superior (48 px más de margen arriba): con 448 px de
      reserva todo cabe aunque la canción tenga selector. */
-  --md-np-art: min(calc(100vh - 448px), calc(100vw - 96px));
+  --md-np-art: min(calc(var(--md-screen-h, 100vh) - 448px), calc(100vw - 96px));
+}
+/* Entrando (lyrics-view.js: data-md-fs-pending): la ventana ya creció y aún no llegó el aviso. Lo
+   que depende del alto se queda con el de antes (--md-win-h); la franja que deja la barra de tareas
+   la cubre el fondo de Now Playing. */
+html[data-md-fs-pending] { --md-vh: var(--md-win-h); }
+html[data-md-fs-pending] ytmusic-player-page > .content { height: var(--md-win-h) !important; }
+html[data-md-fs-pending] :is(ytmusic-player-bar[slot="player-bar"], #player-bar-background, ytmusic-player-page #side-panel) {
+  bottom: calc(100vh - var(--md-win-h)) !important;
 }
 /* Los paneles ya no reservan sitio. La letra empieza bajo la barra superior: al aparecer no la tapa. */
 html[data-md-fullscreen] ytmusic-player-page > .content { padding: 0 !important; }
@@ -357,7 +384,7 @@ html[data-md-fullscreen] ytmusic-player-page #main-panel {
 /* Las barras y paneles se deslizan también al salir (durante la transición de vista de abajo); el
    resto del tiempo quedan las transiciones de YT. */
 html:is([data-md-fullscreen], :active-view-transition) :is(ytmusic-player-bar[slot="player-bar"], #player-bar-background, ytmusic-nav-bar, #nav-bar-background, tp-yt-app-drawer#guide, #mini-guide, #mini-guide-background, ytmusic-player-page #side-panel) {
-  transition: translate .3s ease, opacity .3s ease !important;
+  transition: translate var(--md-dur) var(--md-ease), opacity var(--md-dur) var(--md-ease) !important;
 }
 html[data-md-fullscreen] ytmusic-player-bar[slot="player-bar"],
 html[data-md-fullscreen] #player-bar-background {
@@ -424,7 +451,7 @@ html:active-view-transition ytmusic-player-page #main-panel > .md-lyrics-btn { v
 html:active-view-transition ytmusic-player-page #main-panel > .md-av-btn { view-transition-name: md-av-btn; }
 ::view-transition-old(root) { display: none; }
 ::view-transition-new(root) { animation: none; }
-::view-transition-group(*) { animation-duration: .45s; animation-timing-function: cubic-bezier(.22,.8,.3,1); }
+::view-transition-group(*) { animation-duration: var(--md-dur); animation-timing-function: var(--md-ease); }
 /* Título y letra viajan a su tamaño natural, sin estirarse con su caja. La letra, sin fundido: entre
    una disposición y otra sus líneas no coinciden y se veían dobles. */
 ::view-transition-old(md-np-info), ::view-transition-new(md-np-info), ::view-transition-new(md-lyrics) { width: auto; }

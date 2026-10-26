@@ -157,7 +157,17 @@ window.__mdLyrics = (() => {
     const fsSvg = svgIcon(FS_ON);
     fsPaths = [...fsSvg.querySelectorAll('path')];
     fsBtn.append(fsSvg);
-    fsBtn.addEventListener('click', () => send({ type: 'fullscreen', on: !fullscreen }));
+    fsBtn.addEventListener('click', () => {
+      // Entrar: la ventana crece primero (la barra de tareas se va al pulsar) y, hasta que main.js
+      // avisa (setFullscreen), lo de dentro se queda con el alto de antes (lyrics.css:
+      // data-md-fs-pending); luego todo viaja a la vez. Al revés no vale: una transición de vista
+      // se cancela si la ventana cambia de tamaño a medias.
+      if (!fullscreen) {
+        setVar('--md-win-h', innerHeight);
+        setAttr(html, 'data-md-fs-pending', '');
+      }
+      send({ type: 'fullscreen', on: !fullscreen });
+    });
     avBtn = el('button', 'md-np-btn md-av-btn');
     avBtn.type = 'button';
     const toVideo = svgIcon(VIDEO_ICON);
@@ -588,6 +598,8 @@ window.__mdLyrics = (() => {
   function setFullscreen(on) {
     const fs = fullscreen = !!on;
     const apply = () => {
+      if (fs) setVar('--md-screen-h', screen.height);
+      setAttr(html, 'data-md-fs-pending', null);
       setAttr(html, 'data-md-fullscreen', fs ? '' : null);
       FS_ON.forEach((d, i) => fsPaths[i].setAttribute('d', fs ? FS_OFF[i] : d));
       const label = str(fs ? 'np.exitFullscreen' : 'np.fullscreen');
@@ -636,10 +648,18 @@ window.__mdLyrics = (() => {
     if (t && t.closest(`${BAR}, ${NAV}, ${GUIDE}, ${SIDE}, ${POPUP}`)) clearTimeout(controlsTimer);
     else hideControlsLater();
   }
-  // Al cerrar Now Playing, se sale de la pantalla completa (fuera de él no hay nada que mostrar).
+  // Al cerrar Now Playing, se sale de la pantalla completa (fuera de él no hay nada que mostrar), y
+  // mientras baja la barra de desplazamiento de la página de detrás sigue transparente (lyrics.css).
+  const CLOSING_MS = 400;
+  let closingTimer = 0;
   function onPageChange() {
     const pp = page();
-    if (fullscreen && pp && !pp.hasAttribute('player-page-open')) send({ type: 'fullscreen', on: false });
+    if (pp && !pp.hasAttribute('player-page-open')) {
+      if (fullscreen) send({ type: 'fullscreen', on: false });
+      setAttr(html, 'data-md-np-closing', '');
+      clearTimeout(closingTimer);
+      closingTimer = setTimeout(() => setAttr(html, 'data-md-np-closing', null), CLOSING_MS);
+    }
     sync();
   }
 
@@ -691,7 +711,10 @@ window.__mdLyrics = (() => {
       const pp = page();
       if (pp) for (const a of ['data-md-lyrics', 'data-md-lyrics-mode', 'data-md-has-lyrics', 'data-md-video', 'data-md-lyrics-narrow', 'data-md-snap']) pp.removeAttribute(a);
       hideControls();
+      clearTimeout(closingTimer);
       html.removeAttribute('data-md-fullscreen');
+      html.removeAttribute('data-md-np-closing');
+      html.removeAttribute('data-md-fs-pending');
     },
   };
 })();

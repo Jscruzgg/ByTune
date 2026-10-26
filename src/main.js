@@ -715,7 +715,10 @@ ipcMain.on('lyrics:request', async (e, t) => {
 // Panel de letras abierto o cerrado: se recuerda para la próxima vez.
 ipcMain.on('np:fullscreen', (e, on) => {
   if (!fromMainPage(e) || !onYouTubeMusic() || typeof on !== 'boolean') return;
+  // La página puede haber cambiado ya su diseño (entra antes que la ventana): si no hay nada que
+  // cambiar, se le recuerda el estado real.
   if (win.isFullScreen() !== on) win.setFullScreen(on);
+  else notifyFullscreen();
 });
 ipcMain.on('lyrics:open', (e, open) => {
   if (!fromMainPage(e) || !onYouTubeMusic() || typeof open !== 'boolean') return;
