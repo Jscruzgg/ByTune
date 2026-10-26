@@ -166,14 +166,19 @@ html {
   ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button .ytSpecButtonShapeNextIcon { margin: 0 !important; }
   ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button .ytSpecButtonShapeNextButtonTextContent { display: none !important; }
 }
+/* El logo, fuera de la columna de la barra lateral plegada (72 px; empezaba en 68). También
+   desplegada, para que no se mueva al plegar. */
+ytmusic-nav-bar .left-content ytmusic-logo { margin-left: 16px !important; }
 /* Plegar y desplegar con una transición de vista (preload.js): el ancho cambia de una vez y el
    panel se abre o se cierra recortado, sin estirarse ni fundidos; el contenido se desliza aparte.
-   Al desplegar, el panel nuevo ya está entero y el recorte lo va descubriendo; al plegar, el riel
-   queda encima y lo de antes se recorta a su derecha. La franja de arriba queda bajo la barra
-   superior: recortada, no la tapa mientras dura. */
+   Al desplegar, el panel nuevo ya está entero y el recorte lo va descubriendo; al plegar, el panel
+   de antes queda encima hasta el final y se recorta (con el riel encima asomaba su borde sobre el
+   panel que se iba). La franja de arriba queda bajo la barra superior: recortada, no la tapa
+   mientras dura. */
 html:active-view-transition-type(md-guide) #guide-wrapper { view-transition-name: md-guide; }
 ::view-transition-group(md-guide) { clip-path: inset(var(--ytmusic-nav-bar-height, 64px) 0 0 0); }
 ::view-transition-old(md-guide), ::view-transition-new(md-guide) { width: auto; animation: none; mix-blend-mode: normal; }
+:root:active-view-transition-type(md-guide-close)::view-transition-old(md-guide) { z-index: 1; }
 
 /* Tiradores para ajustar el ancho (los crea preload.js): franja de 8 px sobre el borde del
    panel, entre la barra superior y la del reproductor. Una línea fina aparece al pasar el

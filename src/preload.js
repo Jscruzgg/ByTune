@@ -465,7 +465,7 @@ document.addEventListener('click', (e) => {
   const width = guideWidth();
   const was = app.hasAttribute('guide-collapsed');
   document.startViewTransition({
-    types: ['md-guide'],
+    types: ['md-guide', was ? 'md-guide-open' : 'md-guide-close'],
     update: async () => {
       guidePassthrough = true;
       btn.click();
