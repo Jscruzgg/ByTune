@@ -504,7 +504,7 @@ function createQuickMenu() {
   qmWin.setMenuBarVisibility(false);
   qmLoaded = new Promise((resolve) => qmWin.webContents.once('did-finish-load', resolve));
   qmWin.loadFile(path.join(__dirname, 'quickmenu', 'quickmenu.html'));
-  qmWin.on('blur', hideQuickMenu);
+  qmWin.on('blur', () => hideQuickMenu(false)); // el foco ya está en otra ventana: se queda allí
   // Con el menú abierto el foco está aquí: el mismo atajo lo cierra.
   qmWin.webContents.on('before-input-event', (e, input) => {
     if (input.type === 'keyDown' && matches(input, settings.quickMenu.accelerator)) {
@@ -531,6 +531,7 @@ function placeQuickMenu(overWin) {
 }
 
 let qmOpening = false;
+let qmOverWin = false; // se abrió sobre la ventana de la app (con el foco en ella)
 async function showQuickMenu(fromOutside) {
   if (qmOpening) return;
   qmOpening = true;
@@ -551,7 +552,8 @@ async function showQuickMenu(fromOutside) {
       track,
       shiftEnter: settings.quickMenu.shiftEnter,
     });
-    placeQuickMenu(overWin && !!win);
+    qmOverWin = overWin && !!win;
+    placeQuickMenu(qmOverWin);
     qmWin.show();
     qmWin.focus();
     // Se abre con la biblioteca guardada y se pide de nuevo detrás: cada búsqueda filtra la última.
@@ -561,9 +563,13 @@ async function showQuickMenu(fromOutside) {
   }
 }
 
-function hideQuickMenu() {
+// refocus: al cerrarlo a propósito (Esc, el atajo), el foco vuelve a la app si se abrió sobre ella.
+// Windows no lo devuelve solo y, en pantalla completa, la barra de tareas quedaba encima.
+function hideQuickMenu(refocus = true) {
   clearTimeout(songsTimer);
-  if (qmWin && qmWin.isVisible()) qmWin.hide();
+  if (!qmWin || !qmWin.isVisible()) return;
+  qmWin.hide();
+  if (refocus && qmOverWin && win && win.isVisible()) win.focus();
 }
 
 function toggleQuickMenu(fromOutside) {
