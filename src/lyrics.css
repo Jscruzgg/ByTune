@@ -278,10 +278,19 @@ ytmusic-player-page tp-yt-paper-tabs tp-yt-paper-tab:nth-of-type(2) { display: n
 ytmusic-player-page[player-page-open] #player .song-media-controls { display: none !important; }
 
 /* ---------- Pantalla completa (lyrics-view.js: html[data-md-fullscreen]) ----------
-   Solo el espacio de color de Now Playing. La barra de reproducción sale desde abajo con el
-   puntero cerca del borde (html[data-md-controls]), la superior desde arriba (html[data-md-topbar])
-   y la cola desde la derecha (html[data-md-side]); se van solas. */
-html[data-md-fullscreen] #nav-bar-divider { display: none !important; }
+   Solo el espacio de color de Now Playing: sin menú lateral (ni su botón). La barra de
+   reproducción sale desde abajo con el puntero cerca del borde (html[data-md-controls]), la
+   superior desde arriba (html[data-md-topbar]) y la cola con ella o desde la derecha
+   (html[data-md-side]); se van solas. */
+html[data-md-fullscreen] :is(#nav-bar-divider, tp-yt-app-drawer#guide, #mini-guide, #mini-guide-background, ytmusic-nav-bar #guide-button) {
+  display: none !important;
+}
+/* La página de detrás (inicio, búsqueda…) seguía desplazándose con la rueda, con su barra de
+   desplazamiento a la vista, aunque no se ve. */
+html[data-md-fullscreen],
+html[data-md-fullscreen] body {
+  overflow: hidden !important;
+}
 html[data-md-fullscreen] ytmusic-player-page {
   top: 0 !important;
   bottom: 0 !important;
@@ -314,9 +323,8 @@ html[data-md-fullscreen][data-md-controls] ytmusic-player-page #main-panel > .md
   translate: 0 calc(-1 * var(--ytmusic-player-bar-height, 72px));
 }
 /* La barra superior: en pantalla completa no arrastra la ventana (además, una zona de arrastre se
-   queda los movimientos del ratón y la barra se escondería con el puntero encima). El menú lateral
-   (abierto: el cajón #guide; plegado: la columna de iconos #mini-guide) va con ella. Con el foco
-   visible dentro (búsqueda, Tab) se quedan a la vista; el de un clic en un botón no cuenta. */
+   queda los movimientos del ratón y la barra se escondería con el puntero encima). Con el foco
+   visible dentro (búsqueda, Tab) se queda a la vista; el de un clic en un botón no cuenta. */
 html[data-md-fullscreen] ytmusic-nav-bar { -webkit-app-region: no-drag; }
 html[data-md-fullscreen] ytmusic-nav-bar,
 html[data-md-fullscreen] #nav-bar-background {
@@ -324,12 +332,7 @@ html[data-md-fullscreen] #nav-bar-background {
   opacity: 0;
   transition: translate .3s ease, opacity .3s ease !important;
 }
-html[data-md-fullscreen] :is(tp-yt-app-drawer#guide, #mini-guide, #mini-guide-background) {
-  translate: -100% 0;
-  opacity: 0;
-  transition: translate .3s ease, opacity .3s ease !important;
-}
-html[data-md-fullscreen][data-md-topbar] :is(ytmusic-nav-bar, #nav-bar-background, tp-yt-app-drawer#guide, #mini-guide, #mini-guide-background),
+html[data-md-fullscreen][data-md-topbar] :is(ytmusic-nav-bar, #nav-bar-background),
 html[data-md-fullscreen]:has(ytmusic-nav-bar :focus-visible) :is(ytmusic-nav-bar, #nav-bar-background) {
   translate: 0 0;
   opacity: 1;

@@ -530,13 +530,13 @@ window.__mdLyrics = (() => {
   // La ventana la pone a pantalla completa main.js (no la API del documento: con ella YT cambia a
   // su propio diseño de pantalla completa) y avisa con setFullscreen; Esc también sale (main.js).
   // lyrics.css deja solo el espacio de color de Now Playing. La barra de reproducción aparece con
-  // el puntero cerca del borde de abajo, la superior cerca del de arriba y la cola pegado al
-  // derecho; el puntero, al moverlo. Todo se esconde a los CONTROLS_MS sin moverlo (salvo con el
-  // puntero sobre una barra, la cola o un menú).
+  // el puntero cerca del borde de abajo, la superior (con la cola) cerca del de arriba y la cola
+  // también pegado al derecho; el puntero, al moverlo. Todo se esconde a los CONTROLS_MS sin
+  // moverlo (salvo con el puntero sobre una barra, la cola o un menú).
   const CONTROLS_MS = 3000;
   const EDGE_PX = 150; // distancia al borde a la que aparece cada barra
   const SIDE_PX = 16; // la cola, solo pegado al borde: a 24 px están los botones de la esquina
-  const NAV = 'ytmusic-nav-bar, tp-yt-app-drawer#guide, #mini-guide'; // barra superior y menú lateral
+  const NAV = 'ytmusic-nav-bar'; // barra superior
   const SIDE = `${PAGE} #side-panel`; // la cola
   const POPUP = 'ytmusic-popup-container, tp-yt-iron-dropdown'; // menús abiertos desde las barras
   const html = document.documentElement;
@@ -559,27 +559,33 @@ window.__mdLyrics = (() => {
     clearTimeout(controlsTimer);
     hideControls();
   }
-  const CORNER_PAD = 32; // margen alrededor de los botones de la esquina
-  function nearCornerButtons(e) {
-    let l = Infinity, tp = Infinity, r = -Infinity, b = -Infinity;
+  const CORNER_PAD = 96; // margen a la izquierda y por encima de los botones de la esquina
+  // La esquina de los botones: desde un poco a su izquierda y por encima hasta los bordes de la
+  // pantalla, así se llega a ellos desde cualquier lado sin pasar por un disparador.
+  function inCorner(e) {
+    let l = Infinity, tp = Infinity;
     for (const x of [avBtn, btn, fsBtn]) {
       const rc = x.getBoundingClientRect();
       if (!rc.width) continue; // Canción/Vídeo oculto (canción sin vídeo)
-      l = Math.min(l, rc.left); tp = Math.min(tp, rc.top); r = Math.max(r, rc.right); b = Math.max(b, rc.bottom);
+      l = Math.min(l, rc.left);
+      tp = Math.min(tp, rc.top);
     }
-    return e.clientX >= l - CORNER_PAD && e.clientX <= r + CORNER_PAD && e.clientY >= tp - CORNER_PAD && e.clientY <= b + CORNER_PAD;
+    return e.clientX >= l - CORNER_PAD && e.clientY >= tp - CORNER_PAD;
   }
   function onPointerMove(e) {
     if (!fullscreen) return;
     const t = e.target instanceof Element ? e.target : null;
     // Dentro de un menú (que puede quedar lejos del borde), las barras se quedan como están.
     if (!(t && t.closest(POPUP))) {
-      // Junto a los botones de la esquina, la de abajo tampoco cambia: al salir los subiría justo
-      // cuando el puntero va a pulsarlos.
-      if (!nearCornerButtons(e)) setAttr(html, 'data-md-controls', e.clientY > innerHeight - EDGE_PX || (t && t.closest(BAR)) ? '' : null);
-      // La superior (y con ella el menú lateral) también desde el borde izquierdo, a cualquier altura.
-      setAttr(html, 'data-md-topbar', e.clientY < EDGE_PX || e.clientX < EDGE_PX || (t && t.closest(NAV)) ? '' : null);
-      setAttr(html, 'data-md-side', e.clientX >= innerWidth - SIDE_PX || (t && t.closest(SIDE)) ? '' : null);
+      const top = e.clientY < EDGE_PX || !!(t && t.closest(NAV));
+      setAttr(html, 'data-md-topbar', top ? '' : null);
+      // En la esquina de los botones, ni la barra de abajo ni la cola cambian: saldrían (y la de
+      // abajo los subiría) justo cuando el puntero va a pulsarlos.
+      if (!inCorner(e)) {
+        setAttr(html, 'data-md-controls', e.clientY > innerHeight - EDGE_PX || (t && t.closest(BAR)) ? '' : null);
+        // La cola sale con la barra superior o pegado al borde derecho.
+        setAttr(html, 'data-md-side', top || e.clientX >= innerWidth - SIDE_PX || (t && t.closest(SIDE)) ? '' : null);
+      }
     }
     setAttr(html, 'data-md-pointer', '');
     if (t && t.closest(`${BAR}, ${NAV}, ${SIDE}, ${POPUP}`)) clearTimeout(controlsTimer);
