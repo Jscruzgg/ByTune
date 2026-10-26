@@ -291,13 +291,34 @@ window.__mdLyrics = (() => {
     boundVideo = video;
     if (!video) return;
     const on = (type, fn) => { video.addEventListener(type, fn, { passive: true }); cleanups.push(() => video.removeEventListener(type, fn)); };
-    on('loadeddata', () => check('video'));
-    on('durationchange', () => check('video'));
+    on('loadeddata', () => { check('video'); sync(); });
+    on('durationchange', () => { check('video'); sync(); });
     on('playing', () => { check('playing'); sync(); });
     // Cualquier salto de tiempo o de velocidad recalcula la línea y el temporizador.
     for (const type of ['play', 'pause', 'seeked', 'ratechange']) on(type, sync);
     // Si se queda cargando, el tiempo no avanza: se para hasta 'playing'.
     on('waiting', stopTimer);
+    // Red de seguridad: si la línea pintada ya no es la del tiempo real (p. ej. al pasar sola a la
+    // siguiente canción, sin 'playing' ni 'seeked'), se vuelve a sincronizar. Solo compara números:
+    // no toca el DOM salvo que haga falta corregir.
+    on('timeupdate', () => {
+      if (!running()) return;
+      const t = now();
+      if (t !== null && mdLyricsTiming.activeIndex(times, t) !== active) sync();
+    });
+  }
+  // Tiempo de la canción actual. Se pregunta al reproductor de YT, que ya sabe el de la canción
+  // nueva aunque el <video> aún informe el final de la anterior; si el reproductor todavía está en
+  // otra canción, no hay tiempo fiable (null) y se espera al siguiente evento.
+  function now() {
+    const p = player();
+    if (p && p.getCurrentTime && p.getVideoData) {
+      const data = p.getVideoData();
+      if (!data || data.video_id !== track.videoId) return null;
+      const t = p.getCurrentTime();
+      if (Number.isFinite(t)) return t;
+    }
+    return boundVideo ? boundVideo.currentTime : null;
   }
   function bindBar() {
     const title = document.querySelector(`${BAR} .title`);
@@ -445,7 +466,8 @@ window.__mdLyrics = (() => {
   function sync() {
     stopTimer();
     if (!running() || !boundVideo) return;
-    const t = boundVideo.currentTime;
+    const t = now();
+    if (t === null) return;
     setActive(mdLyricsTiming.activeIndex(times, t));
     place();
     if (boundVideo.paused) return;
