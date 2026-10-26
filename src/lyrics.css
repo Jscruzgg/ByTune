@@ -97,7 +97,7 @@ ytmusic-player-page #main-panel > .md-np-btn {
   background: transparent !important;
   color: #fff !important;
   cursor: pointer !important;
-  transition: opacity .3s ease, visibility 0s linear .3s, translate .3s ease !important;
+  transition: opacity .3s ease, visibility 0s linear .3s, translate .3s ease, background-color .15s linear, border-color .15s linear, color .15s linear !important;
 }
 ytmusic-player-page #main-panel > .md-lyrics-btn {
   right: 80px !important; /* 24 + 44 + 12 de hueco con el de pantalla completa */
@@ -229,6 +229,12 @@ ytmusic-player-page #md-lyrics .md-line {
   transform-origin: left center !important;
   transition: opacity .4s ease, scale .4s ease !important;
 }
+/* Las líneas nuevas (otra canción, o la letra que llega tras las barras de espera) entran con un
+   fundido corto hasta su opacidad de siempre. */
+@keyframes md-line-in { from { opacity: 0; translate: 0 12px; } }
+@media (prefers-reduced-motion: no-preference) {
+  ytmusic-player-page #md-lyrics .md-lyrics-track > * { animation: md-line-in .5s cubic-bezier(.22,.8,.3,1); }
+}
 ytmusic-player-page[data-md-lyrics-narrow] #md-lyrics .md-line {
   padding: 8px 0 !important;
   font-size: 24px !important;
@@ -288,6 +294,42 @@ ytmusic-player-page tp-yt-paper-tabs tp-yt-paper-tab:nth-of-type(2) { display: n
    esquina. En el reproductor en miniatura sigue. */
 ytmusic-player-page[player-page-open] #player .song-media-controls { display: none !important; }
 
+/* ---------- Now Playing a toda la ventana ----------
+   Con o sin pantalla completa, Now Playing ocupa toda la ventana y los paneles (barra superior,
+   menú lateral, cola y barra de reproducción) van por encima: fijos fuera de pantalla completa,
+   escondidos en ella. Así entrar o salir no cambia el tamaño de la página ni deja huecos: los
+   paneles se deslizan y solo la carátula, el título y la letra cambian de sitio (lyrics-view.js:
+   morph). El sitio de los paneles lo reserva el relleno de .content. Con la cola apilada debajo
+   (ventanas estrechas) se deja como YT la tenga. */
+@media (min-width: 940px) {
+  ytmusic-player-page {
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
+  html ytmusic-player-page > .content {
+    padding: var(--ytmusic-nav-bar-height, 64px) var(--md-np-side, 400px) var(--ytmusic-player-bar-height, 72px) var(--ytmusic-guide-width, 0px) !important;
+  }
+  /* La cola, de arriba abajo: su contenido empieza bajo la barra superior y acaba sobre la de
+     reproducción. */
+  html ytmusic-player-page #side-panel {
+    position: fixed !important;
+    z-index: 3 !important;
+    top: 0 !important;
+    padding-top: calc(var(--ytmusic-nav-bar-height, 64px) + 8px) !important;
+    padding-bottom: var(--ytmusic-player-bar-height, 72px) !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: var(--md-np-side, 400px) !important;
+    height: auto !important;
+  }
+}
+/* Título y artista pegados a la carátula: YT deja un margen alto encima y debajo del reproductor
+   (el hueco del selector Canción/Vídeo, que ya no está ahí). */
+ytmusic-player-page #main-panel > #player { margin-block: 0 !important; }
+
 /* ---------- Pantalla completa (lyrics-view.js: html[data-md-fullscreen]) ----------
    Solo el espacio de color de Now Playing. La barra de reproducción sale desde abajo con el
    puntero cerca del borde (html[data-md-controls]); la superior (html[data-md-topbar]) sola desde
@@ -301,26 +343,26 @@ html[data-md-fullscreen] body {
   overflow: hidden !important;
 }
 html[data-md-fullscreen] ytmusic-player-page {
-  top: 0 !important;
-  bottom: 0 !important;
-  left: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
   /* Carátula más grande: ya no hay barras fijas arriba ni abajo. Quedan el selector Canción/Vídeo
      (~110 px), el título y el artista (~85), los márgenes, el hueco de la barra de controles
      cuando aparece (~92) y el de la barra superior (48 px más de margen arriba): con 448 px de
      reserva todo cabe aunque la canción tenga selector. */
   --md-np-art: min(calc(100vh - 448px), calc(100vw - 96px));
 }
-/* El selector y la letra empiezan bajo la barra superior: al aparecer no los tapa. */
+/* Los paneles ya no reservan sitio. La letra empieza bajo la barra superior: al aparecer no la tapa. */
+html[data-md-fullscreen] ytmusic-player-page > .content { padding: 0 !important; }
 html[data-md-fullscreen] ytmusic-player-page #main-panel {
   padding-top: calc(var(--ytmusic-nav-bar-height, 64px) + 16px) !important;
+}
+/* Las barras y paneles se deslizan también al salir (durante la transición de vista de abajo); el
+   resto del tiempo quedan las transiciones de YT. */
+html:is([data-md-fullscreen], :active-view-transition) :is(ytmusic-player-bar[slot="player-bar"], #player-bar-background, ytmusic-nav-bar, #nav-bar-background, tp-yt-app-drawer#guide, #mini-guide, #mini-guide-background, ytmusic-player-page #side-panel) {
+  transition: translate .3s ease, opacity .3s ease !important;
 }
 html[data-md-fullscreen] ytmusic-player-bar[slot="player-bar"],
 html[data-md-fullscreen] #player-bar-background {
   translate: 0 100%;
   opacity: 0;
-  transition: translate .3s ease, opacity .3s ease !important;
 }
 html[data-md-fullscreen][data-md-controls] ytmusic-player-bar[slot="player-bar"],
 html[data-md-fullscreen][data-md-controls] #player-bar-background {
@@ -339,12 +381,10 @@ html[data-md-fullscreen] ytmusic-nav-bar,
 html[data-md-fullscreen] #nav-bar-background {
   translate: 0 -100%;
   opacity: 0;
-  transition: translate .3s ease, opacity .3s ease !important;
 }
 html[data-md-fullscreen] :is(tp-yt-app-drawer#guide, #mini-guide, #mini-guide-background) {
   translate: -100% 0;
   opacity: 0;
-  transition: translate .3s ease, opacity .3s ease !important;
 }
 html[data-md-fullscreen][data-md-guide] :is(tp-yt-app-drawer#guide, #mini-guide, #mini-guide-background) {
   translate: 0 0;
@@ -355,21 +395,11 @@ html[data-md-fullscreen]:has(ytmusic-nav-bar :focus-visible) :is(ytmusic-nav-bar
   translate: 0 0;
   opacity: 1;
 }
-/* La cola: por encima de Now Playing, de arriba abajo; su contenido empieza bajo la altura de la
-   barra superior (que no tape sus pestañas). La de reproducción sí la tapa por abajo al
-   aparecer: la lista se desplaza. */
+/* La cola: la barra de reproducción la tapa por abajo al aparecer (la lista se desplaza). */
 html[data-md-fullscreen] ytmusic-player-page #side-panel {
-  position: fixed !important;
-  z-index: 3 !important;
-  top: 0 !important;
-  padding-top: calc(var(--ytmusic-nav-bar-height, 64px) + 8px) !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  width: var(--md-np-side, 400px) !important;
-  height: auto !important;
+  padding-bottom: 0 !important;
   translate: 100% 0;
   opacity: 0;
-  transition: translate .3s ease, opacity .3s ease !important;
 }
 html[data-md-fullscreen][data-md-side] ytmusic-player-page #side-panel,
 html[data-md-fullscreen] ytmusic-player-page #side-panel:has(:focus-visible) {
@@ -381,6 +411,25 @@ html[data-md-fullscreen] .md-resize { display: none !important; }
 /* Sin mover el ratón, tampoco se ve el puntero. */
 html[data-md-fullscreen]:not([data-md-pointer]),
 html[data-md-fullscreen]:not([data-md-pointer]) * { cursor: none !important; }
+
+/* ---------- Transiciones de vista (lyrics-view.js: morph) ----------
+   Al entrar o salir de pantalla completa y al cambiar entre canción y vídeo, la carátula, el
+   título, la letra y los botones de la esquina viajan de su sitio al nuevo. El resto de la página
+   cambia sin fundido: las barras se deslizan con sus propias transiciones. */
+html:active-view-transition ytmusic-player-page #main-panel > #player { view-transition-name: md-np-cover; }
+html:active-view-transition ytmusic-player-page #main-panel > #md-np-info { view-transition-name: md-np-info; }
+html:active-view-transition ytmusic-player-page #md-lyrics { view-transition-name: md-lyrics; }
+html:active-view-transition ytmusic-player-page #main-panel > .md-fs-btn { view-transition-name: md-fs-btn; }
+html:active-view-transition ytmusic-player-page #main-panel > .md-lyrics-btn { view-transition-name: md-lyrics-btn; }
+html:active-view-transition ytmusic-player-page #main-panel > .md-av-btn { view-transition-name: md-av-btn; }
+::view-transition-old(root) { display: none; }
+::view-transition-new(root) { animation: none; }
+::view-transition-group(*) { animation-duration: .45s; animation-timing-function: cubic-bezier(.22,.8,.3,1); }
+/* Título y letra viajan a su tamaño natural, sin estirarse con su caja. La letra, sin fundido: entre
+   una disposición y otra sus líneas no coinciden y se veían dobles. */
+::view-transition-old(md-np-info), ::view-transition-new(md-np-info), ::view-transition-new(md-lyrics) { width: auto; }
+::view-transition-old(md-lyrics) { display: none; }
+::view-transition-new(md-lyrics) { animation: none; }
 
 /* ---------- Cola: reordenar arrastrando (queue-reorder.js) ----------
    La canción arrastrada queda por encima y algo resaltada; las demás se apartan con una

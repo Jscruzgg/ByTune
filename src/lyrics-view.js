@@ -372,6 +372,10 @@ window.__mdLyrics = (() => {
       startObserver.observe(document.documentElement, { childList: true, subtree: true });
     }
     const bar = barInfo();
+    // Otra canción: título y artista entran con un fundido corto.
+    if (bar.title && bar.title !== titleEl.textContent && !reduceMotion.matches) {
+      titleEl.parentElement.animate([{ opacity: 0, translate: '0 8px' }, { opacity: 1, translate: '0 0' }], { duration: 400, easing: 'cubic-bezier(.22,.8,.3,1)' });
+    }
     setText(titleEl, bar.title);
     setText(artistEl, bar.artist);
     const p = player();
@@ -501,6 +505,13 @@ window.__mdLyrics = (() => {
       clearTimeout(noneTimer);
       if (mode) videoMode = mode !== 'ATV_PREFERRED';
     }
+    // Al cambiar entre canción y vídeo, la carátula viaja a su nuevo formato (morph).
+    if (videoMode !== pp.hasAttribute('data-md-video')) morph(writeState);
+    else writeState();
+  }
+  function writeState() {
+    const pp = page();
+    if (!pp) return;
     const hasLyrics = !!lyrics;
     const wasShown = shown;
     // El botón siempre funciona (salvo en modo vídeo): sin letra, la vista dice que no la hay.
@@ -522,6 +533,23 @@ window.__mdLyrics = (() => {
       area.classList.remove('is-manual');
     }
     sync();
+  }
+
+  // Cambios de disposición (pantalla completa, canción/vídeo) con una transición de vista: la
+  // carátula, el título, la letra y los botones de la esquina van de su sitio al nuevo en vez de
+  // saltar (lyrics.css). Lo que llega mientras una espera su turno se aplica con ella.
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  let morphQueue = null;
+  function morph(update) {
+    if (morphQueue) return void morphQueue.add(update);
+    const pp = page();
+    if (!document.startViewTransition || document.hidden || reduceMotion.matches || !(pp && pp.hasAttribute('player-page-open'))) return update();
+    morphQueue = new Set([update]);
+    document.startViewTransition(() => {
+      const q = morphQueue;
+      morphQueue = null;
+      q.forEach((f) => f());
+    });
   }
 
   function receive(videoId, result) {
@@ -558,15 +586,18 @@ window.__mdLyrics = (() => {
     controlsTimer = setTimeout(hideControls, CONTROLS_MS);
   }
   function setFullscreen(on) {
-    fullscreen = !!on;
-    const fs = fullscreen;
-    setAttr(html, 'data-md-fullscreen', fs ? '' : null);
-    FS_ON.forEach((d, i) => fsPaths[i].setAttribute('d', fs ? FS_OFF[i] : d));
-    const label = str(fs ? 'np.exitFullscreen' : 'np.fullscreen');
-    setAttr(fsBtn, 'aria-label', label);
-    setAttr(fsBtn, 'title', label);
-    clearTimeout(controlsTimer);
-    hideControls();
+    const fs = fullscreen = !!on;
+    const apply = () => {
+      setAttr(html, 'data-md-fullscreen', fs ? '' : null);
+      FS_ON.forEach((d, i) => fsPaths[i].setAttribute('d', fs ? FS_OFF[i] : d));
+      const label = str(fs ? 'np.exitFullscreen' : 'np.fullscreen');
+      setAttr(fsBtn, 'aria-label', label);
+      setAttr(fsBtn, 'title', label);
+      clearTimeout(controlsTimer);
+      hideControls();
+    };
+    if (html.hasAttribute('data-md-fullscreen') !== fs) morph(apply);
+    else apply();
   }
   const CORNER_PAD = 96; // margen a la izquierda y por encima de los botones de la esquina
   // La esquina de los botones: desde un poco a su izquierda y por encima hasta los bordes de la
