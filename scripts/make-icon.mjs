@@ -1,6 +1,6 @@
 // Genera los iconos de la app, sin dependencias (PNG e ICO escritos a mano con zlib):
-// - build/icon.png (256) y build/icon.ico (16–256): círculo oscuro con barras de ecualizador
-//   rojas. Cada tamaño del .ico se dibuja aparte para que se vea nítido.
+// - build/icon.png (256) y build/icon.ico (16–256): círculo rojo con barras de onda oscuras
+//   (diseño de Figma). Cada tamaño del .ico se dibuja aparte para que se vea nítido.
 // - build/thumb-*.png (16 px y @2x 32 px): botones blancos de la vista previa de la barra de
 //   tareas (anterior, reproducir, pausa, siguiente).
 import { deflateSync } from 'node:zlib';
@@ -18,18 +18,19 @@ const WHITE = [255, 255, 255];
 const inTriangle = (u, v, x0, x1, cy, h) => u >= x0 && u <= x1 && Math.abs(v - cy) <= (h * (x1 - u)) / (x1 - x0);
 const inRect = (u, v, x0, x1, y0, y1) => u >= x0 && u <= x1 && v >= y0 && v <= y1;
 
-// Icono de la app en coordenadas unitarias (0..1): círculo oscuro con tres barras de ecualizador
-// rojas. Color del punto o null (transparente).
+// Icono de la app en coordenadas unitarias (0..1): círculo rojo con cinco barras de onda oscuras
+// de puntas redondas. Medidas del diseño de Figma (lienzo de 536 px). Color del punto o null.
+const FIGMA = 536;
+const BARS = [[114, 208, 328], [180, 163, 373], [246, 123, 413], [312, 173, 363], [378, 198, 338]]; // [x, arriba, abajo]
+const BAR_W = 44;
 function appIcon(u, v) {
-  const dx = u - 0.5, dy = v - 0.5;
-  if (Math.hypot(dx, dy) > 0.47) return null;
-  const bars = [[-0.17, 0.2], [0, 0.34], [0.17, 0.26]]; // [centro x, alto]
-  const w = 0.055, base = 0.17;
-  const inBar = bars.some(([cx, hh]) => {
-    const cy = Math.max(base - hh + w, Math.min(base - w, dy));
-    return Math.hypot(dx - cx, dy - cy) <= w;
+  if (Math.hypot(u - 0.5, v - 0.5) > 0.5) return null;
+  const x = u * FIGMA, y = v * FIGMA, r = BAR_W / 2;
+  const inBar = BARS.some(([x0, y0, y1]) => {
+    const cy = Math.max(y0 + r, Math.min(y1 - r, y));
+    return Math.hypot(x - (x0 + r), y - cy) <= r;
   });
-  return inBar ? RED : DARK;
+  return inBar ? DARK : RED;
 }
 
 // Glifos de la barra de tareas, blancos sobre transparente.
