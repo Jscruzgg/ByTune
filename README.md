@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/banner.png" alt="ByTune: YouTube Music in fullscreen with synced lyrics" width="100%"></p>
+
 # ByTune
 
 Desktop client (Electron) for YouTube Music: opens music.youtube.com in its own window, signed in with your account.
