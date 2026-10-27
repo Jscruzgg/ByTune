@@ -61,6 +61,8 @@ ipcRenderer.on('strings', (_e, msg) => {
   strings = (msg && msg.strings) || {};
   const btn = document.querySelector('ytmusic-nav-bar > .md-back');
   if (btn) labelBack(btn);
+  const home = document.querySelector('body > .md-home');
+  if (home) labelHome(home);
   if (gear) labelGear();
   if (panel) renderSettings();
 });
@@ -85,6 +87,29 @@ function ensureBackButton() {
   }
   labelBack(btn);
   updateBack(btn);
+}
+
+// Botón "volver a YouTube Music" en las páginas de Google (inicio de sesión, consentimiento):
+// allí no existe la barra de YT, así que el botón atrás de arriba no aparece y no habría salida.
+// Flota centrado arriba (chrome.css), lejos del formulario, del logo y de los botones de la ventana.
+function labelHome(btn) {
+  const text = strings['nav.home'];
+  if (!text) return;
+  if (btn.title !== text) btn.title = text;
+  if (btn.getAttribute('aria-label') !== text) btn.setAttribute('aria-label', text);
+}
+function ensureHomeButton() {
+  if (location.hostname === 'music.youtube.com' || !document.body) return;
+  let btn = document.querySelector('body > .md-home');
+  if (!btn) {
+    btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'md-home';
+    btn.textContent = 'YouTube Music';
+    btn.addEventListener('click', () => location.assign('https://music.youtube.com/'));
+    document.body.appendChild(btn);
+  }
+  labelHome(btn);
 }
 
 // --- Engranaje y menú de ajustes ---
@@ -538,6 +563,7 @@ function read() {
   reportLang();
   reportOpened();
   ensureBackButton();
+  ensureHomeButton();
   ensureGear();
   markLongTitle();
   applyCovers();
@@ -588,5 +614,6 @@ function read() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  ensureHomeButton();
   setInterval(read, 1000);
 });
