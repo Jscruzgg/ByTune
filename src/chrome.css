@@ -52,6 +52,46 @@ ytmusic-nav-bar .md-back:hover:not(:disabled) { background: rgba(255,255,255,.14
 ytmusic-nav-bar .md-back:disabled { opacity: .35; cursor: default; }
 ytmusic-nav-bar .md-back:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 
+/* Botón "volver a YouTube Music" (lo crea preload.js solo fuera de music.youtube.com, p. ej. en
+   el inicio de sesión de Google): píldora oscura con flecha, centrada arriba en la franja de
+   64 px de los botones de la ventana. Ahí Google no pone nada: su logo va a la izquierda (en
+   ventana estrecha, pegado arriba) y minimizar/cerrar ocupan la derecha. No se mueve la página
+   de Google: fija su alto al de la ventana y apartarla dejaba una banda y desplazamiento. */
+body > .md-home {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 2147483647;
+  height: 36px;
+  margin: 0;
+  padding: 0 14px 0 6px;
+  border: none;
+  border-radius: 18px;
+  background: rgba(0,0,0,.55);
+  color: #fff;
+  font: 500 14px/1 Roboto, Arial, sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-app-region: no-drag;
+  transition: background-color .15s linear;
+}
+body > .md-home::before {
+  content: "";
+  width: 22px;
+  height: 22px;
+  background: currentColor;
+  /* chevron_left de Material Symbols */
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'%3E%3Cpath d='M560-240 320-480l240-240 56 56-184 184 184 184-56 56Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'%3E%3Cpath d='M560-240 320-480l240-240 56 56-184 184 184 184-56 56Z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+body > .md-home:hover { background: rgba(0,0,0,.75); }
+body > .md-home:focus-visible { outline: 2px solid #1a73e8; outline-offset: 2px; }
+
 /* Ventana ancha: el avatar va en posición absoluta (el padding no le afecta) y se aparta con
    right. En el flujo normal right no hace nada, así que cada regla actúa en su caso. */
 ytmusic-nav-bar #right-content {
