@@ -1,6 +1,6 @@
 // Genera los iconos de la app, sin dependencias (PNG e ICO escritos a mano con zlib):
-// - build/icon.png (256) y build/icon.ico (16–256): círculo rojo con barras de onda oscuras
-//   (diseño de Figma). Cada tamaño del .ico se dibuja aparte para que se vea nítido.
+// - build/icon.png (256) y build/icon.ico (16–256): círculo rojo con tres barras blancas en forma de
+//   play (diseño de Figma). Cada tamaño del .ico se dibuja aparte para que se vea nítido.
 // - build/thumb-*.png (16 px y @2x 32 px): botones blancos de la vista previa de la barra de
 //   tareas (anterior, reproducir, pausa, siguiente).
 import { deflateSync } from 'node:zlib';
@@ -10,27 +10,35 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ICO_SIZES = [16, 20, 24, 32, 40, 48, 64, 128, 256];
-const DARK = [28, 28, 34];
-const RED = [255, 92, 92];
 const WHITE = [255, 255, 255];
 
 // Triángulo que apunta a la derecha: punta en (x1, cy), base vertical en x0 de alto 2·h.
 const inTriangle = (u, v, x0, x1, cy, h) => u >= x0 && u <= x1 && Math.abs(v - cy) <= (h * (x1 - u)) / (x1 - x0);
 const inRect = (u, v, x0, x1, y0, y1) => u >= x0 && u <= x1 && v >= y0 && v <= y1;
 
-// Icono de la app en coordenadas unitarias (0..1): círculo rojo con cinco barras de onda oscuras
-// de puntas redondas. Medidas del diseño de Figma (lienzo de 536 px). Color del punto o null.
+// Icono de la app en coordenadas unitarias (0..1): círculo rojo con tres barras blancas que bajan
+// de alto y forman un "play", con puntas redondas. Medidas del diseño de Figma (lienzo de 536 px).
+// Color del punto o null (transparente).
 const FIGMA = 536;
-const BARS = [[114, 208, 328], [180, 163, 373], [246, 123, 413], [312, 173, 363], [378, 198, 338]]; // [x, arriba, abajo]
-const BAR_W = 44;
+const BARS = [[182, 143, 250], [262, 183, 170], [342, 223, 90]]; // [x, y, alto]
+const BAR_W = 56;
+// Punto dentro de un rectángulo con un radio distinto en cada esquina.
+function inRoundRect(x, y, x0, y0, w, h, r) {
+  if (x < x0 || x > x0 + w || y < y0 || y > y0 + h) return false;
+  const corner = (cx, cy, rad) => rad > 0 && Math.hypot(x - cx, y - cy) > rad;
+  if (x < x0 + r.tl && y < y0 + r.tl) return !corner(x0 + r.tl, y0 + r.tl, r.tl);
+  if (x > x0 + w - r.tr && y < y0 + r.tr) return !corner(x0 + w - r.tr, y0 + r.tr, r.tr);
+  if (x > x0 + w - r.br && y > y0 + h - r.br) return !corner(x0 + w - r.br, y0 + h - r.br, r.br);
+  if (x < x0 + r.bl && y > y0 + h - r.bl) return !corner(x0 + r.bl, y0 + h - r.bl, r.bl);
+  return true;
+}
+// Barras con la esquina de abajo a la izquierda un poco menos redonda.
+const CORNERS = { tl: 28, tr: 28, br: 28, bl: 20 };
+const RED = [223, 28, 67];
 function appIcon(u, v) {
   if (Math.hypot(u - 0.5, v - 0.5) > 0.5) return null;
-  const x = u * FIGMA, y = v * FIGMA, r = BAR_W / 2;
-  const inBar = BARS.some(([x0, y0, y1]) => {
-    const cy = Math.max(y0 + r, Math.min(y1 - r, y));
-    return Math.hypot(x - (x0 + r), y - cy) <= r;
-  });
-  return inBar ? DARK : RED;
+  const x = u * FIGMA, y = v * FIGMA;
+  return BARS.some(([x0, y0, h]) => inRoundRect(x, y, x0, y0, BAR_W, h, CORNERS)) ? WHITE : RED;
 }
 
 // Glifos de la barra de tareas, blancos sobre transparente.
