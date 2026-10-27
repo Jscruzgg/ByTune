@@ -13,6 +13,9 @@ const STRINGS = {
 
     // Ajustes (también los usa la bandeja en sus casillas)
     'set.theme': 'Tema ByTune',
+    'set.simpleIcon': 'Logo simplificado',
+    'set.restartHint': 'Reinicia ByTune para ver el logo nuevo en la barra de tareas',
+    'set.restart': 'Reiniciar',
     'set.notify': 'Notificar cambio de canción',
     'set.closeToTray': 'Cerrar a la bandeja',
     'set.startWithWindows': 'Iniciar con Windows',
@@ -85,6 +88,9 @@ const STRINGS = {
 
     // Settings (the tray checkboxes reuse these too)
     'set.theme': 'ByTune theme',
+    'set.simpleIcon': 'Simplified logo',
+    'set.restartHint': 'Restart ByTune to see the new logo in the taskbar',
+    'set.restart': 'Restart',
     'set.notify': 'Notify on song change',
     'set.closeToTray': 'Close to tray',
     'set.startWithWindows': 'Start with Windows',

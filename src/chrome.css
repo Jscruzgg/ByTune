@@ -170,6 +170,11 @@ ytmusic-nav-bar .md-gear:focus-visible { outline: 2px solid #fff; outline-offset
 .md-settings .md-set-cap { margin: 8px 10px 2px !important; color: #8a8a8a !important; font-size: 12px !important; font-weight: 500 !important; }
 .md-settings .md-dim { opacity: .4 !important; }
 
+/* Aviso tras cambiar el logo: texto y botón "Reiniciar". */
+.md-settings .md-set-note { display: flex !important; align-items: center !important; gap: 10px !important; margin: 4px 0 !important; padding: 6px 4px 6px 10px !important; border-radius: 8px !important; background: #262626 !important; }
+.md-settings .md-set-note-text { color: #c8c8c8 !important; font-size: 12px !important; line-height: 1.35 !important; }
+.md-settings .md-set-note .md-set-btn { flex: none !important; }
+
 /* Pie: versión a la izquierda y botón de actualizaciones a la derecha. */
 .md-settings .md-set-foot { display: flex !important; align-items: center !important; gap: 10px !important; padding: 2px 4px 2px 10px !important; }
 .md-settings .md-set-ver { color: #b0b0b0 !important; font-size: 12px !important; }

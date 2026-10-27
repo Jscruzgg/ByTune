@@ -47,6 +47,7 @@ const defaults = {
   lang: null, library: [], recent: [], suggested: [],
   panels: {}, // ancho elegido de la barra lateral y de la cola: { left?: px, right?: px }
   lyricsOpen: false, // panel de letras abierto en Now Playing
+  simpleIcon: false, // logo simplificado (fondo negro) en vez del rojo
   quickMenu: { accelerator: 'CommandOrControl+Shift+Space', reach: 'focused', fromOtherApps: 'float', shiftEnter: 'queue' },
 };
 let settings = { ...defaults };
@@ -56,16 +57,33 @@ settings.quickMenu = { ...defaults.quickMenu, ...settings.quickMenu };
 if (!Array.isArray(settings.library)) settings.library = [];
 if (!Array.isArray(settings.recent)) settings.recent = [];
 if (!Array.isArray(settings.suggested)) settings.suggested = [];
+// Logo con el que arrancó la app: Windows no cambia el de la barra de tareas hasta reiniciar.
+const startupSimpleIcon = settings.simpleIcon;
 function saveSettings() {
   try { fs.writeFileSync(settingsFile(), JSON.stringify(settings, null, 2)); } catch {}
 }
+
+// ID con el que Windows agrupa la app en la barra de tareas (el del instalador). Windows guarda el
+// icono de la barra de tareas por ID y no lo vuelve a leer, así que el logo simplificado usa un ID
+// propio: cada logo tiene su entrada y no se mezclan. Se decide al arrancar (cambia al reiniciar).
+const BASE_APP_ID = 'local.youtube-music-client';
+const APP_ID = startupSimpleIcon ? `${BASE_APP_ID}.simple` : BASE_APP_ID;
 
 // En Windows se usa el .ico (trae cada tamaño dibujado aparte); el .png queda de respaldo.
 const iconCandidates = process.platform === 'win32' ? ['icon.ico', 'icon.png'] : ['icon.png'];
 const iconPath = iconCandidates
   .map((f) => path.join(__dirname, '..', 'build', f))
   .find((f) => fs.existsSync(f));
-const icon = iconPath ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty();
+// Logo simplificado de los ajustes (fondo negro). En la instalada va fuera del .asar
+// (extraResources) para que los accesos directos de Windows puedan usarlo.
+function simpleIconPath() {
+  const f = app.isPackaged
+    ? path.join(process.resourcesPath, 'icon-simple.ico')
+    : path.join(__dirname, '..', 'build', process.platform === 'win32' ? 'icon-simple.ico' : 'icon-simple.png');
+  return fs.existsSync(f) ? f : null;
+}
+const currentIconPath = () => (settings.simpleIcon && simpleIconPath()) || iconPath;
+let icon = currentIconPath() ? nativeImage.createFromPath(currentIconPath()) : nativeImage.createEmpty();
 
 let win = null;
 let qmWin = null; // menú rápido (src/quickmenu), se crea la primera vez que se abre
@@ -184,15 +202,7 @@ function createWindow() {
   // Anclar a la barra de tareas: Windows ancla el programa que abrió la ventana. En la copia de
   // desarrollo ese programa es electron.exe (icono del átomo), así que se le indica a Windows
   // qué icono y qué comando usar al anclar. En la instalada apunta al propio .exe.
-  if (process.platform === 'win32') {
-    win.setAppDetails({
-      appId: 'local.youtube-music-client',
-      appIconPath: app.isPackaged ? process.execPath : iconPath,
-      appIconIndex: 0,
-      relaunchCommand: app.isPackaged ? `"${process.execPath}"` : `"${process.execPath}" "${app.getAppPath()}"`,
-      relaunchDisplayName: 'ByTune',
-    });
-  }
+  if (process.platform === 'win32') win.setAppDetails(appDetails(APP_ID));
   if (settings.maximized) win.maximize();
   win.once('ready-to-show', () => win.show());
   win.on('show', thumbarAfterShow);
@@ -316,9 +326,65 @@ function trackLabel() {
   return track.title ? `${track.title}${track.artist ? ' — ' + track.artist : ''}` : 'YouTube Music';
 }
 
+// --- Icono de la app (rojo o simplificado) ---
+// Icono de la barra de tareas y de los accesos directos, el del logo con que arrancó la app: el
+// propio .exe en la instalada (trae el rojo) o el archivo del simplificado.
+function taskbarIconPath() {
+  if (startupSimpleIcon && simpleIconPath()) return simpleIconPath();
+  return app.isPackaged ? process.execPath : iconPath;
+}
+// Datos de la ventana para la barra de tareas (Electron borra los que no se pasan).
+function appDetails(appId) {
+  return {
+    appId,
+    appIconPath: taskbarIconPath(),
+    appIconIndex: 0,
+    relaunchCommand: app.isPackaged ? `"${process.execPath}"` : `"${process.execPath}" "${app.getAppPath()}"`,
+    relaunchDisplayName: 'ByTune',
+  };
+}
+// Al cambiar el logo en los ajustes: la ventana, el menú rápido, la bandeja y las notificaciones
+// cambian al momento; la barra de tareas, al reiniciar (el aviso de los ajustes lo dice).
+function applyIcon() {
+  const file = currentIconPath();
+  icon = file ? nativeImage.createFromPath(file) : nativeImage.createEmpty();
+  for (const w of [win, qmWin]) if (w && !w.isDestroyed()) w.setIcon(icon);
+  if (tray) tray.setImage(icon);
+}
+// Accesos directos de Windows (menú Inicio, anclados a la barra de tareas, escritorio): al arrancar
+// se les pone el icono y el ID del logo de esta sesión, para que la barra de tareas los relacione
+// con la ventana. Solo se tocan los que abren este mismo programa, y solo si no están ya así. El
+// instalador los rehace al actualizar (con el rojo); por eso se repasan en cada arranque.
+function updateShortcuts() {
+  if (process.platform !== 'win32') return;
+  const want = taskbarIconPath();
+  const same = (a, b) => !!a && !!b && path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase();
+  const appData = app.getPath('appData');
+  const dirs = [
+    path.join(appData, 'Microsoft', 'Windows', 'Start Menu', 'Programs'),
+    path.join(appData, 'Microsoft', 'Internet Explorer', 'Quick Launch', 'User Pinned', 'TaskBar'),
+    app.getPath('desktop'),
+  ];
+  for (const dir of dirs) {
+    let names = [];
+    try { names = fs.readdirSync(dir).filter((n) => n.toLowerCase().endsWith('.lnk')); } catch { continue; }
+    for (const name of names) {
+      const file = path.join(dir, name);
+      let link;
+      try { link = shell.readShortcutLink(file); } catch { continue; }
+      if (!same(link.target, process.execPath)) continue;
+      // Sin icono propio el acceso directo usa el del .exe (el rojo, en la instalada).
+      const current = link.icon || link.target;
+      if (same(current, want) && (link.iconIndex || 0) === 0 && link.appUserModelId === APP_ID) continue;
+      try { shell.writeShortcutLink(file, 'update', { icon: want, iconIndex: 0, appUserModelId: APP_ID }); } catch {}
+    }
+  }
+}
+
 // Interruptores de los ajustes: los comparten la bandeja y el menú del engranaje.
 const SWITCHES = {
   theme: { get: () => settings.theme, set: (v) => { settings.theme = v; saveSettings(); applyTheme(); } },
+  simpleIcon: { get: () => settings.simpleIcon, set: (v) => { settings.simpleIcon = v; saveSettings(); applyIcon(); } },
   notifications: { get: () => settings.notifications, set: (v) => { settings.notifications = v; saveSettings(); } },
   closeToTray: { get: () => settings.closeToTray, set: (v) => { settings.closeToTray = v; saveSettings(); } },
   startWithWindows: {
@@ -336,7 +402,7 @@ function changeSwitch(key, value) {
 // Lo que ve el menú del engranaje (IPC 'settings:get' / 'settings:set' / 'settings:changed').
 function settingsView() {
   const view = Object.fromEntries(Object.entries(SWITCHES).map(([k, s]) => [k, s.get()]));
-  return { ...view, version: app.getVersion(), quickMenu: { ...settings.quickMenu }, display: { shortcut: displayAccelerator(settings.quickMenu.accelerator) } };
+  return { ...view, iconPending: settings.simpleIcon !== startupSimpleIcon, version: app.getVersion(), quickMenu: { ...settings.quickMenu }, display: { shortcut: displayAccelerator(settings.quickMenu.accelerator) } };
 }
 // Avisa a la página de un cambio hecho desde la bandeja (si el menú está abierto, se redibuja).
 function notifySettings() {
@@ -893,6 +959,13 @@ async function runUpdate() {
 }
 // Botón "Buscar actualizaciones" del pie de los ajustes: mismo flujo que al arrancar.
 ipcMain.handle('update:check', (e) => (fromMainPage(e) ? checkAndInstall() : null));
+// Botón "Reiniciar" del aviso del logo: cierra la app de verdad (no a la bandeja) y la vuelve a abrir.
+ipcMain.on('app:restart', (e) => {
+  if (!fromMainPage(e)) return;
+  app.relaunch();
+  quitting = true;
+  app.quit();
+});
 
 app.on('before-quit', () => { quitting = true; saveSettings(); });
 app.on('will-quit', () => globalShortcut.unregisterAll());
@@ -900,11 +973,12 @@ app.on('will-quit', () => globalShortcut.unregisterAll());
 app.whenReady().then(async () => {
   // Solo instalada: el instalador crea el acceso directo con este ID y su icono. Sin acceso
   // directo (copia de desarrollo) Windows mostraría el icono de electron.exe, el átomo.
-  if (app.isPackaged) app.setAppUserModelId('local.youtube-music-client');
+  if (app.isPackaged) app.setAppUserModelId(APP_ID);
   nativeTheme.themeSource = 'dark'; // menús, barras de scroll y diálogos oscuros
   if (await checkAndInstall() === 'installing') return;
   // Se registra aquí y no antes: abrir la app otra vez durante la descarga no debe abrir esta versión.
   app.on('second-instance', showWindow);
+  updateShortcuts(); // antes de la ventana: su botón de la barra de tareas ya sale con el logo elegido
   createWindow();
   if (process.argv.includes('--hidden')) win.once('ready-to-show', () => win.hide());
   createTray();

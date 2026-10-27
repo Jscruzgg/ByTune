@@ -22,7 +22,12 @@
       "src/**/*",
       "build/icon.png",
       "build/icon.ico",
+      "build/icon-simple.png",
+      "build/icon-simple.ico",
       "build/thumb-*.png"
+    ],
+    "extraResources": [
+      { "from": "build/icon-simple.ico", "to": "icon-simple.ico" }
     ],
     "win": {
       "icon": "build/icon.ico",

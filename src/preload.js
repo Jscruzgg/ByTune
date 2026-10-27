@@ -197,11 +197,21 @@ function renderSettings() {
     nodes.push(sub);
   }
   nodes.push(el('div', 'md-set-sep'));
-  for (const [key, label] of [['theme', 'set.theme'], ['notifications', 'set.notify'], ['closeToTray', 'set.closeToTray'], ['startWithWindows', 'set.startWithWindows']]) {
+  for (const [key, label] of [['theme', 'set.theme'], ['simpleIcon', 'set.simpleIcon'], ['notifications', 'set.notify'], ['closeToTray', 'set.closeToTray'], ['startWithWindows', 'set.startWithWindows']]) {
     const sw = row(key, txt(label), () => changeSettings({ [key]: !state[key] }), el('span', 'md-sw' + (state[key] ? ' on' : '')));
     sw.setAttribute('role', 'switch');
     sw.setAttribute('aria-checked', String(!!state[key]));
     nodes.push(sw);
+  }
+  // Cambiar el logo: la ventana y la bandeja cambian al momento, la barra de tareas al reiniciar.
+  if (state.iconPending) {
+    const note = el('div', 'md-set-note');
+    const restart = el('button', 'md-set-btn', txt('set.restart'));
+    restart.type = 'button';
+    restart.dataset.key = 'restart';
+    restart.addEventListener('click', () => ipcRenderer.send('app:restart'));
+    note.append(el('span', 'md-set-note-text', txt('set.restartHint')), restart);
+    nodes.push(note);
   }
   nodes.push(el('div', 'md-set-sep'));
   const foot = el('div', 'md-set-foot');
