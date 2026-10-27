@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Tray, Menu, Notification, globalShortcut, ipcMain, nativeImage, nativeTheme, net, screen, shell } = require('electron');
 const fs = require('node:fs');
+const { execFile } = require('node:child_process');
 const path = require('node:path');
 const { pickLang, t, STRINGS } = require('./lib/i18n');
 const { filterLibrary, pushRecent, recentItems, idFromUrl } = require('./lib/library');
@@ -863,6 +864,9 @@ function getUpdater() {
   updater.logger = { info: log('info'), warn: log('warn'), error: log('error'), debug: () => {} };
   updater.autoDownload = false;
   updater.autoInstallOnAppQuit = false;
+  // La versión nueva se instala en la carpeta de la que está abierta (el instalador recibe /D=):
+  // sin esto el instalador elige la carpeta por su cuenta y puede dejar una segunda copia.
+  updater.installDirectory = path.dirname(process.execPath);
   updater.on('error', (e) => updateLog('error', (e && e.message) || e));
   return updater;
 }
@@ -897,6 +901,20 @@ ipcMain.handle('update:check', (e) => (fromMainPage(e) ? checkAndInstall() : nul
 app.on('before-quit', () => { quitting = true; saveSettings(); });
 app.on('will-quit', () => globalShortcut.unregisterAll());
 
+// "Iniciar con Windows" guarda en el registro la ruta del .exe. Si la app cambió de carpeta
+// (reinstalación, o una actualización en otra carpeta), la entrada apunta a un .exe que ya no está y
+// la app no arranca con Windows. Al abrir, si la entrada existe y es de otra ruta, se vuelve a
+// registrar con el .exe actual. Electron solo informa de entradas con su misma ruta, así que se lee
+// el registro con reg.exe (sin ventana; si no hay entrada, el interruptor está apagado y no se toca).
+function refreshLoginItem() {
+  if (process.platform !== 'win32' || !app.isPackaged) return;
+  const key = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run';
+  execFile('reg', ['query', key, '/v', 'local.youtube-music-client'], { windowsHide: true }, (err, out) => {
+    if (err || !out || out.toLowerCase().includes(process.execPath.toLowerCase())) return;
+    app.setLoginItemSettings({ openAtLogin: true, args: ['--hidden'] });
+  });
+}
+
 app.whenReady().then(async () => {
   // Solo instalada: el instalador crea el acceso directo con este ID y su icono. Sin acceso
   // directo (copia de desarrollo) Windows mostraría el icono de electron.exe, el átomo.
@@ -908,6 +926,7 @@ app.whenReady().then(async () => {
   createWindow();
   if (process.argv.includes('--hidden')) win.once('ready-to-show', () => win.hide());
   createTray();
+  refreshLoginItem();
 
   // Atajos globales (las teclas multimedia del teclado ya funcionan solas vía Windows).
   registerPlayerShortcuts();
