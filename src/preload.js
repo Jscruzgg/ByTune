@@ -643,7 +643,9 @@ try { CSS.registerProperty({ name: '--md-guide-w', syntax: '<length-percentage>'
 const GUIDE_INSET = 8; // de x = 0 a la tarjeta (--md-gap): las filas empiezan ahí
 let guidePassthrough = false;
 let guideAnims = [];
+let guideWait = null; // lo que espera el cambio de YT del clic anterior (observador y plazo)
 function guideDone() {
+  if (guideWait) { guideWait(); guideWait = null; }
   document.documentElement.removeAttribute('data-md-guide-closing');
   document.querySelector('#guide-wrapper')?.removeAttribute('data-md-guide-moving');
   for (const a of guideAnims.splice(0)) a.cancel();
@@ -711,11 +713,15 @@ document.addEventListener('click', (e) => {
     btn.click();
     guidePassthrough = false;
   });
-  // Si YT no llega a cambiarlo, no se queda nada a medias.
-  setTimeout(() => {
+  // Si YT no llega a cambiarlo, no se queda nada a medias. Otro clic antes lo cancela (guideDone):
+  // si no, este plazo quitaba data-md-guide-closing a mitad del pliegue siguiente y la tarjeta se
+  // quedaba sin ancho (sin fondo) hasta el final.
+  const timer = setTimeout(() => {
+    guideWait = null;
     mo.disconnect();
     if (app.hasAttribute('guide-collapsed') === was) root.removeAttribute('data-md-guide-closing');
   }, 500);
+  guideWait = () => { mo.disconnect(); clearTimeout(timer); };
 }, true);
 
 // Espacio que ocupan los iconos de la derecha de la barra superior (transmitir, ajustes, avatar)
