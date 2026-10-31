@@ -14,11 +14,11 @@ ytmusic-nav-bar {
 ytmusic-nav-bar:focus-within {
   -webkit-app-region: no-drag;
 }
-/* Botón "atrás" (lo crea preload.js): flecha entre el menú (☰, 16–56 px) y el logo, como en
-   Spotify; el círculo solo aparece al pasar el ratón. El logo se corre para dejarle sitio (aquí y no
-   en el tema: sin tema también chocaban). */
-ytmusic-app ytmusic-nav-bar .left-content ytmusic-logo { margin-left: 40px !important; }
-ytmusic-nav-bar .md-back {
+/* Botones "atrás" y "adelante" (los crea preload.js): flechas entre el menú (☰, 16–56 px) y el
+   logo, como en Spotify; el círculo solo aparece al pasar el ratón. El logo se corre para dejarles
+   sitio (aquí y no en el tema: sin tema también chocaban). */
+ytmusic-app ytmusic-nav-bar .left-content ytmusic-logo { margin-left: 80px !important; }
+ytmusic-nav-bar :is(.md-back, .md-forward) {
   position: absolute;
   top: 50%;
   left: 64px;
@@ -40,7 +40,8 @@ ytmusic-nav-bar .md-back {
   -webkit-app-region: no-drag;
   transition: background-color .15s linear, opacity .15s linear;
 }
-ytmusic-nav-bar .md-back::before {
+ytmusic-nav-bar .md-forward { left: 104px; }
+ytmusic-nav-bar :is(.md-back, .md-forward)::before {
   content: "";
   width: 22px;
   height: 22px;
@@ -49,14 +50,18 @@ ytmusic-nav-bar .md-back::before {
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'%3E%3Cpath d='M560-240 320-480l240-240 56 56-184 184 184 184-56 56Z'/%3E%3C/svg%3E") center / contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'%3E%3Cpath d='M560-240 320-480l240-240 56 56-184 184 184 184-56 56Z'/%3E%3C/svg%3E") center / contain no-repeat;
 }
-ytmusic-nav-bar .md-back:hover:not(:disabled) { background: rgba(255,255,255,.14); }
-ytmusic-nav-bar .md-back:disabled { opacity: .35; cursor: default; }
-ytmusic-nav-bar .md-back:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+/* La misma flecha, girada: hacia la derecha. */
+ytmusic-nav-bar .md-forward::before { scale: -1 1; }
+ytmusic-nav-bar :is(.md-back, .md-forward):hover:not(:disabled) { background: rgba(255,255,255,.14); }
+ytmusic-nav-bar :is(.md-back, .md-forward):disabled { opacity: .35; cursor: default; }
+ytmusic-nav-bar :is(.md-back, .md-forward):focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 /* Diseño móvil de YT (≤ 615 px): no cabía todo y el buscador cortaba el logo. Logo solo con su
-   icono y sin el botón de transmitir (poco útil en el escritorio). */
+   icono, sin el botón de transmitir (poco útil en el escritorio) ni el de adelante. */
 @media (max-width: 615px) {
   ytmusic-nav-bar ytmusic-logo { width: 26px !important; overflow: hidden !important; }
-  ytmusic-nav-bar #right-content ytmusic-cast-button { display: none !important; }
+  ytmusic-app ytmusic-nav-bar .left-content ytmusic-logo { margin-left: 40px !important; }
+  ytmusic-nav-bar #right-content ytmusic-cast-button,
+  ytmusic-nav-bar .md-forward { display: none !important; }
 }
 
 /* Botón "volver a YouTube Music" (lo crea preload.js solo fuera de music.youtube.com, p. ej. en

@@ -139,11 +139,12 @@ ytmusic-player-page[data-md-video] .md-av-btn .md-av-video,
 ytmusic-player-page:not([data-md-video]) .md-av-btn .md-av-song { display: none !important; }
 ytmusic-player-page #main-panel > .md-np-btn:hover:not(:disabled) { background: rgba(255,255,255,.1) !important; }
 ytmusic-player-page #main-panel > .md-np-btn:focus-visible { outline: 2px solid #fff !important; outline-offset: 2px !important; }
+/* Activos: el acento de la carátula (theme.css / preload.js: --m3-primary); sin tema, blancos. */
 ytmusic-player-page #main-panel > .md-lyrics-btn[aria-pressed="true"],
 html[data-md-fullscreen] ytmusic-player-page #main-panel > .md-fs-btn {
-  border-color: #fff !important;
-  background: #fff !important;
-  color: #000 !important;
+  border-color: var(--m3-primary, #fff) !important;
+  background: var(--m3-primary, #fff) !important;
+  color: var(--m3-on-primary, #000) !important;
 }
 
 /* ---------- Disposición con la letra abierta ----------
@@ -338,12 +339,14 @@ ytmusic-player-page[is-mweb-modernization-enabled] #player-controls { top: calc(
 ytmusic-player-page[is-mweb-modernization-enabled] > .content { height: 100% !important; box-sizing: border-box !important; }ytmusic-player-page[is-mweb-modernization-enabled] :is(#md-np-info, #md-lyrics, #main-panel > .md-np-btn) { display: none !important; }
 ytmusic-player-page[is-mweb-modernization-enabled][data-md-lyrics] #main-panel > #player { translate: none; scale: none; }
 
-/* Entre 616 y 939 px YT apila la carátula y la cola, y el panel de la carátula medía más que la
-   ventana: los botones de la esquina (letra, pantalla completa) quedaban bajo la barra de
-   reproducción. Termina sobre ella (bajo la barra superior, 64 px, y su margen de 16). */
+/* Entre 616 y 939 px YT apila la carátula y la cola (se llega a la cola desplazando Now Playing),
+   y el panel de la carátula medía más que la ventana: los botones de la esquina (letra, pantalla
+   completa) quedaban bajo la barra de reproducción. Termina sobre ella (bajo la barra superior,
+   64 px, y su margen de 16) dejando ver abajo las pestañas de la cola (A continuación…, ~104 px
+   con su margen): así se nota que la cola está ahí debajo. */
 @media (max-width: 939px) {
   ytmusic-player-page:not([is-mweb-modernization-enabled]) #main-panel {
-    max-height: calc(var(--md-vh, 100vh) - var(--ytmusic-nav-bar-height, 64px) - var(--ytmusic-player-bar-height, 72px) - 32px) !important;
+    max-height: calc(var(--md-vh, 100vh) - var(--ytmusic-nav-bar-height, 64px) - var(--ytmusic-player-bar-height, 72px) - 32px - 104px) !important;
   }
 }
 

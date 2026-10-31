@@ -51,42 +51,52 @@ function arrangeBar(bar) {
 
 // Textos que manda main.js (IPC 'strings'); el preload en sandbox no puede cargar src/lib/i18n.js.
 let strings = {};
-function labelBack(btn) {
-  const text = strings['nav.back'];
+function labelNav(btn, key) {
+  const text = strings[key];
   if (!text) return;
   if (btn.title !== text) btn.title = text;
   if (btn.getAttribute('aria-label') !== text) btn.setAttribute('aria-label', text);
 }
 ipcRenderer.on('strings', (_e, msg) => {
   strings = (msg && msg.strings) || {};
-  const btn = document.querySelector('ytmusic-nav-bar > .md-back');
-  if (btn) labelBack(btn);
+  for (const [cls, key] of NAV_BUTTONS) {
+    const btn = document.querySelector(`ytmusic-nav-bar > .${cls}`);
+    if (btn) labelNav(btn, key);
+  }
   const home = document.querySelector('body > .md-home');
   if (home) labelHome(home);
   if (gear) labelGear();
   if (panel) renderSettings();
 });
 const txt = (key) => strings[key] || key;
-// Botón "atrás" en la barra superior (YT Music no trae uno). YT navega con el historial del
-// navegador, así que basta con history.back(); se desactiva cuando no hay a dónde volver.
-function updateBack(btn) {
-  const can = window.navigation ? window.navigation.canGoBack : history.length > 1;
-  if (btn.disabled === can) btn.disabled = !can;
+// Botones "atrás" y "adelante" en la barra superior (YT Music no los trae; como en Spotify). YT
+// navega con el historial del navegador, así que basta con history.back()/forward(); cada uno se
+// desactiva cuando no hay a dónde ir.
+const NAV_BUTTONS = [['md-back', 'nav.back'], ['md-forward', 'nav.forward']];
+function updateNav(nav) {
+  const n = window.navigation;
+  const can = { 'md-back': n ? n.canGoBack : history.length > 1, 'md-forward': n ? n.canGoForward : false };
+  for (const [cls] of NAV_BUTTONS) {
+    const btn = nav.querySelector(`:scope > .${cls}`);
+    if (btn && btn.disabled === can[cls]) btn.disabled = !can[cls];
+  }
 }
 function ensureBackButton() {
   const nav = document.querySelector('ytmusic-nav-bar');
   if (!nav) return;
-  let btn = nav.querySelector(':scope > .md-back');
-  if (!btn) {
-    btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'md-back';
-    btn.addEventListener('click', () => history.back());
-    nav.appendChild(btn);
-    if (window.navigation) window.navigation.addEventListener('currententrychange', () => updateBack(btn));
+  for (const [cls, key] of NAV_BUTTONS) {
+    let btn = nav.querySelector(`:scope > .${cls}`);
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = cls;
+      btn.addEventListener('click', () => (cls === 'md-back' ? history.back() : history.forward()));
+      nav.appendChild(btn);
+      if (cls === 'md-back' && window.navigation) window.navigation.addEventListener('currententrychange', () => updateNav(nav));
+    }
+    labelNav(btn, key);
   }
-  labelBack(btn);
-  updateBack(btn);
+  updateNav(nav);
 }
 
 // Botón "volver a YouTube Music" en las páginas de Google (inicio de sesión, consentimiento):
@@ -686,7 +696,43 @@ function read() {
   if (art !== lastArt) {
     lastArt = art;
     document.documentElement.style.setProperty('--md-art', art);
+    applyPalette(art === 'none' ? null : img.src);
   }
+}
+
+// Acento desde la carátula (lib/palette.js, en este mundo por main.js), solo para lo resaltado: se
+// escribe en <html> una vez por canción (un recálculo de estilos, ~15 ms). Cada elemento funde su
+// propio color (theme.css); la variable no se anima, que recalcularía toda la página en cada
+// fotograma.
+const PALETTE_VARS = ['--md-accent-rgb', '--m3-primary', '--m3-on-primary', '--md-selected'];
+let paletteFor = '';
+function setPalette(vars) {
+  const s = document.documentElement.style;
+  for (const k of PALETTE_VARS) {
+    if (vars && vars[k]) s.setProperty(k, vars[k]);
+    else s.removeProperty(k);
+  }
+  document.documentElement.toggleAttribute('data-md-accent', !!vars);
+}
+function applyPalette(src) {
+  paletteFor = src || '';
+  if (!src) return setPalette(null);
+  // Al abrir, la primera carátula puede llegar antes que palette.js (main.js lo inyecta al cargar).
+  if (!globalThis.mdPalette) return void setTimeout(() => { if (paletteFor === src) applyPalette(src); }, 1000);
+  const im = new Image();
+  im.crossOrigin = 'anonymous'; // el servidor de carátulas lo permite: así el canvas se puede leer
+  im.onload = () => {
+    if (paletteFor !== src) return; // otra canción mientras cargaba
+    try {
+      const c = document.createElement('canvas');
+      c.width = c.height = 32;
+      const ctx = c.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(im, 0, 0, 32, 32);
+      setPalette(globalThis.mdPalette.fromPixels(ctx.getImageData(0, 0, 32, 32).data));
+    } catch { setPalette(null); }
+  };
+  im.onerror = () => { if (paletteFor === src) setPalette(null); };
+  im.src = src;
 }
 
 window.addEventListener('DOMContentLoaded', () => {
