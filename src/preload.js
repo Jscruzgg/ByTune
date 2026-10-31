@@ -696,43 +696,7 @@ function read() {
   if (art !== lastArt) {
     lastArt = art;
     document.documentElement.style.setProperty('--md-art', art);
-    applyPalette(art === 'none' ? null : img.src);
   }
-}
-
-// Acento desde la carátula (lib/palette.js, en este mundo por main.js), solo para lo resaltado: se
-// escribe en <html> una vez por canción (un recálculo de estilos, ~15 ms). Cada elemento funde su
-// propio color (theme.css); la variable no se anima, que recalcularía toda la página en cada
-// fotograma.
-const PALETTE_VARS = ['--md-accent-rgb', '--m3-primary', '--m3-on-primary', '--md-selected'];
-let paletteFor = '';
-function setPalette(vars) {
-  const s = document.documentElement.style;
-  for (const k of PALETTE_VARS) {
-    if (vars && vars[k]) s.setProperty(k, vars[k]);
-    else s.removeProperty(k);
-  }
-  document.documentElement.toggleAttribute('data-md-accent', !!vars);
-}
-function applyPalette(src) {
-  paletteFor = src || '';
-  if (!src) return setPalette(null);
-  // Al abrir, la primera carátula puede llegar antes que palette.js (main.js lo inyecta al cargar).
-  if (!globalThis.mdPalette) return void setTimeout(() => { if (paletteFor === src) applyPalette(src); }, 1000);
-  const im = new Image();
-  im.crossOrigin = 'anonymous'; // el servidor de carátulas lo permite: así el canvas se puede leer
-  im.onload = () => {
-    if (paletteFor !== src) return; // otra canción mientras cargaba
-    try {
-      const c = document.createElement('canvas');
-      c.width = c.height = 32;
-      const ctx = c.getContext('2d', { willReadFrequently: true });
-      ctx.drawImage(im, 0, 0, 32, 32);
-      setPalette(globalThis.mdPalette.fromPixels(ctx.getImageData(0, 0, 32, 32).data));
-    } catch { setPalette(null); }
-  };
-  im.onerror = () => { if (paletteFor === src) setPalette(null); };
-  im.src = src;
 }
 
 window.addEventListener('DOMContentLoaded', () => {

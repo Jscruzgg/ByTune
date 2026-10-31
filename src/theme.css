@@ -18,13 +18,11 @@
      backdrop-filter (regla de rendimiento). */
   --md-card: rgba(40,40,40,.55);
   --md-card-border: rgba(255,255,255,.08);
-  /* Botones y filas resaltadas dentro de las tarjetas: el fondo que tienen detrás, oscurecido (un
-     gris fijo se perdía sobre carátulas claras o de color). El borde fino los separa cuando el
-     fondo ya es casi negro. */
-  --md-shade-hover: rgba(0,0,0,.18);
-  --md-shade: rgba(0,0,0,.28);
-  --md-shade-press: rgba(0,0,0,.38);
-  --md-shade-edge: inset 0 0 0 1px rgba(255,255,255,.07);
+  /* Botones y filas resaltadas dentro de las tarjetas: el fondo que tienen detrás, aclarado (un
+     gris fijo se perdía sobre carátulas de color; oscurecido, quedaba sin contraste). */
+  --md-lift-hover: rgba(255,255,255,.08);
+  --md-lift: rgba(255,255,255,.14);
+  --md-lift-press: rgba(255,255,255,.2);
   /* Las fuentes originales de YT Music (Roboto y YouTube Sans): sus cajas de texto de alto fijo
      están medidas para ellas; con otras fuentes más altas las letras se cortan. */
   --md-font: Roboto, Arial, sans-serif;
@@ -84,11 +82,10 @@ ytmusic-guide-entry-renderer tp-yt-paper-item {
   transition: background-color .12s linear !important;
 }
 ytmusic-guide-entry-renderer[active] tp-yt-paper-item {
-  background: var(--md-shade) !important;
-  box-shadow: var(--md-shade-edge) !important;
+  background: var(--md-lift) !important;
 }
 ytmusic-guide-entry-renderer:not([active]) tp-yt-paper-item:hover {
-  background: var(--md-shade-hover) !important;
+  background: var(--md-lift-hover) !important;
 }
 ytmusic-guide-entry-renderer[active] .guide-icon { color: var(--md-text) !important; }
 ytmusic-guide-entry-renderer:not([active]) .guide-icon,
@@ -345,21 +342,20 @@ ytmusic-guide-entry-renderer[data-md-id] .title-column {
 #mini-guide ytmusic-guide-entry-renderer[data-md-id] #play-button { display: none !important; }
 
 /* Botón "Nueva lista" */
-/* "Nueva lista": el fondo oscurecido (--md-shade) en vez de un gris fijo. */
+/* "Nueva lista": el fondo aclarado (--md-lift) en vez de un gris fijo. */
 ytmusic-guide-section-renderer yt-button-renderer button,
 ytmusic-guide-renderer #buttons button {
-  background: var(--md-shade) !important;
-  box-shadow: var(--md-shade-edge) !important;
+  background: var(--md-lift) !important;
   transition: background-color .15s linear !important;
 }
 /* El fondo forzado anulaba el hover de YT: se recupera aquí */
 ytmusic-guide-section-renderer yt-button-renderer button:hover,
 ytmusic-guide-renderer #buttons button:hover {
-  background: var(--md-shade-press) !important;
+  background: var(--md-lift-press) !important;
 }
 ytmusic-guide-section-renderer yt-button-renderer button:active,
 ytmusic-guide-renderer #buttons button:active {
-  background: rgba(0,0,0,.46) !important;
+  background: rgba(255,255,255,.26) !important;
 }
 
 /* ---------- Buscador ---------- */
@@ -907,7 +903,7 @@ ytmusic-player-bar #progress-bar #progressContainer {
   border-radius: 2px !important;
   overflow: hidden !important;
 }
-ytmusic-player-bar #progress-bar #primaryProgress { background: var(--m3-primary) !important; transition: background-color .5s linear; }
+ytmusic-player-bar #progress-bar #primaryProgress { background: var(--m3-primary) !important; }
 /* Asa de M3: barra vertical de 4×16 px con un "hueco" del color de la barra alrededor
    (box-shadow: sin capas extra). Siempre visible, como en M3. */
 /* El contenedor del asa trae 34 px de alto (la fila original); con la fila de 24 px el asa
@@ -950,7 +946,7 @@ ytmusic-player-bar #progress-bar[dragging] .slider-knob-inner {
   background: var(--m3-primary) !important;
   border-radius: 50% !important;
   color: var(--m3-on-primary) !important;
-  transition: box-shadow .15s linear, background-color .5s linear, color .5s linear !important;
+  transition: box-shadow .15s linear !important;
 }
 
 /* Me gusta / No me gusta como en la app móvil: una sola píldora tonal con una línea divisoria
@@ -1284,14 +1280,13 @@ ytmusic-player-page #side-panel ytmusic-chip-cloud-chip-renderer a,
 ytmusic-player-page #side-panel ytmusic-chip-cloud-chip-renderer a * {
   font-size: 13px !important;
 }
-/* Píldoras de la cola (Guardar, Música conocida…): el fondo oscurecido, como los botones de la
+/* Píldoras de la cola (Guardar, Música conocida…): el fondo aclarado, como los botones de la
    barra lateral; la seleccionada sigue blanca. */
 ytmusic-player-page #side-panel ytmusic-chip-cloud-chip-renderer:not([is-selected]) a {
-  background: var(--md-shade) !important;
-  box-shadow: var(--md-shade-edge) !important;
+  background: var(--md-lift) !important;
 }
 ytmusic-player-page #side-panel ytmusic-chip-cloud-chip-renderer:not([is-selected]) a:hover {
-  background: var(--md-shade-press) !important;
+  background: var(--md-lift-press) !important;
 }
 
 /* Fila de reproducción automática: elemento de lista con interruptor al final.
@@ -1414,12 +1409,12 @@ ytmusic-player-page ytmusic-player-queue-item .duration {
   color: var(--m3-on-surface-variant) !important;
   font-variant-numeric: tabular-nums;
 }
-ytmusic-player-page ytmusic-player-queue-item:hover { background: var(--md-shade-hover) !important; }
-ytmusic-player-page ytmusic-player-queue-item:active { background: var(--md-shade) !important; }
-/* La que suena: un velo del acento de la carátula (--md-selected, preload.js); sin acento, gris
-   discreto sobre el negro de la cola (el #474747 de M3 resaltaba demasiado). */
+ytmusic-player-page ytmusic-player-queue-item:hover { background: var(--md-lift-hover) !important; }
+ytmusic-player-page ytmusic-player-queue-item:active { background: var(--md-lift) !important; }
+/* La que suena: el fondo aclarado, como "Inicio" o "Nueva lista" (un gris fijo se perdía sobre
+   carátulas de color). */
 ytmusic-player-page ytmusic-player-queue-item[selected] {
-  background: var(--md-selected, #262626) !important;
+  background: var(--md-lift) !important;
 }
 ytmusic-player-page ytmusic-player-queue-item[selected] .song-title {
   color: var(--m3-on-secondary-container) !important;

@@ -139,12 +139,11 @@ ytmusic-player-page[data-md-video] .md-av-btn .md-av-video,
 ytmusic-player-page:not([data-md-video]) .md-av-btn .md-av-song { display: none !important; }
 ytmusic-player-page #main-panel > .md-np-btn:hover:not(:disabled) { background: rgba(255,255,255,.1) !important; }
 ytmusic-player-page #main-panel > .md-np-btn:focus-visible { outline: 2px solid #fff !important; outline-offset: 2px !important; }
-/* Activos: el acento de la carátula (theme.css / preload.js: --m3-primary); sin tema, blancos. */
 ytmusic-player-page #main-panel > .md-lyrics-btn[aria-pressed="true"],
 html[data-md-fullscreen] ytmusic-player-page #main-panel > .md-fs-btn {
-  border-color: var(--m3-primary, #fff) !important;
-  background: var(--m3-primary, #fff) !important;
-  color: var(--m3-on-primary, #000) !important;
+  border-color: #fff !important;
+  background: #fff !important;
+  color: #000 !important;
 }
 
 /* ---------- Disposición con la letra abierta ----------

@@ -132,17 +132,11 @@ function initLyrics() {
 // movimientos grandes (plegar la barra lateral). Crea globalThis.Motion en el mundo aislado del
 // preload (999): el preload va en sandbox y no carga paquetes npm, y YT no lo ve. Si falta, el
 // preload anima como antes.
-// En el mismo mundo, lib/palette.js (globalThis.mdPalette): el preload saca de la carátula los
-// colores de acento del tema.
 let motionJs = null;
-let paletteJs = null;
 function injectMotion() {
   if (!win || !onYouTubeMusic()) return;
-  try {
-    motionJs ??= fs.readFileSync(path.join(__dirname, 'vendor', 'motion.js'), 'utf8');
-    paletteJs ??= fs.readFileSync(path.join(__dirname, 'lib', 'palette.js'), 'utf8') + '\nglobalThis.mdPalette = mdPalette;';
-  } catch { return; }
-  win.webContents.executeJavaScriptInIsolatedWorld(999, [{ code: motionJs + '\n;true' }, { code: paletteJs + '\n;true' }]).catch(() => {});
+  try { motionJs ??= fs.readFileSync(path.join(__dirname, 'vendor', 'motion.js'), 'utf8'); } catch { return; }
+  win.webContents.executeJavaScriptInIsolatedWorld(999, [{ code: motionJs + '\n;true' }]).catch(() => {});
 }
 // Pantalla completa de Now Playing: la pide la página (botón de la esquina) y se le avisa al
 // entrar o salir, también si sale con Esc (before-input-event).
