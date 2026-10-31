@@ -395,9 +395,11 @@ document.addEventListener('md-lyrics', () => {
   else if (msg.type === 'fullscreen' && typeof msg.on === 'boolean') ipcRenderer.send('np:fullscreen', msg.on);
 });
 
-// Ancho de los paneles laterales, ajustable arrastrando su borde (como Spotify). Solo cambia una
-// variable CSS en <html> (--md-left-w / --md-right-w), como mucho una vez por fotograma;
-// theme.css hace el resto. main.js guarda los anchos (IPC 'panels') y los manda al cargar.
+// Ancho de los paneles laterales, ajustable arrastrando su borde (como Spotify). Al soltar cambia
+// una variable CSS en <html> (--md-left-w / --md-right-w) y theme.css hace el resto. Mientras se
+// arrastra solo se mueve una tarjeta fantasma y se recorta el panel: esa variable la heredan los
+// ~13 000 elementos de la página y cambiarla en cada fotograma daba 11 fps en Now Playing.
+// main.js guarda los anchos (IPC 'panels') y los manda al cargar.
 // Doble clic en el borde vuelve al ancho por defecto; con el foco en él, ← y → lo ajustan.
 const PANELS = {
   left: { min: 240, max: 420, cssVar: '--md-left-w', label: 'Ajustar ancho de la barra lateral' },
@@ -433,17 +435,63 @@ function makeResizer(side) {
   h.setAttribute('aria-label', PANELS[side].label);
   let pending = null;
   let frame = 0;
+  // Vista previa: tarjeta fantasma (mismo sitio y forma que la de verdad, de theme.css) y el panel
+  // recortado al borde nuevo. Solo cambian el ancho del fantasma y el recorte del panel: estilo de
+  // dos elementos por fotograma.
+  let pv = null;
+  function startPreview() {
+    const el = side === 'left' ? document.querySelector('#guide-wrapper') : document.querySelector('ytmusic-player-page #side-panel');
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const c = getComputedStyle(el, '::before');
+    const top = parseFloat(c.top);
+    const height = side === 'left' ? parseFloat(c.height) : r.height - top - parseFloat(c.bottom);
+    const gap = parseFloat(side === 'left' ? c.left : c.right) || 0;
+    const ghost = document.createElement('div');
+    ghost.className = 'md-resize-ghost';
+    Object.assign(ghost.style, { top: `${top}px`, height: `${height}px`, [side]: `${gap}px`, width: `${r.width - gap}px` });
+    const cover = document.createElement('div');
+    cover.className = 'md-resize-cover';
+    // La cola vive dentro de Now Playing (capa propia, z 2): un fantasma en <body> quedaba encima
+    // de sus filas. Ahí va justo antes de ella y una capa por debajo (la cola es z 3).
+    if (side === 'right') { ghost.style.zIndex = '2'; el.parentElement.insertBefore(ghost, el); }
+    else document.body.append(ghost);
+    document.body.append(cover);
+    document.documentElement.setAttribute('data-md-resizing', side);
+    pv = { el, ghost, cover, gap, width: r.width };
+  }
+  function preview(w) {
+    pv.ghost.style.width = `${w - pv.gap}px`;
+    const cut = Math.max(0, pv.width - w);
+    pv.el.style.clipPath = cut ? (side === 'left' ? `inset(0 ${cut}px 0 0)` : `inset(0 0 0 ${cut}px)`) : '';
+  }
+  function endPreview() {
+    if (!pv) return;
+    pv.ghost.remove();
+    pv.cover.remove();
+    pv.el.style.clipPath = '';
+    document.documentElement.removeAttribute('data-md-resizing');
+    pv = null;
+  }
   const onMove = (e) => {
     pending = side === 'left' ? e.clientX : window.innerWidth - e.clientX;
-    if (!frame) frame = requestAnimationFrame(() => { frame = 0; if (pending !== null) setPanel(side, pending); });
+    if (!frame) frame = requestAnimationFrame(() => {
+      frame = 0;
+      if (pending === null) return;
+      if (pv) preview(clampPanel(side, pending));
+      else setPanel(side, pending);
+    });
   };
   const onUp = (e) => {
     h.releasePointerCapture(e.pointerId);
     h.removeEventListener('pointermove', onMove);
     h.removeEventListener('pointerup', onUp);
     h.classList.remove('dragging');
-    document.documentElement.classList.remove('md-resizing');
+    cancelAnimationFrame(frame);
+    frame = 0;
+    // El ancho de verdad y el fin de la vista previa en la misma tarea: un solo fotograma, sin salto.
     if (pending !== null) { setPanel(side, pending); savePanels(); }
+    endPreview();
   };
   h.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
@@ -451,7 +499,7 @@ function makeResizer(side) {
     pending = null;
     h.setPointerCapture(e.pointerId);
     h.classList.add('dragging');
-    document.documentElement.classList.add('md-resizing');
+    startPreview();
     h.addEventListener('pointermove', onMove);
     h.addEventListener('pointerup', onUp);
   });
@@ -645,6 +693,68 @@ function reportOpened() {
   ipcRenderer.send('opened', location.href);
 }
 
+// Cola: al pasar de canción, la actual se desliza hasta arriba y las anteriores quedan ocultas
+// encima. "Lock" hacia arriba: si al soltar el scroll la lista queda poco por encima de la actual
+// (menos de QUEUE_LOCK px), vuelve sola a ella; más arriba se queda (se ven las anteriores) y al
+// volver bajando se imanta en el mismo sitio. Hacia abajo no hace nada. scroll-snap nativo no
+// sirve: imanta en los dos sentidos y no dejaba bajar un poco para ver las siguientes.
+const QUEUE_LOCK = 160;
+const QUEUE_GAP = 8; // aire sobre la canción actual
+let queueScroller = null;
+let queuePending = true; // alinear en cuanto se vea la cola (cambió la canción con Now Playing cerrado)
+function queueAnchor(sc) {
+  // La visible: YT marca también la versión oculta (canción/vídeo) de la misma entrada, de alto 0.
+  const sel = [...sc.querySelectorAll('ytmusic-player-queue-item[selected]')].find((e) => e.offsetHeight);
+  if (!sel) return null;
+  // Debajo de los filtros, que quedan fijos arriba (theme.css).
+  const chips = sc.querySelector('ytmusic-player-queue > #steering-chips');
+  const top = chips ? chips.offsetHeight : 0;
+  return Math.max(0, Math.round(sel.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - top - QUEUE_GAP));
+}
+function alignQueue() {
+  const sc = queueScroller;
+  if (!sc || !document.documentElement.hasAttribute('data-md-np-open') || !sc.offsetHeight) return;
+  const a = queueAnchor(sc);
+  if (a === null) return;
+  queuePending = false;
+  if (Math.abs(sc.scrollTop - a) > 1) sc.scrollTo({ top: a, behavior: 'smooth' });
+}
+let npObserver = null;
+function watchQueue() {
+  // Al abrir Now Playing (lyrics-view.js marca data-md-np-open), si cambió la canción mientras
+  // estaba cerrado. Aquí y no al cargar el preload: entonces <html> aún no existe.
+  if (!npObserver) {
+    npObserver = new MutationObserver(() => { if (queuePending) setTimeout(alignQueue, 150); });
+    npObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-md-np-open'] });
+  }
+  const sc = document.querySelector('ytmusic-player-page #side-panel #tab-renderer');
+  if (!sc || sc === queueScroller) return;
+  queueScroller = sc;
+  // scrollend llega también entre golpes de rueda seguidos: el lock espera 250 ms sin scroll (que
+  // de verdad se haya soltado); si no, devolvía la lista tras el primer golpe y no dejaba subir.
+  let lastScroll = 0;
+  let lockTimer = 0;
+  sc.addEventListener('scroll', () => { lastScroll = performance.now(); }, { passive: true });
+  sc.addEventListener('scrollend', () => {
+    clearTimeout(lockTimer);
+    lockTimer = setTimeout(() => {
+      if (performance.now() - lastScroll < 240) return;
+      // Con la actual cerca del principio de la lista, subir del todo para ver las anteriores la
+      // devolvía siempre: en el tope no actúa, y el lock nunca pasa de la mitad de lo que hay encima.
+      const a = queueAnchor(sc);
+      if (a !== null && sc.scrollTop > 0 && sc.scrollTop < a && a - sc.scrollTop < Math.min(QUEUE_LOCK, a / 2)) sc.scrollTo({ top: a, behavior: 'smooth' });
+    }, 250);
+  }, { passive: true });
+  // Canción nueva: YT mueve el atributo selected; se alinea cuando YT termina de colocar la suya.
+  new MutationObserver((ms) => {
+    if (!ms.some((m) => m.target.hasAttribute && m.target.hasAttribute('selected'))) return;
+    queuePending = true;
+    setTimeout(alignQueue, 150);
+  }).observe(sc, { attributes: true, attributeFilter: ['selected'], subtree: true });
+  queuePending = true;
+  alignQueue();
+}
+
 function read() {
   reportLang();
   reportOpened();
@@ -655,6 +765,7 @@ function read() {
   applyCovers();
   updateResizers();
   watchNavRight();
+  watchQueue();
   const bar = document.querySelector(MAIN_BAR);
   if (!bar) return;
   arrangeBar(bar);

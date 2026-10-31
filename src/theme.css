@@ -263,11 +263,31 @@ html[data-md-queue-open] .md-resize-right {
   display: block;
   right: calc(var(--md-right-w, clamp(340px, 28vw, 440px)) - 4px);
 }
-/* Mientras se arrastra: el cursor no cambia al pasar por encima de otras cosas ni se selecciona texto */
-html.md-resizing, html.md-resizing * {
-  cursor: col-resize !important;
-  user-select: none !important;
+/* Mientras se arrastra (preload.js): una tarjeta fantasma sigue al puntero, la de verdad se
+   esconde y su contenido se recorta al borde nuevo; el ancho se aplica al soltar. Cambiarlo en cada
+   fotograma recalculaba los ~13 000 elementos: 11 fps en Now Playing. La capa .md-resize-cover
+   pone el cursor en toda la ventana y evita seleccionar texto sin tocar el estilo de la página
+   (antes html.md-resizing * recalculaba todo al empezar y al acabar). */
+.md-resize-ghost {
+  position: fixed;
+  z-index: 3; /* bajo las filas del panel (4), sobre el contenido */
+  pointer-events: none;
+  box-sizing: border-box;
+  /* !important: el reset de YT (div { background: transparent… }) es de la página y gana a una
+     hoja de usuario sin él. */
+  border-radius: var(--md-radius) !important;
+  background: var(--md-card) !important;
+  border: 1px solid var(--md-card-border) !important;
 }
+.md-resize-cover {
+  position: fixed;
+  inset: 0;
+  z-index: 7;
+  cursor: col-resize;
+  user-select: none;
+}
+html[data-md-resizing="left"] #guide-wrapper::before,
+html[data-md-resizing="right"] ytmusic-player-page #side-panel::before { visibility: hidden; }
 
 /* Portadas de las playlists en la barra lateral (como Spotify). Las añade preload.js. */
 ytmusic-guide-entry-renderer[data-md-id] tp-yt-paper-item {
@@ -1279,6 +1299,15 @@ ytmusic-player-page #side-panel ytmusic-chip-cloud-chip-renderer a {
 ytmusic-player-page #side-panel ytmusic-chip-cloud-chip-renderer a,
 ytmusic-player-page #side-panel ytmusic-chip-cloud-chip-renderer a * {
   font-size: 13px !important;
+}
+/* Filtros de la cola (Todo, Música conocida…): fijos arriba al desplazarla, así van con la canción
+   actual (preload.js la deja justo debajo). Fondo casi opaco: sin backdrop-filter, las canciones
+   que pasan por debajo se verían. */
+ytmusic-player-page #side-panel ytmusic-player-queue > #steering-chips {
+  position: sticky !important;
+  top: 0;
+  z-index: 2;
+  background: rgba(30,30,30,.94) !important;
 }
 /* Píldoras de la cola (Guardar, Música conocida…): el fondo aclarado, como los botones de la
    barra lateral; la seleccionada sigue blanca. */

@@ -118,7 +118,9 @@ ytmusic-player-page #main-panel > .md-np-btn {
   background: transparent !important;
   color: #fff !important;
   cursor: pointer !important;
-  transition: opacity .3s ease, visibility 0s linear .3s, translate var(--md-dur) var(--md-ease), background-color .15s linear, border-color .15s linear, color .15s linear !important;
+  /* Sin fundido de colores: al activarse, el fondo y el icono cambiaban a la vez y a mitad de
+     camino quedaban los dos oscuros. El cambio es inmediato: siempre opuestos. */
+  transition: opacity .3s ease, visibility 0s linear .3s, translate var(--md-dur) var(--md-ease) !important;
 }
 ytmusic-player-page #main-panel > .md-lyrics-btn {
   right: 80px !important; /* 24 + 44 + 12 de hueco con el de pantalla completa */
