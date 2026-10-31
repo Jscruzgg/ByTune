@@ -128,6 +128,16 @@ function initLyrics() {
   const opts = { open: !!settings.lyricsOpen, fullscreen: win.isFullScreen(), strings: stringsFor(lang) };
   win.webContents.executeJavaScript(`window.__mdLyrics && window.__mdLyrics.init(${JSON.stringify(opts)})`, true).catch(() => {});
 }
+// Motion (motion.dev, MIT, vendor/motion.js = su dist/motion.js): animaciones con muelle para los
+// movimientos grandes (plegar la barra lateral). Crea globalThis.Motion en el mundo aislado del
+// preload (999): el preload va en sandbox y no carga paquetes npm, y YT no lo ve. Si falta, el
+// preload anima como antes.
+let motionJs = null;
+function injectMotion() {
+  if (!win || !onYouTubeMusic()) return;
+  try { motionJs ??= fs.readFileSync(path.join(__dirname, 'vendor', 'motion.js'), 'utf8'); } catch { return; }
+  win.webContents.executeJavaScriptInIsolatedWorld(999, [{ code: motionJs + '\n;true' }]).catch(() => {});
+}
 // Pantalla completa de Now Playing: la pide la página (botón de la esquina) y se le avisa al
 // entrar o salir, también si sale con Esc (before-input-event).
 function notifyFullscreen() {
@@ -173,6 +183,7 @@ function createWindow() {
     applyChrome();
     applyTheme();
     applyLyricsCss().then(injectLyricsView);
+    injectMotion();
     sendStrings(win.webContents);
     win.webContents.send('panels', settings.panels);
     // Portadas de la barra lateral: primero las guardadas (al instante) y luego las frescas.

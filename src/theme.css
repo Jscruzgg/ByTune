@@ -14,6 +14,10 @@
   --md-accent: #fa2d48;
   --md-radius: 10px;
   --md-gap: 8px;
+  /* Tarjetas flotantes (barra lateral y cola): translúcidas sobre el fondo de la página, sin
+     backdrop-filter (regla de rendimiento). */
+  --md-card: rgba(40,40,40,.55);
+  --md-card-border: rgba(255,255,255,.08);
   /* Las fuentes originales de YT Music (Roboto y YouTube Sans): sus cajas de texto de alto fijo
      están medidas para ellas; con otras fuentes más altas las letras se cortan. */
   --md-font: Roboto, Arial, sans-serif;
@@ -125,6 +129,9 @@ html {
      (#mini-guide), que ponía el texto bajo los iconos: al desplegar, todo lo de debajo subía de
      golpe. Así cada fila se queda a su altura y solo se ocultan los textos (el movimiento, abajo). */
   ytmusic-app[guide-collapsed] :is(#mini-guide, #mini-guide-background) { display: none !important; }
+  /* Por debajo de ~1300 px YT convierte la barra en panel flotante con su propia cabecera (☰ y
+     logo): aquí la barra sigue fija y esa cabecera salía dentro de la tarjeta, bajo la de arriba. */
+  tp-yt-app-drawer#guide ytmusic-guide-renderer .guide-nav { display: none !important; }
   tp-yt-app-drawer#guide { visibility: visible !important; }
   tp-yt-app-drawer#guide #contentContainer {
     transform: none !important;
@@ -136,15 +143,15 @@ html {
   }
   /* En la fila estrecha, el icono no se encoge (se quedaba a 0 px). */
   tp-yt-app-drawer#guide ytmusic-guide-entry-renderer .guide-icon { flex: none !important; }
-  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-entry-renderer :is(.title-column, #play-button) {
+  html:not([data-md-guide-closing]) ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-entry-renderer :is(.title-column, #play-button) {
     opacity: 0 !important;
     pointer-events: none !important;
   }
   /* Portadas centradas en los 72 px y en el mismo eje que los iconos de arriba, plegada o no: así
      no se mueven al desplegar. */
   tp-yt-app-drawer#guide ytmusic-guide-entry-renderer[data-md-id] tp-yt-paper-item { padding-left: 8px !important; }
-  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-entry-renderer[data-md-id] tp-yt-paper-item { padding-right: 8px !important; }
-  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide #items { scrollbar-width: none !important; }
+  html:not([data-md-guide-closing]) ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-entry-renderer[data-md-id] tp-yt-paper-item { padding-right: 8px !important; }
+  html:not([data-md-guide-closing]) ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide #items { scrollbar-width: none !important; }
   /* "Nueva lista": la píldora se encoge hasta un botón redondo con su +, que se queda en su sitio
      (a la izquierda de la píldora, no centrado). Mismo alto que la píldora (36 px): un círculo más
      alto empujaría lo de debajo. */
@@ -156,38 +163,78 @@ html {
   }
   tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button .ytSpecButtonShapeNextIcon { margin-left: 0 !important; }
   tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button .ytSpecButtonShapeNextButtonTextContent { white-space: nowrap !important; }
-  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons :is(yt-button-renderer, yt-button-shape) {
+  html:not([data-md-guide-closing]) ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons :is(yt-button-renderer, yt-button-shape) {
     width: auto !important;
   }
-  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button {
+  html:not([data-md-guide-closing]) ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button {
     width: 36px !important;
     padding: 0 6px !important;
   }
-  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button .ytSpecButtonShapeNextIcon { margin: 0 !important; }
-  ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button .ytSpecButtonShapeNextButtonTextContent { display: none !important; }
+  html:not([data-md-guide-closing]) ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button .ytSpecButtonShapeNextIcon { margin: 0 !important; }
+  html:not([data-md-guide-closing]) ytmusic-app[guide-collapsed] tp-yt-app-drawer#guide ytmusic-guide-section-renderer #buttons button .ytSpecButtonShapeNextButtonTextContent { display: none !important; }
 }
-/* El logo, fuera de la columna de la barra lateral plegada (72 px; empezaba en 68). También
-   desplegada, para que no se mueva al plegar. */
-ytmusic-nav-bar .left-content ytmusic-logo { margin-left: 16px !important; }
-/* Plegar y desplegar con una transición de vista (preload.js): el ancho cambia de una vez y el
-   panel se abre o se cierra recortado, sin estirarse ni fundidos; el contenido se desliza aparte.
-   Al desplegar, el panel nuevo ya está entero y el recorte lo va descubriendo; al plegar, el panel
-   de antes queda encima hasta el final y se recorta (con el riel encima asomaba su borde sobre el
-   panel que se iba). La franja de arriba queda bajo la barra superior: recortada, no la tapa
-   mientras dura. */
-html:active-view-transition-type(md-guide) #guide-wrapper { view-transition-name: md-guide; }
-::view-transition-group(md-guide) { clip-path: inset(var(--ytmusic-nav-bar-height, 64px) 0 0 0); }
-::view-transition-old(md-guide), ::view-transition-new(md-guide) { width: auto; animation: none; mix-blend-mode: normal; }
-:root:active-view-transition-type(md-guide-close)::view-transition-old(md-guide) { z-index: 1; }
+/* Plegar y desplegar (preload.js, FLIP): la página pasa a su sitio nuevo de una vez y lo que se
+   movió vuelve con transform a donde estaba y llega con un muelle; el panel se recorta con la forma
+   de la tarjeta. Al plegar (html[data-md-guide-closing]) el panel sigue ancho por dentro —su ancho
+   y las reglas de plegada de arriba esperan— mientras el recorte lo estrecha; al llegar a 72 px se
+   pliega de verdad y dentro del recorte se ve igual. */
+html[data-md-guide-closing] tp-yt-app-drawer#guide { --ytmusic-guide-width: var(--md-left-eff) !important; }
+
+/* Barra lateral como tarjeta redondeada que flota sobre el fondo de la página (que pasa por
+   detrás), separada de la barra superior y de la del reproductor. La tarjeta es un pseudoelemento
+   detrás del contenido: sigue el ancho de la barra al arrastrarla o plegarla sin tocar los
+   elementos de YT. z-index -1 queda dentro del contexto de #guide-wrapper (fixed): sobre su
+   fondo, bajo sus filas. Debajo, el fondo negro de la columna estrecha de YT tapaba la página. */
+#guide-wrapper {
+  background: transparent !important;
+  border-right: 0 !important;
+}
+@media (min-width: 936px) {
+  #mini-guide-background { background: transparent !important; border-right: 0 !important; }
+}
+/* Alto desde la ventana y no desde #guide-wrapper: en pantalla completa YT lo hace más alto que la
+   pantalla y la tarjeta acababa fuera. */
+#guide-wrapper::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: calc(64px + var(--md-gap));
+  height: calc(100vh - 64px - var(--ytmusic-player-bar-height, 92px) - 2 * var(--md-gap));
+  left: var(--md-gap);
+  right: 0;
+  border-radius: var(--md-radius);
+  background: var(--md-card);
+  border: 1px solid var(--md-card-border);
+}
+/* Las filas, separadas del borde izquierdo y del de arriba de la tarjeta. Arriba se suma al
+   padding de 8 px que ya trae YT: su alto es fijo, así que la lista de playlists sigue terminando
+   en el borde de abajo de la tarjeta. Plegada, medio margen: los iconos quedan centrados en la
+   tarjeta (8–72 px). */
+#guide-content {
+  padding-left: var(--md-gap) !important;
+  box-sizing: border-box !important;
+}
+html:not([data-md-guide-closing]) ytmusic-app[guide-collapsed] #guide-content { padding-left: calc(var(--md-gap) / 2) !important; }
+tp-yt-app-drawer#guide ytmusic-guide-renderer { padding-top: calc(8px + var(--md-gap)) !important; }
+/* Pantalla completa: sin barra de reproducción, tarjeta y lista llegan a 8 px del borde de abajo,
+   como la cola (YT deja 100 px de hueco para la barra). */
+html[data-md-fullscreen] #guide-wrapper::before { height: calc(100vh - 64px - 2 * var(--md-gap)); }
+html[data-md-fullscreen] tp-yt-app-drawer#guide ytmusic-guide-renderer { padding-bottom: var(--md-gap) !important; }
+#nav-bar-divider { border-top-color: transparent !important; }
+#nav-bar-background { border-bottom-color: transparent !important; }
+/* En Now Playing el fondo de la carátula también pasa por detrás de la barra superior (Apple
+   Music): ahí no hay contenido que se desplace por debajo. Fondo y no opacidad, que YT anima. */
+ytmusic-app-layout[player-page-open] > #nav-bar-background { background: transparent !important; }
 
 /* Tiradores para ajustar el ancho (los crea preload.js): franja de 8 px sobre el borde del
-   panel, entre la barra superior y la del reproductor. Una línea fina aparece al pasar el
-   ratón o al arrastrar. Solo se ven cuando su panel está a la vista. */
+   panel, entre la barra superior y la del reproductor. Sin línea al pasar el ratón ni al
+   arrastrar (rompía la inmersión): solo cambia el cursor. Solo existen cuando su panel está a
+   la vista. */
 .md-resize {
   display: none;
   position: fixed;
   /* Fijos: el tirador cuelga de <body>, fuera de ytmusic-app, y no ve sus variables (con la de
-     YT, 72 px, la línea se metía 20 px en la barra del reproductor, que aquí mide 92). */
+     YT, 72 px, se metía 20 px en la barra del reproductor, que aquí mide 92). */
   top: 64px;
   bottom: 92px;
   width: 8px;
@@ -196,19 +243,6 @@ html:active-view-transition-type(md-guide) #guide-wrapper { view-transition-name
   touch-action: none;
   outline: none;
 }
-.md-resize::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 3px;
-  width: 2px;
-  background: transparent;
-  transition: background-color .15s linear;
-}
-.md-resize:hover::after,
-.md-resize:focus-visible::after,
-.md-resize.dragging::after { background: rgba(255,255,255,.4); }
 html[data-md-guide-open] .md-resize-left {
   display: block;
   left: calc(var(--md-left-eff, 240px) - 4px);
@@ -601,6 +635,17 @@ ytmusic-player-bar #left-controls .left-controls-buttons { grid-column: 2 !impor
     column-gap: 8px !important;
     padding: 0 12px !important;
   }
+}
+/* Minirreproductor móvil de YT (≤ 615 px): solo título y sus botones (reproducir, siguiente,
+   #right-controls-mweb), como en YT. La columna central de escritorio dejaba el título en
+   "De tu iPh…" para un progreso diminuto; el progreso sigue en Now Playing. */
+@media (max-width: 615px) {
+  ytmusic-player-bar {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-rows: auto !important;
+    grid-template-areas: "middle end" !important;
+  }
+  ytmusic-player-bar :is(#left-controls, #progress-bar) { display: none !important; }
 }
 @media (max-width: 760px) {
   /* Más específico que la regla general (que va después en el archivo y si no ganaría) */
@@ -1039,8 +1084,10 @@ ytmusic-player-page #side-panel {
   padding: 0 8px !important;
   box-sizing: border-box !important;
 }
-/* En ventanas pequeñas YT apila carátula y cola: que nada genere scroll horizontal. */
-ytmusic-player-page > .content { overflow-x: hidden !important; }
+/* En ventanas pequeñas YT apila carátula y cola: que nada genere scroll horizontal. En el diseño
+   móvil (≤ 615 px) no: ahí .content mide solo la cabecera y el recorte escondía los controles,
+   que YT coloca debajo (posición absoluta). */
+ytmusic-player-page:not([is-mweb-modernization-enabled]) > .content { overflow-x: hidden !important; }
 /* Pestañas: "primary tabs" de Material 3. Etiqueta title-small, indicador de 3 px con
    esquinas superiores redondeadas, divisor de 1 px y capa de estado al pasar el ratón. */
 ytmusic-player-page tp-yt-paper-tabs {
@@ -1727,10 +1774,11 @@ ytmusic-two-column-browse-results-renderer ytmusic-shelf-renderer ytmusic-respon
 }
 
 /* ---------- Now Playing con la cola a la derecha (como Spotify) ----------
-   La cola deja de ser una tarjeta flotante: ocupa todo el alto pegada al borde derecho, con el
-   mismo negro que la barra lateral izquierda y una línea divisoria. La carátula queda centrada
-   en el espacio restante. Solo cuando YT pone los dos paneles lado a lado; en ventanas
-   estrechas los apila y se respeta. */
+   La cola, tarjeta flotante como la barra lateral: el fondo de la carátula pasa por detrás y la
+   tarjeta (pseudoelemento, z-index -1 dentro de #side-panel, que es fixed) deja la misma franja
+   con la barra superior, la del reproductor y el borde derecho. La carátula queda centrada en el
+   espacio restante. Solo cuando YT pone los dos paneles lado a lado; en ventanas estrechas los
+   apila y se respeta. */
 @media (min-width: 940px) {
   ytmusic-player-page > .content {
     padding: 0 !important;
@@ -1762,10 +1810,29 @@ ytmusic-two-column-browse-results-renderer ytmusic-shelf-renderer ytmusic-respon
     margin: 0 !important;
     padding: 8px 12px 0 !important;
     border-radius: 0 !important;
-    background: rgb(3,3,3) !important; /* el de la barra lateral izquierda */
-    border-left: 1px solid rgba(255,255,255,.06) !important;
+    background: transparent !important;
     box-sizing: border-box !important;
   }
+  /* "html body": pesa más que el relleno de lyrics.css (html ytmusic-player-page #side-panel). */
+  html body ytmusic-player-page #side-panel {
+    padding: calc(var(--ytmusic-nav-bar-height, 64px) + var(--md-gap) + 8px) calc(var(--md-gap) + 8px) calc(var(--ytmusic-player-bar-height, 92px) + var(--md-gap)) 8px !important;
+  }
+  ytmusic-player-page #side-panel::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    top: calc(var(--ytmusic-nav-bar-height, 64px) + var(--md-gap));
+    bottom: calc(var(--ytmusic-player-bar-height, 92px) + var(--md-gap));
+    left: 0;
+    right: var(--md-gap);
+    border-radius: var(--md-radius);
+    background: var(--md-card);
+    border: 1px solid var(--md-card-border);
+  }
+  /* Pantalla completa: sin barra de reproducción, tarjeta y lista acaban a 8 px del borde (la
+     lista seguía hasta abajo, fuera de la tarjeta). */
+  html[data-md-fullscreen] body ytmusic-player-page #side-panel { padding-bottom: var(--md-gap) !important; }
+  html[data-md-fullscreen] ytmusic-player-page #side-panel::before { bottom: var(--md-gap); }
 }
 
 /* Espacio para la barra flotante al final del contenido */

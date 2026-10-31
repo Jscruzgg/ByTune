@@ -21,10 +21,15 @@ ytmusic-app-layout { overflow-x: clip !important; }
 /* La barra de desplazamiento de la ventana es de la página de detrás: YT la quita al terminar de
    abrir Now Playing y la devuelve al empezar a cerrarlo, y se pintaba encima de él mientras se
    movía. Transparente mientras Now Playing está a la vista (y mientras baja, lyrics-view.js:
-   data-md-np-closing). Su hueco no mueve nada: Now Playing lo cubre (100vw, más abajo). La de la
-   ventana solo se alcanza con body::. */
-body:has(ytmusic-app-layout[player-page-open])::-webkit-scrollbar-thumb,
+   data-md-np-open y data-md-np-closing; no body:has(), que se reevaluaba en toda la página con cada
+   cambio de YT). Su hueco no mueve nada: Now Playing lo cubre (100vw, más abajo). La de la ventana
+   solo se alcanza con body::. */
+html[data-md-np-open] body::-webkit-scrollbar-thumb,
 html[data-md-np-closing] body::-webkit-scrollbar-thumb { background: transparent !important; }
+/* Si la ventana cambia de tamaño con Now Playing abierto, YT devuelve la barra a la página: su
+   carril (10 px) se pintaba con el negro del fondo, una franja junto al borde derecho. Abierto, sin
+   carril; la página de detrás no se ve. */
+html[data-md-np-open] body::-webkit-scrollbar { width: 0 !important; }
 /* Por data-md-video y no por el playback-mode de YT: al cambiar de canción pasa casi un segundo
    por NONE, con un recuadro negro 16:9 mientras carga, y la carátula saltaba al formato del vídeo
    y vuelta. Aquí sigue cuadrada (lyrics-view.js mantiene el modo). */
@@ -127,7 +132,9 @@ ytmusic-player-page #main-panel > .md-np-btn:disabled {
 ytmusic-player-page #main-panel > #av-id { display: none !important; }
 ytmusic-player-page #main-panel > .md-av-btn { right: 136px !important; } /* 80 + 44 + 12 */
 ytmusic-player-page:not([has-av-switcher]) #main-panel > .md-av-btn,
-ytmusic-player-page:has(ytmusic-av-toggle[toggle-disabled]) #main-panel > .md-av-btn { display: none !important; }
+/* :has() solo sobre #av-id (unos pocos elementos): sobre ytmusic-player-page se reevaluaba en
+   toda la cola cada vez que cambiaba. */
+ytmusic-player-page #main-panel > #av-id:has(ytmusic-av-toggle[toggle-disabled]) ~ .md-av-btn { display: none !important; }
 ytmusic-player-page[data-md-video] .md-av-btn .md-av-video,
 ytmusic-player-page:not([data-md-video]) .md-av-btn .md-av-song { display: none !important; }
 ytmusic-player-page #main-panel > .md-np-btn:hover:not(:disabled) { background: rgba(255,255,255,.1) !important; }
@@ -310,6 +317,36 @@ ytmusic-player-page tp-yt-paper-tabs tp-yt-paper-tab:nth-of-type(2) { display: n
    esquina. En el reproductor en miniatura sigue. */
 ytmusic-player-page[player-page-open] #player .song-media-controls { display: none !important; }
 
+/* ---------- Ventana estrecha (≤ 615 px: diseño móvil de YT, is-mweb-modernization-enabled) ----------
+   YT esconde la barra de reproducción y pone sus controles (progreso, anterior, reproducir…)
+   bajo la carátula, sobre la hoja de pestañas de abajo; la carátula mide lo que sobra
+   (alto − 408 px). Aquí Now Playing se deja como en YT: sin la fila de título (empujaba los
+   controles bajo la hoja), la letra ni los botones de la esquina. */
+/* YT ancla sus controles al borde de abajo (alto − alto de los controles) y la hoja de pestañas
+   (A continuación…, 68 px) queda encima de la fila de botones. Aquí la fila acaba sobre la hoja,
+   la cabecera (⌄ y ⋮) sube hasta justo bajo los botones de la ventana (64 px) y la carátula
+   ocupa lo que queda entre las dos. */
+/* Por debajo de 64 px la carátula sería un punto: 0 (el ×1000 la lleva a 0 o la deja entera). */
+ytmusic-player-page[is-mweb-modernization-enabled] {
+  --md-np-art-fit: min(100vw - 64px, 100vh - 436px);
+  --md-np-art: min(var(--md-np-art-fit), max(0px, (var(--md-np-art-fit) - 64px) * 1000));
+}
+ytmusic-player-page[is-mweb-modernization-enabled] #main-panel { margin-top: -28px !important; }
+ytmusic-player-page[is-mweb-modernization-enabled] #player-controls { top: calc(var(--ytmusic-player-page-inner-height) - 334px) !important; }
+/* .content se desplaza (overflow: auto de YT) y, sin alto, medía solo la cabecera (92 px): todo
+   lo de debajo quedaba recortado. */
+ytmusic-player-page[is-mweb-modernization-enabled] > .content { height: 100% !important; box-sizing: border-box !important; }ytmusic-player-page[is-mweb-modernization-enabled] :is(#md-np-info, #md-lyrics, #main-panel > .md-np-btn) { display: none !important; }
+ytmusic-player-page[is-mweb-modernization-enabled][data-md-lyrics] #main-panel > #player { translate: none; scale: none; }
+
+/* Entre 616 y 939 px YT apila la carátula y la cola, y el panel de la carátula medía más que la
+   ventana: los botones de la esquina (letra, pantalla completa) quedaban bajo la barra de
+   reproducción. Termina sobre ella (bajo la barra superior, 64 px, y su margen de 16). */
+@media (max-width: 939px) {
+  ytmusic-player-page:not([is-mweb-modernization-enabled]) #main-panel {
+    max-height: calc(var(--md-vh, 100vh) - var(--ytmusic-nav-bar-height, 64px) - var(--ytmusic-player-bar-height, 72px) - 32px) !important;
+  }
+}
+
 /* ---------- Now Playing a toda la ventana ----------
    Con o sin pantalla completa, Now Playing ocupa toda la ventana y los paneles (barra superior,
    menú lateral, cola y barra de reproducción) van por encima: fijos fuera de pantalla completa,
@@ -424,8 +461,11 @@ html[data-md-fullscreen][data-md-guide] :is(tp-yt-app-drawer#guide, #mini-guide,
   translate: 0 0;
   opacity: 1;
 }
+/* Con el teclado dentro de la barra también aparece. :focus-within primero (lo lleva el navegador
+   sin buscar): así :has() solo se evalúa sobre la barra y solo con el foco dentro; sobre <html> se
+   reevaluaba en toda la página con cada cambio de YT. Su fondo, en Now Playing, es transparente. */
 html[data-md-fullscreen][data-md-topbar] :is(ytmusic-nav-bar, #nav-bar-background),
-html[data-md-fullscreen]:has(ytmusic-nav-bar :focus-visible) :is(ytmusic-nav-bar, #nav-bar-background) {
+html[data-md-fullscreen] ytmusic-nav-bar:focus-within:has(:focus-visible) {
   translate: 0 0;
   opacity: 1;
 }
@@ -436,7 +476,7 @@ html[data-md-fullscreen] ytmusic-player-page #side-panel {
   opacity: 0;
 }
 html[data-md-fullscreen][data-md-side] ytmusic-player-page #side-panel,
-html[data-md-fullscreen] ytmusic-player-page #side-panel:has(:focus-visible) {
+html[data-md-fullscreen] ytmusic-player-page #side-panel:focus-within:has(:focus-visible) {
   translate: 0 0;
   opacity: 1;
 }

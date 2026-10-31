@@ -470,37 +470,113 @@ function updateResizers() {
   if (queueOpen !== root.hasAttribute('data-md-queue-open')) root.toggleAttribute('data-md-queue-open', queueOpen);
 }
 
-// Plegar o desplegar la barra lateral: YT cambia --ytmusic-guide-width y todo lo que depende de
-// ella (ancho del contenido, buscador…) se recoloca de una vez. Animar esa variable recalculaba los
-// estilos de toda la página en cada fotograma (a tirones, sobre todo en Now Playing). Aquí el
-// cambio va dentro de una transición de vista: el panel se recorta (theme.css), la carátula y la
-// letra viajan (lyrics.css) y el contenido se desliza desde donde estaba, con translate (en la GPU). Misma duración y curva que --md-dur y --md-ease (lyrics.css).
+// Plegar o desplegar la barra lateral: YT cambia --ytmusic-guide-width (heredada por los ~13 000
+// elementos de la página) y todo se recoloca de una vez: un recálculo de estilos de ~120 ms en Now
+// Playing. Animar esa variable lo repetía en cada fotograma, y una transición de vista congelaba
+// la pantalla ~200 ms (fotos de la página antes y después). Aquí, FLIP: en el mismo fotograma del
+// cambio (antes de pintarse) lo que se movió vuelve con transform a donde estaba y desde ahí llega a
+// su sitio con un muelle; el panel se recorta con la forma de la tarjeta. Nada de fotos: todo sigue
+// vivo. Tras el cambio no se lee ninguna medida que obligue a recalcular otra vez (cada lectura
+// costaba otro recálculo entero): lo del panel se lee antes y su ancho final se calcula.
 const MOTION = { duration: 350, easing: 'cubic-bezier(.2, 0, 0, 1)' };
+const GUIDE_MIN = 72; // ancho plegada
 const guideWidth = () => { const g = document.querySelector('#guide-wrapper'); return g ? g.getBoundingClientRect().width : 0; };
+// Ancho desplegada: el de --md-left-eff (theme.css), sin medir.
+const guideOpenWidth = () => Math.min(parseFloat(document.documentElement.style.getPropertyValue('--md-left-w')) || 240, Math.max(240, window.innerWidth / 2 - 164));
+// Con Motion (main.js lo inyecta en este mundo), un muelle: Motion lo convierte en una curva
+// linear() que el navegador anima solo, en la GPU (sin JS por fotograma). Corto y con poco rebote:
+// el recorte no debe pasarse de los 72 px y comerse los iconos.
+function guideTiming() {
+  if (!globalThis.Motion) return MOTION;
+  const [ms, easing] = String(globalThis.Motion.spring(0.28, 0.08)).split('ms ');
+  return { duration: +ms, easing };
+}
+// Lo que se mueve: el contenido de la página (translate, la propiedad que no usa YT) y, en Now
+// Playing, la carátula (que además cambia de tamaño), el título y la letra (transform: translate y
+// scale ya los usa lyrics.css).
+function guideTargets() {
+  const t = [];
+  if (document.querySelector('ytmusic-app-layout[player-page-open]')) {
+    for (const [sel, box] of [['#main-panel > #player', true], ['#main-panel > #md-np-info', false], ['#md-lyrics', false]]) {
+      const el = document.querySelector(`ytmusic-player-page ${sel}`);
+      if (el && el.offsetWidth) t.push({ el, box, transform: true });
+    }
+  }
+  return t;
+}
+// Keyframe de partida: el sitio de antes (a) visto desde el nuevo (b). La carátula escala desde su
+// centro (su transform-origin) y dentro de la escala de lyrics.css, de ahí el / s.
+function guideFrom(t, a, b) {
+  if (!t.transform) return a.left !== b.left ? { translate: `${a.left - b.left}px 0` } : null;
+  const s = parseFloat(getComputedStyle(t.el).scale) || 1;
+  if (!t.box) return { transform: `translate(${(a.left - b.left) / s}px, ${(a.top - b.top) / s}px)` };
+  const dx = (a.left + a.width / 2 - b.left - b.width / 2) / s;
+  const dy = (a.top + a.height / 2 - b.top - b.height / 2) / s;
+  return { transform: `translate(${dx}px, ${dy}px) scale(${a.width / b.width})` };
+}
 let guidePassthrough = false;
+let guideAnims = [];
+function guideDone() {
+  document.documentElement.removeAttribute('data-md-guide-closing');
+  for (const a of guideAnims.splice(0)) a.cancel();
+}
 document.addEventListener('click', (e) => {
   const btn = !guidePassthrough && e.target instanceof Element && e.target.closest('ytmusic-nav-bar #guide-button');
   const app = document.querySelector('ytmusic-app');
+  const g = document.querySelector('#guide-wrapper');
   // En ventanas estrechas YT usa su columna aparte (#mini-guide) y el menú flotante: se deja igual.
-  if (!btn || !app || !document.startViewTransition || window.innerWidth < 936 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  if (!btn || !app || !g || window.innerWidth < 936 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   e.stopImmediatePropagation();
-  // Las páginas siguen a la barra por dentro (márgenes): su contenedor no se mueve, se desliza
-  // lo que cambió la barra. El buscador y el botón atrás no se mueven (theme.css).
-  const content = document.querySelector('ytmusic-app-layout > #content');
-  const width = guideWidth();
+  guideDone(); // otro clic a mitad: lo anterior acaba en su sitio
+  const root = document.documentElement;
   const was = app.hasAttribute('guide-collapsed');
-  document.startViewTransition({
-    types: ['md-guide', was ? 'md-guide-open' : 'md-guide-close'],
-    update: async () => {
-      guidePassthrough = true;
-      btn.click();
-      guidePassthrough = false;
-      // YT puede cambiar el atributo en la tarea siguiente.
-      for (let i = 0; i < 10 && app.hasAttribute('guide-collapsed') === was; i++) await new Promise((r) => setTimeout(r, 16));
-      const dx = width - guideWidth();
-      if (content && dx) content.animate([{ translate: `${dx}px 0` }, { translate: '0 0' }], MOTION);
-    },
+  const timing = guideTiming();
+  const from = guideWidth();
+  const to = was ? guideOpenWidth() : GUIDE_MIN;
+  // El panel se recorta con la forma de la tarjeta (#guide-wrapper::before), que no cambia al plegar:
+  // solo se mueve su borde derecho, con las esquinas redondeadas todo el rato.
+  const c = getComputedStyle(g, '::before');
+  const bottom = parseFloat(c.top) + parseFloat(c.height);
+  const rect = (w) => `rect(${c.top} ${w}px ${bottom}px ${c.left} round ${c.borderTopRightRadius})`;
+  const targets = guideTargets();
+  const first = targets.map((t) => t.el.getBoundingClientRect());
+  // Al plegar, el panel sigue ancho por dentro hasta que el recorte llega a 72 px (theme.css).
+  if (!was) root.setAttribute('data-md-guide-closing', '');
+  const play = () => {
+    // forwards: hasta que se quita, a la vez que se pliega de verdad (mismo fotograma).
+    const clip = g.animate({ clipPath: [rect(from), rect(to)] }, { ...timing, fill: 'forwards' });
+    guideAnims.push(clip);
+    clip.finished.then(guideDone, () => {});
+    if (!targets.length) return;
+    // Now Playing: lyrics-view coloca ya la carátula y la letra en su sitio nuevo (su
+    // ResizeObserver llegaría después de este cálculo) y se lee dónde quedaron.
+    document.dispatchEvent(new Event('md-measure'));
+    targets.forEach((t, i) => {
+      const kf = guideFrom(t, first[i], t.el.getBoundingClientRect());
+      if (!kf) return;
+      const [prop, value] = Object.entries(kf)[0];
+      guideAnims.push(t.el.animate({ [prop]: [value, prop === 'translate' ? '0 0' : 'none'] }, timing));
+    });
+  };
+  // El cambio de YT se ve aquí antes de pintarse (las mutaciones se avisan en la misma tarea).
+  const mo = new MutationObserver(() => {
+    if (app.hasAttribute('guide-collapsed') === was) return;
+    mo.disconnect();
+    play();
   });
+  mo.observe(app, { attributes: true, attributeFilter: ['guide-collapsed'] });
+  // Al acabar este clic (antes de pintar): un click() dentro de otro click() programático sobre el
+  // mismo botón no hace nada.
+  queueMicrotask(() => {
+    guidePassthrough = true;
+    btn.click();
+    guidePassthrough = false;
+  });
+  // Si YT no llega a cambiarlo, no se queda nada a medias.
+  setTimeout(() => {
+    mo.disconnect();
+    if (app.hasAttribute('guide-collapsed') === was) root.removeAttribute('data-md-guide-closing');
+  }, 500);
 }, true);
 
 // Espacio que ocupan los iconos de la derecha de la barra superior (transmitir, ajustes, avatar)
