@@ -81,14 +81,14 @@ ytmusic-player-page #md-np-info .md-np-title {
      puntos suspensivos) los recortaba con 1.2. */
   line-height: 1.35 !important;
   padding-bottom: 2px !important;
-  color: #fff !important;
+  color: var(--md-text) !important;
 }
 ytmusic-player-page #md-np-info .md-np-artist {
   margin-top: 4px !important;
   font-size: 17px !important;
   font-weight: 500 !important;
   line-height: 1.3 !important;
-  color: #b3b3b3 !important;
+  color: var(--md-text-2) !important;
 }
 
 /* Botones de la esquina inferior derecha del panel principal (encima de la barra de reproducción,
@@ -113,10 +113,10 @@ ytmusic-player-page #main-panel > .md-np-btn {
   height: 44px !important;
   margin: 0 !important;
   padding: 0 !important;
-  border: 1px solid rgba(255,255,255,.35) !important;
+  border: 0 !important;
   border-radius: 50% !important;
-  background: transparent !important;
-  color: #fff !important;
+  background: var(--md-state-on) !important;
+  color: var(--md-text) !important;
   cursor: pointer !important;
   /* Sin fundido de colores: al activarse, el fondo y el icono cambiaban a la vez y a mitad de
      camino quedaban los dos oscuros. El cambio es inmediato: siempre opuestos. */
@@ -139,18 +139,28 @@ ytmusic-player-page:not([has-av-switcher]) #main-panel > .md-av-btn,
 ytmusic-player-page #main-panel > #av-id:has(ytmusic-av-toggle[toggle-disabled]) ~ .md-av-btn { display: none !important; }
 ytmusic-player-page[data-md-video] .md-av-btn .md-av-video,
 ytmusic-player-page:not([data-md-video]) .md-av-btn .md-av-song { display: none !important; }
-ytmusic-player-page #main-panel > .md-np-btn:hover:not(:disabled) { background: rgba(255,255,255,.1) !important; }
-ytmusic-player-page #main-panel > .md-np-btn:focus-visible { outline: 2px solid #fff !important; outline-offset: 2px !important; }
+ytmusic-player-page #main-panel > .md-np-btn:hover:not(:disabled) { background: var(--md-state-press) !important; }
+ytmusic-player-page #main-panel > .md-np-btn:focus-visible { outline: 2px solid var(--md-text) !important; outline-offset: 2px !important; }
 ytmusic-player-page #main-panel > .md-lyrics-btn[aria-pressed="true"],
 html[data-md-fullscreen] ytmusic-player-page #main-panel > .md-fs-btn {
-  border-color: #fff !important;
-  background: #fff !important;
-  color: #000 !important;
+  background: var(--md-text) !important;
+  color: var(--md-on-fill) !important;
+}
+/* Activo (relleno blanco): al pasar el ratón sigue blanco y se oscurece un poco, como el botón de
+   reproducir. Con el gris translúcido de los apagados el icono negro quedaba sobre gris oscuro. */
+ytmusic-player-page #main-panel > .md-lyrics-btn[aria-pressed="true"]:hover:not(:disabled),
+html[data-md-fullscreen] ytmusic-player-page #main-panel > .md-fs-btn:hover {
+  background: var(--md-text) !important;
+  box-shadow: inset 0 0 0 22px var(--md-state-ink) !important;
+}
+ytmusic-player-page #main-panel > .md-lyrics-btn[aria-pressed="true"]:active:not(:disabled),
+html[data-md-fullscreen] ytmusic-player-page #main-panel > .md-fs-btn:active {
+  box-shadow: inset 0 0 0 22px var(--md-state-ink-press) !important;
 }
 
 /* ---------- Disposición con la letra abierta ----------
    lyrics-view.js mide el panel y la carátula cuando cambian de tamaño y deja el resultado en
-   variables de <html> (--md-np-w, --md-lyr-*). Solo se animan transformaciones y opacidad.
+   variables de #main-panel (--md-lyr-*). Solo se animan transformaciones y opacidad.
    Las propiedades animadas (translate, scale, opacity) van SIN !important: Chromium no lleva a
    la GPU la animación de una propiedad declarada !important y la calcula en el hilo principal
    fotograma a fotograma. */
@@ -248,9 +258,12 @@ ytmusic-player-page #md-lyrics .md-line {
   font-size: 30px !important;
   font-weight: 700 !important;
   line-height: 40px !important;
-  color: #fff !important;
+  color: var(--md-text) !important;
   overflow-wrap: anywhere !important;
-  opacity: .3;
+  /* Líneas por venir al nivel de --md-text-3 y las ya cantadas al de --md-text-off (chrome.css),
+     con opacidad para que el cambio se anime en la GPU. Con .3 y .18 se perdían sobre carátulas
+     claras (2,2:1 y 1,6:1). */
+  opacity: .56;
   transform-origin: left center !important;
   transition: opacity .4s ease, scale .4s ease !important;
 }
@@ -265,7 +278,7 @@ ytmusic-player-page[data-md-lyrics-narrow] #md-lyrics .md-line {
   font-size: 24px !important;
   line-height: 32px !important;
 }
-ytmusic-player-page #md-lyrics .md-line.is-past { opacity: .18; }
+ytmusic-player-page #md-lyrics .md-line.is-past { opacity: .38; }
 ytmusic-player-page #md-lyrics .md-line.is-active { opacity: 1; scale: 1.04; }
 ytmusic-player-page #md-lyrics .md-line.is-gap { letter-spacing: 8px !important; }
 ytmusic-player-page[data-md-lyrics-mode="synced"] #md-lyrics .md-line { cursor: pointer !important; }
@@ -276,14 +289,14 @@ ytmusic-player-page #md-lyrics .md-line.is-placeholder > span {
   height: 24px !important;
   margin: 8px 0 !important;
   border-radius: 8px !important;
-  background: rgba(255,255,255,.1) !important;
+  background: var(--md-state-on) !important;
 }
 ytmusic-player-page #md-lyrics .md-lyrics-credit {
   margin: 32px 0 0 !important;
   padding: 0 0 48px !important;
   font-size: 14px !important;
   line-height: 20px !important;
-  color: rgba(255,255,255,.5) !important;
+  color: var(--md-text-3) !important;
 }
 /* Letra sin tiempos: toda en blanco, con su propio desplazamiento (sin barra visible). */
 ytmusic-player-page[data-md-lyrics-mode="plain"] #md-lyrics {
@@ -296,7 +309,7 @@ ytmusic-player-page #md-lyrics .md-lyrics-note {
   margin: 0 0 16px !important;
   font-size: 14px !important;
   line-height: 20px !important;
-  color: rgba(255,255,255,.5) !important;
+  color: var(--md-text-3) !important;
 }
 /* Sin letra en ninguna fuente: un aviso tenue arriba del área. */
 ytmusic-player-page[data-md-lyrics-mode="none"] #md-lyrics .md-lyrics-track { padding-top: 48px !important; }
@@ -340,15 +353,32 @@ ytmusic-player-page[is-mweb-modernization-enabled] #player-controls { top: calc(
 ytmusic-player-page[is-mweb-modernization-enabled] > .content { height: 100% !important; box-sizing: border-box !important; }ytmusic-player-page[is-mweb-modernization-enabled] :is(#md-np-info, #md-lyrics, #main-panel > .md-np-btn) { display: none !important; }
 ytmusic-player-page[is-mweb-modernization-enabled][data-md-lyrics] #main-panel > #player { translate: none; scale: none; }
 
-/* Entre 616 y 939 px YT apila la carátula y la cola (se llega a la cola desplazando Now Playing),
-   y el panel de la carátula medía más que la ventana: los botones de la esquina (letra, pantalla
-   completa) quedaban bajo la barra de reproducción. Termina sobre ella (bajo la barra superior,
-   64 px, y su margen de 16) dejando ver abajo las pestañas de la cola (A continuación…, ~104 px
-   con su margen): así se nota que la cola está ahí debajo. */
+/* Entre 616 y 939 px YT apila la carátula y la cola (se llega a la cola desplazando Now Playing).
+   El panel de la carátula (--md-st-h) llena lo visible menos las pestañas de la cola, que asoman
+   abajo (A continuación…, 49 px, a 16 del panel): así se nota que la cola está ahí debajo. Lo
+   visible es la ventana − barra superior (64) − barra de reproducción (92) − margen de arriba (16).
+   Dentro, de arriba abajo: 16 px, la carátula, título y artista (83), 16 de hueco y la fila de
+   botones de la esquina (44 + 24 al borde): la carátula se queda con lo que sobra y los botones ya
+   no la pisan, ni al título. Con la ventana muy baja el panel no baja de una carátula de 160 px
+   (con la letra, de 420 px para que quepan unas líneas) y lo demás se alcanza desplazando. */
 @media (max-width: 939px) {
-  ytmusic-player-page:not([is-mweb-modernization-enabled]) #main-panel {
-    max-height: calc(var(--md-vh, 100vh) - var(--ytmusic-nav-bar-height, 64px) - var(--ytmusic-player-bar-height, 72px) - 32px - 104px) !important;
+  ytmusic-player-page:not([is-mweb-modernization-enabled]) {
+    --md-st-h: max(343px, calc(var(--md-vh, 100vh) - 244px));
+    /* De ancho: la ventana − la columna estrecha del menú (72) − márgenes. */
+    --md-np-art: max(0px, min(calc(var(--md-st-h) - 183px), calc(100vw - 200px)));
   }
+  ytmusic-player-page:not([is-mweb-modernization-enabled])[data-md-lyrics="open"] {
+    --md-st-h: max(420px, calc(var(--md-vh, 100vh) - 244px));
+  }
+  ytmusic-player-page:not([is-mweb-modernization-enabled]) #main-panel {
+    flex: none !important;
+    height: var(--md-st-h) !important;
+    max-height: none !important;
+    padding-top: 16px !important;
+    justify-content: flex-start !important;
+    box-sizing: border-box !important;
+  }
+  ytmusic-player-page:not([is-mweb-modernization-enabled]) #side-panel { margin-top: 16px !important; }
 }
 
 /* ---------- Now Playing a toda la ventana ----------
@@ -367,7 +397,9 @@ ytmusic-player-page[is-mweb-modernization-enabled][data-md-lyrics] #main-panel >
     height: 100% !important;
   }
   html ytmusic-player-page > .content {
-    padding: var(--ytmusic-nav-bar-height, 64px) var(--md-np-side, 400px) var(--ytmusic-player-bar-height, 72px) var(--ytmusic-guide-width, 0px) !important;
+    /* --md-live-pad-l/-r: los anchos mientras se arrastra el borde de un panel (preload.js; no se
+       heredan, así no se recalcula todo lo de dentro). */
+    padding: var(--ytmusic-nav-bar-height, 64px) var(--md-live-pad-r, var(--md-np-side, 400px)) var(--ytmusic-player-bar-height, 72px) var(--md-live-pad-l, var(--ytmusic-guide-width, 0px)) !important;
   }
   /* La cola, de arriba abajo: su contenido empieza bajo la barra superior y acaba sobre la de
      reproducción. */
@@ -379,7 +411,7 @@ ytmusic-player-page[is-mweb-modernization-enabled][data-md-lyrics] #main-panel >
     padding-bottom: var(--ytmusic-player-bar-height, 72px) !important;
     right: calc(100% - 100vw) !important; /* hasta el borde, sobre el hueco de la barra de desplazamiento */
     bottom: 0 !important;
-    width: var(--md-np-side, 400px) !important;
+    width: var(--md-live-side, var(--md-np-side, 400px)) !important;
     height: auto !important;
   }
 }
@@ -520,8 +552,8 @@ html[data-md-q-dragging] ytmusic-player-queue ytmusic-player-queue-item.md-q-dra
   position: relative !important;
   z-index: 3 !important;
   transition: none !important;
-  background: rgba(255,255,255,.12) !important;
-  box-shadow: 0 8px 24px rgba(0,0,0,.45) !important;
+  background: var(--md-state-press) !important;
+  box-shadow: var(--md-raised-shadow) !important;
   border-radius: 8px !important;
 }
 html[data-md-q-dragging],

@@ -395,10 +395,15 @@ document.addEventListener('md-lyrics', () => {
   else if (msg.type === 'fullscreen' && typeof msg.on === 'boolean') ipcRenderer.send('np:fullscreen', msg.on);
 });
 
-// Ancho de los paneles laterales, ajustable arrastrando su borde (como Spotify). Al soltar cambia
-// una variable CSS en <html> (--md-left-w / --md-right-w) y theme.css hace el resto. Mientras se
-// arrastra solo se mueve una tarjeta fantasma y se recorta el panel: esa variable la heredan los
-// ~13 000 elementos de la página y cambiarla en cada fotograma daba 11 fps en Now Playing.
+// Ancho de los paneles laterales, ajustable arrastrando su borde (como Spotify), en vivo: el
+// contenido se reacomoda mientras se arrastra.
+// En reposo el ancho es una variable CSS (theme.css hace el resto): --md-left-w en <html> (de
+// ella sale --ytmusic-guide-width, que YT usa en toda la página) y --md-right-w en Now Playing y
+// en su tirador (solo se usa ahí). Cambiar una variable en <html> recalcula los ~6000 elementos
+// visibles (~50 ms): en cada fotograma daba 11–24 fps. Así que mientras se arrastra la variable no
+// se toca y el ancho va solo a los elementos que lo usan (liveLeft / liveRight): ~70 elementos por
+// fotograma en Now Playing. Al soltar se escribe la variable y se quita todo lo demás, en la misma
+// tarea (un solo recálculo grande).
 // main.js guarda los anchos (IPC 'panels') y los manda al cargar.
 // Doble clic en el borde vuelve al ancho por defecto; con el foco en él, ← y → lo ajustan.
 const PANELS = {
@@ -407,25 +412,103 @@ const PANELS = {
 };
 let panelWidths = {};
 ipcRenderer.on('panels', (_e, w) => { panelWidths = w && typeof w === 'object' ? w : {}; applyPanelWidths(); });
-function applyPanelWidths() {
-  const root = document.documentElement.style;
-  for (const [side, cfg] of Object.entries(PANELS)) {
-    const v = panelWidths[side];
-    if (typeof v === 'number') root.setProperty(cfg.cssVar, `${v}px`);
-    else root.removeProperty(cfg.cssVar);
+const panelVarTargets = (side) => (side === 'left'
+  ? [document.documentElement]
+  : [document.querySelector('ytmusic-player-page'), document.querySelector('.md-resize-right')].filter(Boolean));
+function writePanelVar(side) {
+  const v = panelWidths[side];
+  for (const el of panelVarTargets(side)) {
+    if (typeof v === 'number') el.style.setProperty(PANELS[side].cssVar, `${v}px`);
+    else el.style.removeProperty(PANELS[side].cssVar);
   }
 }
+function applyPanelWidths() { for (const side of Object.keys(PANELS)) writePanelVar(side); }
 const clampPanel = (side, w) => Math.round(Math.min(PANELS[side].max, Math.max(PANELS[side].min, w)));
 function savePanels() { ipcRenderer.send('panels', panelWidths); }
 function setPanel(side, w) {
-  panelWidths[side] = clampPanel(side, w);
-  document.documentElement.style.setProperty(PANELS[side].cssVar, `${panelWidths[side]}px`);
+  const v = clampPanel(side, w);
+  if (panelWidths[side] === v) return;
+  panelWidths[side] = v;
+  writePanelVar(side);
 }
 function currentPanelWidth(side) {
   if (typeof panelWidths[side] === 'number') return panelWidths[side];
   const el = side === 'left' ? document.querySelector('#guide-wrapper') : document.querySelector('ytmusic-player-page #side-panel');
   return el ? el.getBoundingClientRect().width : PANELS[side].min;
 }
+
+// Las reglas de nuestras hojas con !important (margen de Now Playing, ancho de la cola) ganan a un
+// estilo escrito en el elemento: leen estas variables, que no se heredan (cambiarlas solo recalcula
+// ese elemento, no lo que lleva dentro). Sin valor, cada regla usa el de siempre.
+for (const name of ['--md-live-pad-l', '--md-live-pad-r', '--md-live-side']) {
+  try { CSS.registerProperty({ name, syntax: '*', inherits: false }); } catch {}
+}
+// Escrituras de un arrastre, para quitarlas todas al soltar.
+let liveProps = null;
+function liveSet(el, prop, value, important) {
+  if (!el) return;
+  el.style.setProperty(prop, value, important ? 'important' : '');
+  if (!liveProps.has(el)) liveProps.set(el, new Set());
+  liveProps.get(el).add(prop);
+}
+function liveClear() {
+  if (!liveProps) return;
+  for (const [el, props] of liveProps) for (const p of props) el.style.removeProperty(p);
+  liveProps = null;
+}
+// --ytmusic-content-width (ancho de las filas de carátulas): YT la declara en ytmusic-app con
+// --ytmusic-guide-width dentro, una fórmula por tamaño de ventana. Se copia la que aplica para
+// declararla en la página con el ancho nuevo.
+function contentWidthRule() {
+  let found = '';
+  const walk = (rules, media) => {
+    for (const r of rules) {
+      if (r.cssRules && r.media) walk(r.cssRules, r.media.mediaText);
+      else if (r.selectorText === 'ytmusic-app' && r.style.getPropertyValue('--ytmusic-content-width') && (!media || matchMedia(media).matches)) {
+        found = r.style.getPropertyValue('--ytmusic-content-width');
+      }
+    }
+  };
+  for (const s of document.styleSheets) { try { walk(s.cssRules, ''); } catch {} }
+  return found;
+}
+// En Now Playing, el tamaño de la carátula (--md-np-art de theme.css) se redeclara en
+// #main-panel: ahí está todo lo que lo usa.
+const NP_ART = 'min(calc(var(--md-vh, 100vh) - 430px), calc(100vw - var(--ytmusic-guide-width, 0px) - var(--md-np-side) - 96px))';
+function npOpen() {
+  const pp = document.querySelector('ytmusic-app-layout[player-page-open]') && document.querySelector('ytmusic-player-page');
+  return pp && !pp.hasAttribute('is-mweb-modernization-enabled') && matchMedia('(min-width: 940px)').matches ? pp : null;
+}
+function liveLeft(w, ctx) {
+  // El de --md-left-eff (theme.css): sin pasar de 50vw − 164 px.
+  const px = `${Math.min(w, Math.max(240, window.innerWidth / 2 - 164))}px`;
+  const q = (s) => document.querySelector(s);
+  liveSet(q('tp-yt-app-drawer#guide'), 'width', px, true);
+  liveSet(q('#guide-wrapper'), 'width', px, true);
+  liveSet(q('ytmusic-nav-bar'), '--ytmusic-guide-width', px); // ~50 elementos: buscador y logo
+  liveSet(q('.md-resize-left'), 'left', `calc(${px} - 4px)`);
+  if (ctx.pp) {
+    liveSet(ctx.pp.querySelector(':scope > .content'), '--md-live-pad-l', px);
+    const main = ctx.pp.querySelector('#main-panel');
+    liveSet(main, '--ytmusic-guide-width', px);
+    liveSet(main, '--md-np-art', NP_ART);
+  } else {
+    const page = q('ytmusic-app-layout > #content');
+    liveSet(page, '--ytmusic-guide-width', px);
+    if (ctx.contentWidth) liveSet(page, '--ytmusic-content-width', ctx.contentWidth);
+  }
+}
+function liveRight(w, ctx) {
+  if (!ctx.pp) return;
+  const px = `${w}px`;
+  liveSet(ctx.pp.querySelector('#side-panel'), '--md-live-side', px);
+  liveSet(ctx.pp.querySelector(':scope > .content'), '--md-live-pad-r', px);
+  const main = ctx.pp.querySelector('#main-panel');
+  liveSet(main, '--md-np-side', px);
+  liveSet(main, '--md-np-art', NP_ART);
+  liveSet(document.querySelector('.md-resize-right'), '--md-right-w', px);
+}
+
 function makeResizer(side) {
   const h = document.createElement('div');
   h.className = `md-resize md-resize-${side}`;
@@ -435,151 +518,52 @@ function makeResizer(side) {
   h.setAttribute('aria-label', PANELS[side].label);
   let pending = null;
   let frame = 0;
-  // Vista previa: tarjeta fantasma (mismo sitio y forma que la de verdad, de theme.css) y el panel
-  // recortado al borde nuevo. Solo cambian el ancho del fantasma y el recorte del panel: estilo de
-  // dos elementos por fotograma.
-  let pv = null;
-  function startPreview() {
-    const el = side === 'left' ? document.querySelector('#guide-wrapper') : document.querySelector('ytmusic-player-page #side-panel');
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const c = getComputedStyle(el, '::before');
-    const top = parseFloat(c.top);
-    const height = side === 'left' ? parseFloat(c.height) : r.height - top - parseFloat(c.bottom);
-    const gap = parseFloat(side === 'left' ? c.left : c.right) || 0;
-    const ghost = document.createElement('div');
-    ghost.className = 'md-resize-ghost';
-    Object.assign(ghost.style, { top: `${top}px`, height: `${height}px`, [side]: `${gap}px`, width: `${r.width - gap}px` });
-    const cover = document.createElement('div');
-    cover.className = 'md-resize-cover';
-    // La cola vive dentro de Now Playing (capa propia, z 2): un fantasma en <body> quedaba encima
-    // de sus filas. Ahí va justo antes de ella y una capa por debajo (la cola es z 3).
-    if (side === 'right') { ghost.style.zIndex = '2'; el.parentElement.insertBefore(ghost, el); }
-    else document.body.append(ghost);
-    document.body.append(cover);
-    document.documentElement.setAttribute('data-md-resizing', side);
-    // El contenido no se reacomoda hasta soltar, pero se desliza con el borde (transform: solo
-    // mueve la capa ya pintada, sin recalcular nada) hasta donde quedará al soltar.
-    pv = { el, ghost, cover, gap, width: r.width, slide: slideTargets() };
-    for (const s of pv.slide) s.el.style.willChange = 'transform';
-  }
-  // Dónde quedará cada pieza con el borde movido d px (medido con el ancho aplicado de verdad, en
-  // cada diseño de lyrics.css). Cada una da su transform para d. translate y scale ya los usa
-  // lyrics.css: aquí transform, que va dentro de esa escala (de ahí / s).
-  function slideTargets() {
-    const t = [];
-    const add = (el, at) => { if (el && el.offsetWidth) t.push({ el, at }); };
-    const shift = (el, k) => { const s = parseFloat(getComputedStyle(el).scale) || 1; add(el, (d) => `translateX(${Math.round(d * k) / s}px)`); };
-    const pp = document.querySelector('ytmusic-app-layout[player-page-open]') && document.querySelector('ytmusic-player-page');
-    if (!pp) {
-      // Las demás páginas: el contenido, pegado a la barra lateral (lo que pasa del borde derecho
-      // lo oculta el overflow-x de <body>). El fondo (degradado, foto del artista) lo pinta su
-      // contenedor y se queda quieto.
-      if (side !== 'left') return t;
-      const parts = [...document.querySelectorAll('ytmusic-app-layout > #content > * > div > :is(#header, #content-wrapper)')].filter((e) => e.offsetWidth);
-      for (const el of parts.length ? parts : [document.querySelector('ytmusic-app-layout > #content')]) shift(el, 1);
-      return t;
-    }
-    const q = (sel) => pp.querySelector(sel);
-    const lyrics = pp.getAttribute('data-md-lyrics') === 'open';
-    const narrow = pp.hasAttribute('data-md-lyrics-narrow');
-    const L = side === 'left';
-    // Botones de la esquina: siguen el borde de la cola.
-    if (!L) for (const b of pp.querySelectorAll('#main-panel > .md-np-btn')) shift(b, -1);
-    if (!lyrics) {
-      // Sin letra la carátula está centrada y además cambia de tamaño: se mueve su centro y el
-      // tamaño se ajusta al soltar.
-      shift(q('#main-panel > #player'), L ? 0.5 : -0.5);
-      shift(q('#main-panel > #md-np-info'), L ? 0.5 : -0.5);
-    } else if (narrow) {
-      // Miniatura arriba, letra debajo: todo pegado a la barra lateral.
-      if (L) for (const sel of ['#main-panel > #player', '#main-panel > #md-np-info', '#md-lyrics']) shift(q(sel), 1);
-    } else {
-      // Dos columnas: carátula y título centrados en el primer cuarto del panel y encogidos si no
-      // caben (lyrics-view.js measure(): mín(ancho, W/2 − 2·24) y centro vertical común).
-      const panel = q('#main-panel');
-      const cover = q('#main-panel > #player');
-      const info = q('#main-panel > #md-np-info');
-      shift(q('#md-lyrics'), L ? 0.5 : -0.5);
-      if (!panel || !cover || !info) return t;
-      const W = panel.offsetWidth;
-      const cw = cover.offsetWidth;
-      const s0 = parseFloat(getComputedStyle(cover).scale) || 1;
-      const yc = (cover.offsetTop + info.offsetTop + info.offsetHeight) / 2;
-      for (const el of [cover, info]) {
-        const c = el.offsetTop + el.offsetHeight / 2;
-        add(el, (d) => {
-          const s1 = Math.min(cw, (W - d) / 2 - 48) / cw;
-          const dx = (L ? d : 0) - d / 4;
-          const dy = (s0 - s1) * (yc - c);
-          return `translate(${Math.round(dx) / s0}px, ${Math.round(dy) / s0}px) scale(${s1 / s0})`;
-        });
-      }
-    }
-    return t;
-  }
-  function preview(w) {
-    pv.ghost.style.width = `${w - pv.gap}px`;
-    const cut = Math.max(0, pv.width - w);
-    pv.el.style.clipPath = cut ? (side === 'left' ? `inset(0 ${cut}px 0 0)` : `inset(0 0 0 ${cut}px)`) : '';
-    const d = w - pv.width;
-    for (const s of pv.slide) s.el.style.transform = d ? s.at(d) : '';
-  }
-  function endPreview() {
-    if (!pv) return;
-    pv.ghost.remove();
-    pv.cover.remove();
-    pv.el.style.clipPath = '';
-    for (const s of pv.slide) {
-      s.el.style.transform = '';
-      s.el.style.willChange = '';
-    }
-    document.documentElement.removeAttribute('data-md-resizing');
-    pv = null;
-  }
+  let cover = null;
+  let ctx = null;
+  let dragId = 0;
+  // Un ancho por fotograma como mucho (el ratón avisa más a menudo que la pantalla).
   const onMove = (e) => {
     pending = side === 'left' ? e.clientX : window.innerWidth - e.clientX;
     if (!frame) frame = requestAnimationFrame(() => {
       frame = 0;
       if (pending === null) return;
-      if (pv) preview(clampPanel(side, pending));
-      else setPanel(side, pending);
+      (side === 'left' ? liveLeft : liveRight)(clampPanel(side, pending), ctx);
     });
   };
-  // Fin del arrastre por cualquier camino: soltar, cancelar o perder la captura del puntero. Los
-  // eventos se escuchan en window: si la captura falla, llegan a la capa del cursor (que tapa el
-  // tirador) y, solo con pointerup en el tirador, la capa se quedaba encima de toda la ventana.
+  // Fin del arrastre por cualquier camino: soltar, cancelar o perder la captura del puntero,
+  // escuchados en window. Con solo pointerup en el tirador, una captura perdida dejaba la capa
+  // del cursor encima de toda la ventana (y la capa tapa el tirador: no había forma de salir).
   const END = ['pointerup', 'pointercancel', 'lostpointercapture'];
   const onUp = () => {
     window.removeEventListener('pointermove', onMove);
     for (const t of END) window.removeEventListener(t, onUp, true);
     if (h.hasPointerCapture(dragId)) h.releasePointerCapture(dragId);
-    h.classList.remove('dragging');
     cancelAnimationFrame(frame);
     frame = 0;
-    // El ancho de verdad y el fin de la vista previa en la misma tarea: un solo fotograma, sin salto.
-    const moved = pending !== null;
-    if (moved) { setPanel(side, pending); savePanels(); }
+    // La variable de verdad y fuera lo provisional, en la misma tarea: un solo fotograma.
+    if (pending !== null) { setPanel(side, pending); savePanels(); }
     pending = null;
-    endPreview();
-    // En Now Playing, lyrics-view recoloca carátula y letra ya (su ResizeObserver llegaría un
-    // fotograma tarde: la carátula saltaba a medio camino).
-    if (moved && document.querySelector('ytmusic-app-layout[player-page-open]')) document.dispatchEvent(new Event('md-measure'));
+    liveClear();
+    if (cover) { cover.remove(); cover = null; }
   };
-  let dragId = 0;
   h.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
     e.preventDefault();
-    if (pv) onUp(); // un arrastre anterior sin cerrar
-    pending = null;
+    if (cover) onUp(); // un arrastre anterior sin cerrar
     dragId = e.pointerId;
     try { h.setPointerCapture(dragId); } catch {}
-    h.classList.add('dragging');
-    startPreview();
+    // Capa a toda la ventana: el cursor col-resize en todas partes y nada se selecciona, sin tocar
+    // el estilo de la página (html.md-resizing * la recalculaba entera al empezar y al acabar).
+    cover = document.createElement('div');
+    cover.className = 'md-resize-cover';
+    document.body.append(cover);
+    const pp = npOpen();
+    ctx = { pp, contentWidth: side === 'left' && !pp ? contentWidthRule() : '' };
+    liveProps = new Map();
     window.addEventListener('pointermove', onMove);
     for (const t of END) window.addEventListener(t, onUp, true);
   });
-  h.addEventListener('dblclick', () => { delete panelWidths[side]; applyPanelWidths(); savePanels(); });
+  h.addEventListener('dblclick', () => { delete panelWidths[side]; writePanelVar(side); savePanels(); });
   h.addEventListener('keydown', (e) => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
     e.preventDefault();
@@ -588,6 +572,7 @@ function makeResizer(side) {
     savePanels();
   });
   document.body.appendChild(h);
+  writePanelVar(side);
 }
 // Crea los tiradores (una vez) y marca en <html> qué paneles se ven, para mostrar solo esos.
 // Solo escribe atributos cuando cambian.
@@ -602,6 +587,10 @@ function updateResizers() {
   const queueOpen = !!layout && layout.hasAttribute('player-page-open') && window.innerWidth >= 940;
   if (guideOpen !== root.hasAttribute('data-md-guide-open')) root.toggleAttribute('data-md-guide-open', guideOpen);
   if (queueOpen !== root.hasAttribute('data-md-queue-open')) root.toggleAttribute('data-md-queue-open', queueOpen);
+  // Now Playing puede crearse (o cambiarse) después de recibir los anchos.
+  const pp = document.querySelector('ytmusic-player-page');
+  const right = typeof panelWidths.right === 'number' ? `${panelWidths.right}px` : '';
+  if (pp && pp.style.getPropertyValue('--md-right-w') !== right) writePanelVar('right');
 }
 
 // Plegar o desplegar la barra lateral: YT cambia --ytmusic-guide-width (heredada por los ~13 000
@@ -648,10 +637,15 @@ function guideFrom(t, a, b) {
   const dy = (a.top + a.height / 2 - b.top - b.height / 2) / s;
   return { transform: `translate(${dx}px, ${dy}px) scale(${a.width / b.width})` };
 }
+// Ancho de las filas mientras se pliega (theme.css): registrada como longitud para que se pueda
+// animar; fuera de la animación vale 100 %. No se hereda: solo cambia ytmusic-guide-renderer.
+try { CSS.registerProperty({ name: '--md-guide-w', syntax: '<length-percentage>', inherits: false, initialValue: '100%' }); } catch {}
+const GUIDE_INSET = 8; // de x = 0 a la tarjeta (--md-gap): las filas empiezan ahí
 let guidePassthrough = false;
 let guideAnims = [];
 function guideDone() {
   document.documentElement.removeAttribute('data-md-guide-closing');
+  document.querySelector('#guide-wrapper')?.removeAttribute('data-md-guide-moving');
   for (const a of guideAnims.splice(0)) a.cancel();
 }
 document.addEventListener('click', (e) => {
@@ -659,7 +653,8 @@ document.addEventListener('click', (e) => {
   const app = document.querySelector('ytmusic-app');
   const g = document.querySelector('#guide-wrapper');
   // En ventanas estrechas YT usa su columna aparte (#mini-guide) y el menú flotante: se deja igual.
-  if (!btn || !app || !g || window.innerWidth < 936 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  // Con la ventana oculta las animaciones no avanzan (ni acaban): sin animación.
+  if (!btn || !app || !g || document.hidden || window.innerWidth < 936 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   e.stopImmediatePropagation();
   guideDone(); // otro clic a mitad: lo anterior acaba en su sitio
   const root = document.documentElement;
@@ -681,6 +676,16 @@ document.addEventListener('click', (e) => {
     const clip = g.animate({ clipPath: [rect(from), rect(to)] }, { ...timing, fill: 'forwards' });
     guideAnims.push(clip);
     clip.finished.then(guideDone, () => {});
+    // Las filas, al mismo paso que el recorte: el resaltado, la línea y la píldora de "Nueva lista"
+    // se estrechan con él (la píldora acaba en el círculo) y al final no hay nada que recolocar.
+    // La tarjeta (::before, con su borde) también se estrecha: si no, se quedaba ancha y el
+    // recorte se comía su borde derecho mientras duraba. El panel mide lo del estado ancho.
+    const wide = Math.max(from, to);
+    guideAnims.push(g.animate({ right: [`${wide - from}px`, `${wide - to}px`] }, { ...timing, fill: 'forwards', pseudoElement: '::before' }));
+    // Mientras, sin barra de desplazamiento (plegada no la hay): estrechaba 10 px las playlists.
+    g.setAttribute('data-md-guide-moving', '');
+    const rows = g.querySelector('ytmusic-guide-renderer');
+    if (rows) guideAnims.push(rows.animate({ '--md-guide-w': [`${from - GUIDE_INSET}px`, `${to - GUIDE_INSET}px`] }, { ...timing, fill: 'forwards' }));
     if (!targets.length) return;
     // Now Playing: lyrics-view coloca ya la carátula y la letra en su sitio nuevo (su
     // ResizeObserver llegaría después de este cálculo) y se lee dónde quedaron.
@@ -798,11 +803,15 @@ function alignQueue() {
 let npObserver = null;
 // Los filtros van pegados arriba (sticky, theme.css) y la lista pasa por debajo: se recorta en su
 // borde inferior, así no se transparenta nada y la barra comparte el fondo de la tarjeta. Solo
-// escribe cuando cambia (un clip-path en un elemento: no se hereda).
+// mientras están pegados al borde de arriba: YT los pone a veces después de las canciones de la
+// lista (mezcla con reproducción automática) y entonces, sin pegar, el recorte se comía la lista
+// entera. Solo escribe cuando cambia (un clip-path en un elemento: no se hereda).
 const queueClip = new WeakMap();
 function clipQueue(sc) {
   const chips = sc.querySelector('ytmusic-player-queue > #steering-chips');
-  const bottom = chips && chips.offsetHeight ? chips.getBoundingClientRect().bottom : null;
+  const cr = chips && chips.offsetHeight ? chips.getBoundingClientRect() : null;
+  const stuck = cr && cr.top - sc.getBoundingClientRect().top < 1;
+  const bottom = stuck ? cr.bottom : null;
   for (const el of sc.querySelectorAll('ytmusic-player-queue > :is(#contents, #automix-contents)')) {
     const cut = bottom === null ? 0 : Math.max(0, Math.round(bottom - el.getBoundingClientRect().top));
     if (queueClip.get(el) === cut) continue;

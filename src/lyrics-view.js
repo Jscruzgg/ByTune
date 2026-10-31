@@ -67,6 +67,7 @@ window.__mdLyrics = (() => {
   let boundBarTitle = null;
   let boundPlayer = null;
   let boundPanel = null;
+  let wasMweb = false; // diseño móvil de YT (≤ 615 px) en la última medida
   const cleanups = [];
   const barObserver = new MutationObserver(() => check('bar'));
   const modeObserver = new MutationObserver(() => applyState());
@@ -93,7 +94,7 @@ window.__mdLyrics = (() => {
     if (document.querySelector(`${BAR} .title`) && document.querySelector('video') && document.querySelector(`${PAGE} #main-panel`)) check('init');
   });
   let waiting = false;
-  const vars = {}; // variables CSS escritas en <html> (para no repetir escrituras)
+  const vars = {}; // variables CSS escritas: nombre → [elemento, valor] (para no repetir escrituras)
 
   function send(msg) {
     document.documentElement.dataset.mdLyricsMsg = JSON.stringify(msg);
@@ -111,10 +112,14 @@ window.__mdLyrics = (() => {
   // Variables CSS en <html>: solo se escriben si cambian. setVar en px, setNum sin unidad.
   function setVar(name, px) { setRaw(name, `${Math.round(px * 10) / 10}px`); }
   function setNum(name, n) { setRaw(name, String(Math.round(n * 1000) / 1000)); }
+  // Las de la letra (--md-lyr-*) solo las usan la carátula, el título y la letra: van en su
+  // contenedor (#main-panel, ~110 elementos). En <html> cada escritura recalculaba toda la página
+  // (al redimensionar un panel, en cada fotograma).
   function setRaw(name, v) {
-    if (vars[name] === v) return;
-    vars[name] = v;
-    document.documentElement.style.setProperty(name, v);
+    const el = name.startsWith('--md-lyr-') ? boundPanel : document.documentElement;
+    if (!el || (vars[name] && vars[name][0] === el && vars[name][1] === v)) return;
+    vars[name] = [el, v];
+    el.style.setProperty(name, v);
   }
   function el(tag, cls, text) {
     const e = document.createElement(tag);
@@ -256,6 +261,13 @@ window.__mdLyrics = (() => {
     // la página, mide 0 y la letra se quedaba sobre la carátula hasta reiniciar.
     if (!boundPlayer || !boundPlayer.isConnected) ensureDom();
     const pp = page();
+    // Al pasar al diseño móvil en pausa, los controles nuevos de YT ponían "NaN:NaN" hasta que el
+    // tiempo avanzaba. Se les pone el de la barra de reproducción ("0:00 / 2:57"), cambiando solo
+    // el texto de dentro: YT sigue escribiendo en ese mismo nodo al avanzar. YT tarda en montarlos:
+    // se repite mientras sigan en NaN, hasta unos 3 s.
+    const mweb = !!(pp && pp.hasAttribute('is-mweb-modernization-enabled'));
+    if (mweb && !wasMweb) for (const ms of [300, 800, 1500, 3000]) setTimeout(fixMwebTime, ms);
+    wasMweb = mweb;
     const panel = boundPanel;
     const cover = boundPlayer;
     if (!pp || !panel || !cover || !info.isConnected) return;
@@ -270,7 +282,6 @@ window.__mdLyrics = (() => {
     const maxBottom = H - BTN_INSET - BTN - 16;
     const narrow = fit < MIN_COVER || W / 2 - 40 < MIN_LYRICS;
     setAttr(pp, 'data-md-lyrics-narrow', narrow ? '' : null);
-    setVar('--md-np-w', W);
     if (!narrow) {
       // Ancha: la columna (carátula y título) se centra en la mitad izquierda y, si no cabe con
       // su hueco, se encoge alrededor de su centro.
@@ -298,6 +309,19 @@ window.__mdLyrics = (() => {
       setVar('--md-lyr-ninfo-y', EDGE + THUMB / 2 - (info.offsetTop + info.offsetHeight / 2));
       setVar('--md-lyr-top', EDGE + THUMB + 24);
       setVar('--md-lyr-h', Math.min(H - EDGE, maxBottom) - (EDGE + THUMB + 24));
+    }
+  }
+
+  function fixMwebTime() {
+    const c = document.querySelector(`${PAGE} ytmusic-player-controls .current-time`);
+    const d = document.querySelector(`${PAGE} ytmusic-player-controls .total-time`);
+    const bar = document.querySelector(`${BAR} .time-info`);
+    if (!c || !d || !bar || !c.textContent.includes('NaN')) return;
+    const [cur, total] = bar.textContent.split('/').map((s) => s.trim());
+    if (!cur || !total || cur.includes('NaN')) return;
+    for (const [el, text] of [[c, cur], [d, total]]) {
+      const node = [...el.childNodes].find((n) => n.nodeType === Node.TEXT_NODE && n.data.trim());
+      if (node) node.data = text;
     }
   }
 
