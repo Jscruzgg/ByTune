@@ -1301,13 +1301,13 @@ ytmusic-player-page #side-panel ytmusic-chip-cloud-chip-renderer a * {
   font-size: 13px !important;
 }
 /* Filtros de la cola (Todo, Música conocida…): fijos arriba al desplazarla, así van con la canción
-   actual (preload.js la deja justo debajo). Fondo casi opaco: sin backdrop-filter, las canciones
-   que pasan por debajo se verían. */
+   actual (preload.js la deja justo debajo). Sin fondo propio: preload.js recorta la lista en el
+   borde inferior de la barra, así nada se ve detrás y la barra es la misma tarjeta. */
 ytmusic-player-page #side-panel ytmusic-player-queue > #steering-chips {
   position: sticky !important;
   top: 0;
   z-index: 2;
-  background: rgba(30,30,30,.94) !important;
+  background: transparent !important;
 }
 /* Píldoras de la cola (Guardar, Música conocida…): el fondo aclarado, como los botones de la
    barra lateral; la seleccionada sigue blanca. */

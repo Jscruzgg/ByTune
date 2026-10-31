@@ -458,18 +458,82 @@ function makeResizer(side) {
     else document.body.append(ghost);
     document.body.append(cover);
     document.documentElement.setAttribute('data-md-resizing', side);
-    pv = { el, ghost, cover, gap, width: r.width };
+    // El contenido no se reacomoda hasta soltar, pero se desliza con el borde (transform: solo
+    // mueve la capa ya pintada, sin recalcular nada) hasta donde quedará al soltar.
+    pv = { el, ghost, cover, gap, width: r.width, slide: slideTargets() };
+    for (const s of pv.slide) s.el.style.willChange = 'transform';
+  }
+  // Dónde quedará cada pieza con el borde movido d px (medido con el ancho aplicado de verdad, en
+  // cada diseño de lyrics.css). Cada una da su transform para d. translate y scale ya los usa
+  // lyrics.css: aquí transform, que va dentro de esa escala (de ahí / s).
+  function slideTargets() {
+    const t = [];
+    const add = (el, at) => { if (el && el.offsetWidth) t.push({ el, at }); };
+    const shift = (el, k) => { const s = parseFloat(getComputedStyle(el).scale) || 1; add(el, (d) => `translateX(${Math.round(d * k) / s}px)`); };
+    const pp = document.querySelector('ytmusic-app-layout[player-page-open]') && document.querySelector('ytmusic-player-page');
+    if (!pp) {
+      // Las demás páginas: el contenido, pegado a la barra lateral (lo que pasa del borde derecho
+      // lo oculta el overflow-x de <body>). El fondo (degradado, foto del artista) lo pinta su
+      // contenedor y se queda quieto.
+      if (side !== 'left') return t;
+      const parts = [...document.querySelectorAll('ytmusic-app-layout > #content > * > div > :is(#header, #content-wrapper)')].filter((e) => e.offsetWidth);
+      for (const el of parts.length ? parts : [document.querySelector('ytmusic-app-layout > #content')]) shift(el, 1);
+      return t;
+    }
+    const q = (sel) => pp.querySelector(sel);
+    const lyrics = pp.getAttribute('data-md-lyrics') === 'open';
+    const narrow = pp.hasAttribute('data-md-lyrics-narrow');
+    const L = side === 'left';
+    // Botones de la esquina: siguen el borde de la cola.
+    if (!L) for (const b of pp.querySelectorAll('#main-panel > .md-np-btn')) shift(b, -1);
+    if (!lyrics) {
+      // Sin letra la carátula está centrada y además cambia de tamaño: se mueve su centro y el
+      // tamaño se ajusta al soltar.
+      shift(q('#main-panel > #player'), L ? 0.5 : -0.5);
+      shift(q('#main-panel > #md-np-info'), L ? 0.5 : -0.5);
+    } else if (narrow) {
+      // Miniatura arriba, letra debajo: todo pegado a la barra lateral.
+      if (L) for (const sel of ['#main-panel > #player', '#main-panel > #md-np-info', '#md-lyrics']) shift(q(sel), 1);
+    } else {
+      // Dos columnas: carátula y título centrados en el primer cuarto del panel y encogidos si no
+      // caben (lyrics-view.js measure(): mín(ancho, W/2 − 2·24) y centro vertical común).
+      const panel = q('#main-panel');
+      const cover = q('#main-panel > #player');
+      const info = q('#main-panel > #md-np-info');
+      shift(q('#md-lyrics'), L ? 0.5 : -0.5);
+      if (!panel || !cover || !info) return t;
+      const W = panel.offsetWidth;
+      const cw = cover.offsetWidth;
+      const s0 = parseFloat(getComputedStyle(cover).scale) || 1;
+      const yc = (cover.offsetTop + info.offsetTop + info.offsetHeight) / 2;
+      for (const el of [cover, info]) {
+        const c = el.offsetTop + el.offsetHeight / 2;
+        add(el, (d) => {
+          const s1 = Math.min(cw, (W - d) / 2 - 48) / cw;
+          const dx = (L ? d : 0) - d / 4;
+          const dy = (s0 - s1) * (yc - c);
+          return `translate(${Math.round(dx) / s0}px, ${Math.round(dy) / s0}px) scale(${s1 / s0})`;
+        });
+      }
+    }
+    return t;
   }
   function preview(w) {
     pv.ghost.style.width = `${w - pv.gap}px`;
     const cut = Math.max(0, pv.width - w);
     pv.el.style.clipPath = cut ? (side === 'left' ? `inset(0 ${cut}px 0 0)` : `inset(0 0 0 ${cut}px)`) : '';
+    const d = w - pv.width;
+    for (const s of pv.slide) s.el.style.transform = d ? s.at(d) : '';
   }
   function endPreview() {
     if (!pv) return;
     pv.ghost.remove();
     pv.cover.remove();
     pv.el.style.clipPath = '';
+    for (const s of pv.slide) {
+      s.el.style.transform = '';
+      s.el.style.willChange = '';
+    }
     document.documentElement.removeAttribute('data-md-resizing');
     pv = null;
   }
@@ -482,26 +546,38 @@ function makeResizer(side) {
       else setPanel(side, pending);
     });
   };
-  const onUp = (e) => {
-    h.releasePointerCapture(e.pointerId);
-    h.removeEventListener('pointermove', onMove);
-    h.removeEventListener('pointerup', onUp);
+  // Fin del arrastre por cualquier camino: soltar, cancelar o perder la captura del puntero. Los
+  // eventos se escuchan en window: si la captura falla, llegan a la capa del cursor (que tapa el
+  // tirador) y, solo con pointerup en el tirador, la capa se quedaba encima de toda la ventana.
+  const END = ['pointerup', 'pointercancel', 'lostpointercapture'];
+  const onUp = () => {
+    window.removeEventListener('pointermove', onMove);
+    for (const t of END) window.removeEventListener(t, onUp, true);
+    if (h.hasPointerCapture(dragId)) h.releasePointerCapture(dragId);
     h.classList.remove('dragging');
     cancelAnimationFrame(frame);
     frame = 0;
     // El ancho de verdad y el fin de la vista previa en la misma tarea: un solo fotograma, sin salto.
-    if (pending !== null) { setPanel(side, pending); savePanels(); }
+    const moved = pending !== null;
+    if (moved) { setPanel(side, pending); savePanels(); }
+    pending = null;
     endPreview();
+    // En Now Playing, lyrics-view recoloca carátula y letra ya (su ResizeObserver llegaría un
+    // fotograma tarde: la carátula saltaba a medio camino).
+    if (moved && document.querySelector('ytmusic-app-layout[player-page-open]')) document.dispatchEvent(new Event('md-measure'));
   };
+  let dragId = 0;
   h.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
     e.preventDefault();
+    if (pv) onUp(); // un arrastre anterior sin cerrar
     pending = null;
-    h.setPointerCapture(e.pointerId);
+    dragId = e.pointerId;
+    try { h.setPointerCapture(dragId); } catch {}
     h.classList.add('dragging');
     startPreview();
-    h.addEventListener('pointermove', onMove);
-    h.addEventListener('pointerup', onUp);
+    window.addEventListener('pointermove', onMove);
+    for (const t of END) window.addEventListener(t, onUp, true);
   });
   h.addEventListener('dblclick', () => { delete panelWidths[side]; applyPanelWidths(); savePanels(); });
   h.addEventListener('keydown', (e) => {
@@ -720,6 +796,20 @@ function alignQueue() {
   if (Math.abs(sc.scrollTop - a) > 1) sc.scrollTo({ top: a, behavior: 'smooth' });
 }
 let npObserver = null;
+// Los filtros van pegados arriba (sticky, theme.css) y la lista pasa por debajo: se recorta en su
+// borde inferior, así no se transparenta nada y la barra comparte el fondo de la tarjeta. Solo
+// escribe cuando cambia (un clip-path en un elemento: no se hereda).
+const queueClip = new WeakMap();
+function clipQueue(sc) {
+  const chips = sc.querySelector('ytmusic-player-queue > #steering-chips');
+  const bottom = chips && chips.offsetHeight ? chips.getBoundingClientRect().bottom : null;
+  for (const el of sc.querySelectorAll('ytmusic-player-queue > :is(#contents, #automix-contents)')) {
+    const cut = bottom === null ? 0 : Math.max(0, Math.round(bottom - el.getBoundingClientRect().top));
+    if (queueClip.get(el) === cut) continue;
+    queueClip.set(el, cut);
+    el.style.clipPath = cut ? `inset(${cut}px 0 0 0)` : '';
+  }
+}
 function watchQueue() {
   // Al abrir Now Playing (lyrics-view.js marca data-md-np-open), si cambió la canción mientras
   // estaba cerrado. Aquí y no al cargar el preload: entonces <html> aún no existe.
@@ -734,7 +824,8 @@ function watchQueue() {
   // de verdad se haya soltado); si no, devolvía la lista tras el primer golpe y no dejaba subir.
   let lastScroll = 0;
   let lockTimer = 0;
-  sc.addEventListener('scroll', () => { lastScroll = performance.now(); }, { passive: true });
+  sc.addEventListener('scroll', () => { lastScroll = performance.now(); clipQueue(sc); }, { passive: true });
+  clipQueue(sc);
   sc.addEventListener('scrollend', () => {
     clearTimeout(lockTimer);
     lockTimer = setTimeout(() => {
