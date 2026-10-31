@@ -43,6 +43,7 @@ const STRINGS = {
 
     // Botón atrás
     'nav.back': 'Atrás',
+    'nav.forward': 'Adelante',
     'nav.home': 'Volver a YouTube Music',
 
     // Letras
@@ -116,6 +117,7 @@ const STRINGS = {
 
     // Back button
     'nav.back': 'Back',
+    'nav.forward': 'Forward',
     'nav.home': 'Back to YouTube Music',
 
     // Lyrics
