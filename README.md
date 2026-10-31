@@ -21,6 +21,8 @@
 
 ByTune opens [music.youtube.com](https://music.youtube.com) in its own window, signed in with your Google account, and reshapes it into a desktop app: synced lyrics, a fullscreen Now Playing view, a quick search menu, tray and taskbar controls, and a lighter, more focused theme. It is built with [Electron](https://www.electronjs.org) and keeps YouTube Music's own player, so your library, playlists and recommendations work as usual.
 
+<p align="center"><img src="docs/now-playing.png" alt="ByTune's Now Playing view: album cover, synced lyrics and the queue" width="100%"></p>
+
 ## Features
 
 **Listening**
