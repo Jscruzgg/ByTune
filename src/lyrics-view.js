@@ -76,12 +76,16 @@ window.__mdLyrics = (() => {
   // Si cambia el tamaño (menú lateral, ventana), la columna va directa a su nuevo sitio
   // (data-md-snap quita la transición dos fotogramas): con ella se deslizaba desde la posición
   // vieja, cortada por la izquierda.
-  const sizeObserver = new ResizeObserver(() => {
+  function snapMeasure() {
     const pp = page();
     if (pp) pp.setAttribute('data-md-snap', '');
     measure();
     requestAnimationFrame(() => requestAnimationFrame(() => { if (pp) pp.removeAttribute('data-md-snap'); }));
-  });
+  }
+  const sizeObserver = new ResizeObserver(snapMeasure);
+  // preload.js, al plegar la barra lateral: mide ya, en el mismo fotograma del cambio, para que
+  // la carátula y la letra salgan desde su sitio de antes (FLIP).
+  document.addEventListener('md-measure', snapMeasure);
   let observedSizes = [];
   // Si al empezar YT aún no ha creado la barra o el <video>, se espera a que aparezcan (y este
   // observador se apaga en cuanto los dos están enlazados).
@@ -248,6 +252,9 @@ window.__mdLyrics = (() => {
   // ve) y se dejan en variables CSS de <html>; lyrics.css las usa para mover la columna.
   // Solo corre cuando algo cambia de tamaño o de estado, nunca por fotograma.
   function measure() {
+    // Al entrar o salir del diseño móvil (≤ 615 px) YT cambia #player por otro: el viejo, fuera de
+    // la página, mide 0 y la letra se quedaba sobre la carátula hasta reiniciar.
+    if (!boundPlayer || !boundPlayer.isConnected) ensureDom();
     const pp = page();
     const panel = boundPanel;
     const cover = boundPlayer;
@@ -686,7 +693,14 @@ window.__mdLyrics = (() => {
   // mientras baja la barra de desplazamiento de la página de detrás sigue transparente (lyrics.css).
   const CLOSING_MS = 400;
   let closingTimer = 0;
+  // Now Playing abierto, en <html> (lyrics.css): con body:has(...) Chromium volvía a buscar en toda
+  // la página cada vez que YT añadía algo (al desplazarse, 30–77 ms por recálculo).
+  function markOpen() {
+    const pp = page();
+    setAttr(html, 'data-md-np-open', pp && pp.hasAttribute('player-page-open') ? '' : null);
+  }
   function onPageChange() {
+    markOpen();
     const pp = page();
     if (pp && !pp.hasAttribute('player-page-open')) {
       if (fullscreen) send({ type: 'fullscreen', on: false });
@@ -711,6 +725,7 @@ window.__mdLyrics = (() => {
         wantOpen = !!opts.open;
       }
       check('init');
+      markOpen();
       setFullscreen(opts.fullscreen); // estado de la ventana y textos del botón
       if (lyrics && lyrics.kind === 'synced') {
         const credit = trackEl.querySelector('.md-lyrics-credit');
@@ -727,6 +742,7 @@ window.__mdLyrics = (() => {
       for (const off of cleanups.splice(0)) off();
       document.removeEventListener('visibilitychange', sync);
       document.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('md-measure', snapMeasure);
       clearTimeout(controlsTimer);
       clearTimeout(noneTimer);
       stopTimer();
@@ -748,6 +764,7 @@ window.__mdLyrics = (() => {
       clearTimeout(closingTimer);
       html.removeAttribute('data-md-fullscreen');
       html.removeAttribute('data-md-np-closing');
+      html.removeAttribute('data-md-np-open');
       html.removeAttribute('data-md-fs-pending');
     },
   };

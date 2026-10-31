@@ -14,13 +14,14 @@ ytmusic-nav-bar {
 ytmusic-nav-bar:focus-within {
   -webkit-app-region: no-drag;
 }
-/* Botón "atrás" (lo crea preload.js): círculo oscuro con flecha, justo a la derecha de la zona
-   del logo (240 px), como en Spotify. */
+/* Botón "atrás" (lo crea preload.js): flecha entre el menú (☰, 16–56 px) y el logo, como en
+   Spotify; el círculo solo aparece al pasar el ratón. El logo se corre para dejarle sitio (aquí y no
+   en el tema: sin tema también chocaban). */
+ytmusic-app ytmusic-nav-bar .left-content ytmusic-logo { margin-left: 40px !important; }
 ytmusic-nav-bar .md-back {
   position: absolute;
   top: 50%;
-  /* 16 px tras el borde de la barra lateral (sigue su ancho al estirarla); plegada, tras el logo */
-  left: calc(max(var(--ytmusic-guide-width, 240px), 240px) + 16px);
+  left: 64px;
   translate: 0 -50%;
   z-index: 2;
   width: 36px;
@@ -28,7 +29,7 @@ ytmusic-nav-bar .md-back {
   padding: 0;
   border: none;
   border-radius: 50%;
-  background: rgba(0,0,0,.55);
+  background: transparent;
   color: #fff;
   display: flex;
   align-items: center;
@@ -51,6 +52,12 @@ ytmusic-nav-bar .md-back::before {
 ytmusic-nav-bar .md-back:hover:not(:disabled) { background: rgba(255,255,255,.14); }
 ytmusic-nav-bar .md-back:disabled { opacity: .35; cursor: default; }
 ytmusic-nav-bar .md-back:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+/* Diseño móvil de YT (≤ 615 px): no cabía todo y el buscador cortaba el logo. Logo solo con su
+   icono y sin el botón de transmitir (poco útil en el escritorio). */
+@media (max-width: 615px) {
+  ytmusic-nav-bar ytmusic-logo { width: 26px !important; overflow: hidden !important; }
+  ytmusic-nav-bar #right-content ytmusic-cast-button { display: none !important; }
+}
 
 /* Botón "volver a YouTube Music" (lo crea preload.js solo fuera de music.youtube.com, p. ej. en
    el inicio de sesión de Google): píldora oscura con flecha, centrada arriba en la franja de
