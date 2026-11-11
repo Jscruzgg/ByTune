@@ -1096,38 +1096,75 @@ ytmusic-player-page #side-panel {
    móvil (≤ 615 px) no: ahí .content mide solo la cabecera y el recorte escondía los controles,
    que YT coloca debajo (posición absoluta). */
 ytmusic-player-page:not([is-mweb-modernization-enabled]) > .content { overflow-x: hidden !important; }
-/* Pestañas: "primary tabs" de Material 3. Etiqueta title-small, indicador de 3 px con
-   esquinas superiores redondeadas, divisor de 1 px y capa de estado al pasar el ratón. */
+/* Pestañas como control segmentado de solo iconos: un riel hundido con las pestañas a partes
+   iguales; la elegida va en una píldora algo más clara con una raya corta debajo. El texto se
+   oculta con font-size 0 (los lectores de pantalla lo siguen leyendo) y el icono es una máscara
+   pintada con el color del texto. Orden de YT: A continuación, Letra (oculta), Comentarios
+   (no siempre está), Similares (siempre la última). */
 ytmusic-player-page tp-yt-paper-tabs {
-  --paper-tabs-selection-bar-color: var(--md-text) !important;
-  border-bottom: 1px solid var(--md-line) !important;
-}
-ytmusic-player-page tp-yt-paper-tab {
   height: 48px !important;
-  color: var(--md-text-2) !important;
-  text-transform: none !important;
+  margin: 8px 0 !important;
+  padding: 4px !important;
+  box-sizing: border-box !important;
+  border: none !important;
+  border-radius: 12px !important;
+  background: var(--md-sunken) !important;
+}
+ytmusic-player-page tp-yt-paper-tabs #selectionBar { display: none !important; }
+ytmusic-player-page tp-yt-paper-tab {
+  position: relative !important;
+  height: 40px !important;
+  padding: 0 !important;
+  border-radius: 8px !important;
+  color: var(--md-text-3) !important;
   transition: background-color .15s linear !important;
 }
 ytmusic-player-page tp-yt-paper-tab,
-ytmusic-player-page tp-yt-paper-tab * {
-  font-family: var(--m3-font) !important;
-  font-size: 14px !important;
-  font-weight: 500 !important;
-  line-height: 20px !important;
-  letter-spacing: .1px !important;
+ytmusic-player-page tp-yt-paper-tab * { font-size: 0 !important; line-height: 0 !important; }
+ytmusic-player-page tp-yt-paper-tab::before {
+  content: "" !important;
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  width: 20px !important;
+  height: 20px !important;
+  margin: -10px 0 0 -10px !important;
+  background: currentColor !important;
+  -webkit-mask: var(--md-tab-icon) center / contain no-repeat !important;
 }
-ytmusic-player-page tp-yt-paper-tab:hover { background: var(--md-state-hover) !important; }
-ytmusic-player-page tp-yt-paper-tab:active { background: var(--md-state-on) !important; }
+/* Iconos de Material (queue_music, forum, library_music) */
+ytmusic-player-page tp-yt-paper-tab:first-of-type {
+  --md-tab-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z'/%3E%3C/svg%3E");
+}
+ytmusic-player-page tp-yt-paper-tab:nth-of-type(3):not(:last-of-type) {
+  --md-tab-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M21 6h-2v9H6v2c0 .55.45 1 1 1h11l4 4V7c0-.55-.45-1-1-1zm-4 6V3c0-.55-.45-1-1-1H3c-.55 0-1 .45-1 1v14l4-4h10c.55 0 1-.45 1-1z'/%3E%3C/svg%3E");
+}
+ytmusic-player-page tp-yt-paper-tab:last-of-type:not(:first-of-type) {
+  --md-tab-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 5h-3v5.5c0 1.38-1.12 2.5-2.5 2.5S10 13.88 10 12.5s1.12-2.5 2.5-2.5c.57 0 1.08.19 1.5.51V5h4v2zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6z'/%3E%3C/svg%3E");
+}
+ytmusic-player-page tp-yt-paper-tab:hover { background: var(--md-state-hover) !important; color: var(--md-text-2) !important; }
+ytmusic-player-page tp-yt-paper-tab:active { background: var(--md-state-press) !important; }
 ytmusic-player-page tp-yt-paper-tab.iron-selected,
 ytmusic-player-page tp-yt-paper-tab[aria-selected="true"] {
+  background: var(--md-state-on) !important;
   color: var(--md-text) !important;
 }
-ytmusic-player-page tp-yt-paper-tabs #selectionBar {
-  height: 3px !important;
-  border: none !important;
-  border-radius: 3px 3px 0 0 !important;
+/* La raya corta bajo la elegida */
+ytmusic-player-page tp-yt-paper-tab::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 50% !important;
+  bottom: 0 !important;
+  width: 24px !important;
+  height: 2px !important;
+  margin-left: -12px !important;
+  border-radius: 2px !important;
   background: var(--md-text) !important;
+  opacity: 0;
+  transition: opacity .15s linear;
 }
+ytmusic-player-page tp-yt-paper-tab.iron-selected::after,
+ytmusic-player-page tp-yt-paper-tab[aria-selected="true"]::after { opacity: 1; }
 ytmusic-player-queue-item {
   border-radius: 8px !important;
   border-bottom: none !important;
