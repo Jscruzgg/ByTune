@@ -540,10 +540,13 @@ function makeResizer(side) {
     if (h.hasPointerCapture(dragId)) h.releasePointerCapture(dragId);
     cancelAnimationFrame(frame);
     frame = 0;
-    // La variable de verdad y fuera lo provisional, en la misma tarea: un solo fotograma.
+    // Fuera lo provisional y la variable de verdad, en la misma tarea: un solo fotograma. En este
+    // orden: el tirador derecho lleva --md-right-w en los dos (liveRight y writePanelVar), y
+    // limpiar después borraba el ancho elegido; el tirador volvía al ancho por defecto.
+    liveClear();
     if (pending !== null) { setPanel(side, pending); savePanels(); }
     pending = null;
-    liveClear();
+    writePanelVar(side);
     if (cover) { cover.remove(); cover = null; }
   };
   h.addEventListener('pointerdown', (e) => {
