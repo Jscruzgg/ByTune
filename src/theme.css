@@ -1881,6 +1881,9 @@ ytmusic-two-column-browse-results-renderer ytmusic-shelf-renderer ytmusic-respon
   html body ytmusic-player-page #side-panel {
     padding: calc(var(--ytmusic-nav-bar-height, 64px) + var(--md-gap) + 8px) calc(var(--md-gap) + 8px) calc(var(--ytmusic-player-bar-height, 92px) + var(--md-gap)) 8px !important;
   }
+  /* Las pestañas, a 8 px de la tarjeta por arriba igual que a los lados: ese hueco ya lo da el
+     relleno de #side-panel. */
+  ytmusic-player-page tp-yt-paper-tabs { margin-top: 0 !important; }
   ytmusic-player-page #side-panel::before {
     content: "";
     position: absolute;
