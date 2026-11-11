@@ -17,6 +17,7 @@
   --md-raised-line: rgba(255,255,255,.1);
   --md-raised-shadow: 0 16px 40px rgba(0,0,0,.5);
   --md-field: rgba(255,255,255,.08);      /* campos (buscador) */
+  --md-sunken: rgba(0,0,0,.32);           /* hundido dentro de una tarjeta: riel de pestañas */
   --md-state-hover: rgba(255,255,255,.08);
   --md-state-on: rgba(255,255,255,.14);   /* seleccionado; fondo de los botones secundarios */
   --md-state-press: rgba(255,255,255,.2);

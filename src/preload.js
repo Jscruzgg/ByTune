@@ -908,6 +908,12 @@ function read() {
   for (const q of document.querySelectorAll('ytmusic-player-queue-item img[src*="=w60-h60"]')) {
     q.src = q.src.replace(/=w60-h60/, '=w120-h120');
   }
+  // Las pestañas de Now Playing son solo iconos (theme.css): su texto de YT (en el idioma de la
+  // cuenta) va de tooltip. Solo se escribe cuando cambia.
+  for (const tab of document.querySelectorAll('ytmusic-player-page tp-yt-paper-tab')) {
+    const label = tab.textContent.trim();
+    if (label && tab.title !== label) tab.title = label;
+  }
   // Carátula para el fondo difuminado del tema (theme.css usa --md-art).
   const art = img && img.src && !img.src.startsWith('data:') ? `url("${img.src}")` : 'none';
   if (art !== lastArt) {
